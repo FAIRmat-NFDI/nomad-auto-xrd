@@ -1,0 +1,27 @@
+{
+  "template": "https://github.com/FAIRmat-NFDI/cookiecutter-nomad-plugin",
+  "commit": "e759475d3f8905df4354ca83d8ce6cd632ffce99",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "full_name": "Pepe Márquez",
+      "email": "jose.marquez@physik.hu-berlin.de",
+      "github_username": "foo",
+      "plugin_name": "nomad-auto-xrd",
+      "module_name": "nomad_auto_xrd",
+      "short_description": "Nomad example template",
+      "version": "0.1.0",
+      "license": "Apache Software License 2.0",
+      "include_schema_package": true,
+      "include_normalizer": false,
+      "include_parser": false,
+      "include_app": true,
+      "include_example_uploads": true,
+      "_copy_without_render": [
+        "*.html"
+      ],
+      "_template": "https://github.com/FAIRmat-NFDI/cookiecutter-nomad-plugin"
+    }
+  },
+  "directory": null
+}
