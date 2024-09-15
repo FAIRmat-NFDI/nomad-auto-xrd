@@ -6,12 +6,12 @@ class NewSchemaPackageEntryPoint(SchemaPackageEntryPoint):
     parameter: int = Field(0, description='Custom configuration parameter')
 
     def load(self):
-        from nomad_auto_xrd.schema_packages.schema_package import m_package
+        from nomad_auto_xrd.schema_packages.auto_xrd import m_package
 
         return m_package
 
 
-schema_package_entry_point = NewSchemaPackageEntryPoint(
-    name='NewSchemaPackage',
+auto_xrd = NewSchemaPackageEntryPoint(
+    name='auto_xrd',
     description='New schema package entry point configuration.',
 )

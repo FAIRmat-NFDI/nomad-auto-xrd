@@ -1,0 +1,204 @@
+from typing import (
+    TYPE_CHECKING,
+)
+
+if TYPE_CHECKING:
+    from nomad.datamodel.datamodel import (
+        EntryArchive,
+    )
+    from structlog.stdlib import (
+        BoundLogger,
+    )
+
+import numpy as np
+from ase import Atoms
+from ase.io import read
+from nomad.config import config
+from nomad.datamodel.data import Schema
+from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
+from nomad.datamodel.results import Material, System
+from nomad.metainfo import Quantity, SchemaPackage
+from nomad.normalizing.common import nomad_atoms_from_ase_atoms
+from nomad.normalizing.topology import add_system, add_system_info
+
+configuration = config.get_plugin_entry_point('nomad_auto_xrd.schema_packages:auto_xrd')
+
+m_package = SchemaPackage()
+
+
+def my_normalization(self, archive: 'EntryArchive', logger: 'BoundLogger') -> None:
+    if self.cif_files is not None:
+        # Read the CIF files and convert them into ase atoms
+        ase_atoms_list = []
+        for cif_file in self.cif_files:
+            with archive.m_context.raw_file(cif_file) as file:
+                ase_atoms_list.append(read(file.name))
+                print(ase_atoms_list)
+
+        # Let's save the composition and structure into archive.results.material
+        if not archive.results.material:
+            archive.results.material = Material()
+
+        # populate elemets from a set aof all the elemsts in ase_atoms
+        elements = set()
+        for ase_atoms in ase_atoms_list:
+            elements.update(ase_atoms.get_chemical_symbols())
+        archive.results.material.elements = list(elements)
+
+        # Create a System: this is a NOMAD specific data structure for storing structural
+        # and chemical information that is suitable for both experiments and simulations.
+        topology = {}
+        for ase_atoms in ase_atoms_list:
+            system = System(
+                atoms=nomad_atoms_from_ase_atoms(ase_atoms),
+                label='Auto-XRD reference',
+                description='Reference structure used to train the auto-XRD model.',
+                structural_type='bulk',
+                dimensionality='3D',
+            )
+            add_system_info(system, topology)
+            add_system(system, topology)
+
+        archive.results.material.topology = list(topology.values())
+
+
+class AutoXRDModel(Schema):
+    """
+    A schema for hosting data from an Auto XRD model.
+    """
+
+    xrd_model_file = Quantity(
+        type=str,
+        description='Path to the HDF5 file containing the XRD data.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.FileEditQuantity,
+        ),
+    )
+    pdf_model_file = Quantity(
+        type=str,
+        description='Path to the HDF5 file containing the XRD data.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.FileEditQuantity,
+        ),
+    )
+    cif_files = Quantity(
+        type=str,
+        shape=['*'],
+        description='List of paths to CIF files containing crystal structures.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.FileEditQuantity,
+        ),
+    )
+    max_texture = Quantity(
+        type=np.float64,
+        description='Maximum texture value.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+        ),
+    )
+    min_domain_size = Quantity(
+        type=np.float64,
+        description='Minimum domain size.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+        ),
+    )
+    max_domain_size = Quantity(
+        type=np.float64,
+        description='Maximum domain size.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+        ),
+    )
+    max_strain = Quantity(
+        type=np.float64,
+        description='Maximum strain value.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+        ),
+    )
+    num_patterns = Quantity(
+        type=int,
+        description='Number of XRD patterns simulated per phase.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+        ),
+    )
+    min_angle = Quantity(
+        type=np.float64,
+        description='Minimum angle value.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+        ),
+    )
+    max_angle = Quantity(
+        type=np.float64,
+        description='Maximum angle value.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+        ),
+    )
+    max_shift = Quantity(
+        type=np.float64,
+        description='Maximum shift value.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+        ),
+    )
+    separate = Quantity(
+        type=bool,
+        description='Separate flag.',
+        a_eln=ELNAnnotation(
+            component='BoolEditQuantity',
+        ),
+    )
+    impur_amt = Quantity(
+        type=int,
+        description='Impurity amount.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+        ),
+    )
+    skip_filter = Quantity(
+        type=bool,
+        description='Skip filter flag.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.BoolEditQuantity,
+        ),
+    )
+    include_elems = Quantity(
+        type=bool,
+        description='Include elements flag.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.BoolEditQuantity,
+        ),
+    )
+    inc_pdf = Quantity(
+        type=bool,
+        description='Include PDF flag.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.BoolEditQuantity,
+        ),
+    )
+    num_epochs = Quantity(
+        type=int,
+        description='Number of training epochs.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+        ),
+    )
+    test_fraction = Quantity(
+        type=np.float64,
+        description='Fraction of data used for testing.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+        ),
+    )
+
+    def normalize(self, archive, logger):
+        super().normalize(archive, logger)
+        # use the normalization function defined above
+        my_normalization(self, archive, logger)
+
+
+m_package.__init_metainfo__()

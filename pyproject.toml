@@ -77,7 +77,7 @@ select = [
     "UP",
     # isort
     "I",
-    # pylint 
+    # pylint
     "PL",
 ]
 
@@ -112,7 +112,7 @@ where = ["src"]
 
 [project.entry-points.'nomad.plugin']
 
-schema_package_entry_point = "nomad_auto_xrd.schema_packages:schema_package_entry_point"
+auto_xrd = "nomad_auto_xrd.schema_packages:auto_xrd"
 
 app_entry_point = "nomad_auto_xrd.apps:app_entry_point"
 example_upload_entry_point = "nomad_auto_xrd.example_uploads:example_upload_entry_point"
