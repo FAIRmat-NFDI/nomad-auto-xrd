@@ -32,8 +32,10 @@ def my_normalization(self, archive: 'EntryArchive', logger: 'BoundLogger') -> No
         ase_atoms_list = []
         for cif_file in self.cif_files:
             with archive.m_context.raw_file(cif_file) as file:
-                ase_atoms_list.append(read(file.name))
-                print(ase_atoms_list)
+                try:
+                    ase_atoms_list.append(read(file.name))
+                except RuntimeError as e:
+                    logger.warn(f'Cannot parse cif file: {cif_file}')
 
         # Let's save the composition and structure into archive.results.material
         if not archive.results.material:
