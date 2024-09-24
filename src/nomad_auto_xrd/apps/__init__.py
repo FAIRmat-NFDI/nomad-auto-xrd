@@ -1,23 +1,9 @@
 from nomad.config.models.plugins import AppEntryPoint
-from nomad.config.models.ui import App, Column, Columns, FilterMenu, FilterMenus
+
+from nomad_auto_xrd.apps.auto_xrd_models_app import auto_xrd_models_app
 
 app_entry_point = AppEntryPoint(
-    name='NewApp',
-    description='New app entry point configuration.',
-    app=App(
-        label='NewApp',
-        path='app',
-        category='simulation',
-        columns=Columns(
-            selected=['entry_id'],
-            options={
-                'entry_id': Column(),
-            },
-        ),
-        filter_menus=FilterMenus(
-            options={
-                'material': FilterMenu(label='Material'),
-            }
-        ),
-    ),
+    name='Auto XRD Models',
+    description='Search auto XRD models',
+    app=auto_xrd_models_app,
 )
