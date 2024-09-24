@@ -11,12 +11,12 @@ if TYPE_CHECKING:
     )
 
 import numpy as np
-from ase import Atoms
 from ase.io import read
+from matid import SymmetryAnalyzer  # pylint: disable=import-error
 from nomad.config import config
 from nomad.datamodel.data import Schema
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
-from nomad.datamodel.results import Material, System
+from nomad.datamodel.results import Material, SymmetryNew, System
 from nomad.metainfo import Quantity, SchemaPackage
 from nomad.normalizing.common import nomad_atoms_from_ase_atoms
 from nomad.normalizing.topology import add_system, add_system_info
@@ -34,7 +34,7 @@ def my_normalization(self, archive: 'EntryArchive', logger: 'BoundLogger') -> No
             with archive.m_context.raw_file(cif_file) as file:
                 try:
                     ase_atoms_list.append(read(file.name))
-                except RuntimeError as e:
+                except RuntimeError:
                     logger.warn(f'Cannot parse cif file: {cif_file}')
 
         # Let's save the composition and structure into archive.results.material
@@ -47,16 +47,27 @@ def my_normalization(self, archive: 'EntryArchive', logger: 'BoundLogger') -> No
             elements.update(ase_atoms.get_chemical_symbols())
         archive.results.material.elements = list(elements)
 
-        # Create a System: this is a NOMAD specific data structure for storing structural
-        # and chemical information that is suitable for both experiments and simulations.
+        # Create a System: this is a NOMAD specific data structure for storing structural  # noqa: E501
+        # and chemical information that is suitable for both experiments and simulations.  # noqa: E501
         topology = {}
         for ase_atoms in ase_atoms_list:
+            symmetry = SymmetryNew()
+            symmetry_analyzer = SymmetryAnalyzer(ase_atoms, symmetry_tol=1)
+            print(symmetry_analyzer.get_space_group_number())
+            symmetry.bravais_lattice = symmetry_analyzer.get_bravais_lattice()
+            symmetry.space_group_number = symmetry_analyzer.get_space_group_number()
+            symmetry.space_group_symbol = (
+                symmetry_analyzer.get_space_group_international_short()
+            )
+            symmetry.crystal_system = symmetry_analyzer.get_crystal_system()
+            symmetry.point_group = symmetry_analyzer.get_point_group()
             system = System(
                 atoms=nomad_atoms_from_ase_atoms(ase_atoms),
-                label='Auto-XRD reference',
+                label=f'{ase_atoms.get_chemical_formula()}-{symmetry.space_group_number}',
                 description='Reference structure used to train the auto-XRD model.',
                 structural_type='bulk',
                 dimensionality='3D',
+                symmetry=symmetry,
             )
             add_system_info(system, topology)
             add_system(system, topology)
