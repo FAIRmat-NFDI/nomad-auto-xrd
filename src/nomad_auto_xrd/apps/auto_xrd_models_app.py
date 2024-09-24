@@ -75,6 +75,5 @@ dashboard:
     quantity: results.material.elements
     scale: linear
     type: periodictable
-  - autorange: true
 """
 )
