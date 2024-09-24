@@ -1,8 +1,8 @@
 from nomad.config.models.plugins import ExampleUploadEntryPoint
 
 example_upload_entry_point = ExampleUploadEntryPoint(
-    title='New Example Upload',
+    title='Auto XRD example upload',
     category='Examples',
-    description='Description of this example upload.',
+    description='This example upload contains a notebook and sinstructions on how to train an [XRD Auto Analyzer](https://github.com/njszym/XRD-AutoAnalyzer) model in NORTH and save it as an entry.',  # noqa: E501
     path='example_uploads/getting_started',
 )
