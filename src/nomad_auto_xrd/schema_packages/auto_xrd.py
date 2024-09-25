@@ -77,7 +77,8 @@ def my_normalization(self, archive: 'EntryArchive', logger: 'BoundLogger') -> No
 
 class AutoXRDModel(Schema):
     """
-    A schema for hosting data from an Auto XRD model.
+    A schema for hosting data from an
+    [XRD-AutoAnalyzer](https://github.com/njszym/XRD-AutoAnalyzer) model.
     """
 
     xrd_model_file = Quantity(
@@ -104,7 +105,7 @@ class AutoXRDModel(Schema):
     )
     max_texture = Quantity(
         type=np.float64,
-        description='Maximum texture value.',
+        description='Maximum texture value for the simualtions.',
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity,
         ),
@@ -112,6 +113,7 @@ class AutoXRDModel(Schema):
     min_domain_size = Quantity(
         type=np.float64,
         description='Minimum domain size.',
+        unit='nm',
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity,
         ),
@@ -119,6 +121,7 @@ class AutoXRDModel(Schema):
     max_domain_size = Quantity(
         type=np.float64,
         description='Maximum domain size.',
+        unit='nm',
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity,
         ),
@@ -140,6 +143,7 @@ class AutoXRDModel(Schema):
     min_angle = Quantity(
         type=np.float64,
         description='Minimum angle value.',
+        unit='deg',
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity,
         ),
@@ -147,6 +151,7 @@ class AutoXRDModel(Schema):
     max_angle = Quantity(
         type=np.float64,
         description='Maximum angle value.',
+        unit='deg',
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity,
         ),
@@ -154,6 +159,7 @@ class AutoXRDModel(Schema):
     max_shift = Quantity(
         type=np.float64,
         description='Maximum shift value.',
+        unit='deg',
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity,
         ),
