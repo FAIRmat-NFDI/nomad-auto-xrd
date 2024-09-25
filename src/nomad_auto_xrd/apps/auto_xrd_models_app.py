@@ -6,8 +6,8 @@ label: Auto XRD Models
 path: auto-xrd-models
 category: Use Cases
 description: Search auto XRD models
-readme: 'This page allows you to search **auto XRD models entries** based on model parameters
-  and reference structures used to train the model.'
+readme: 'This page allows you to search **auto XRD models entries** based
+on model parameters and reference structures used to train the model.'
 filters:
   include:
     - '*#nomad_auto_xrd.schema_packages.auto_xrd.AutoXRDModel'
