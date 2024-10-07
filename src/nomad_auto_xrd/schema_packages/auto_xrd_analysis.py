@@ -45,8 +45,13 @@ def convert_to_serializable(obj):
 
 
 def analyze_pattern(self, archive: 'EntryArchive', logger: 'BoundLogger') -> None:
-    references_folder = self.analysis_settings.structure_references_directory
-    spectra_folder = self.analysis_settings.patterns_folder_directory
+    references_folder = os.path.join(
+        archive.m_context.raw_path(),
+        self.analysis_settings.structure_references_directory,
+    )
+    spectra_folder = os.path.join(
+        archive.m_context.raw_path(), self.analysis_settings.patterns_folder_directory
+    )
     max_phases = self.analysis_settings.max_phases
     cutoff_intensity = self.analysis_settings.cutoff_intensity
     min_conf = self.analysis_settings.min_confidence
@@ -74,7 +79,11 @@ def analyze_pattern(self, archive: 'EntryArchive', logger: 'BoundLogger') -> Non
         final_conf = min_conf
         min_conf = 10.0
 
-    model_path = self.xrd_model if inc_pdf else self.pdf_model
+    model_path = os.path.join(
+        archive.m_context.raw_path(), self.analysis_settings.xrd_model
+    )
+
+    # self.xrd_model if inc_pdf else self.pdf_model
 
     # Ensure temp directory exists
     if not os.path.exists('temp'):
