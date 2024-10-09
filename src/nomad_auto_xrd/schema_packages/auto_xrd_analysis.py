@@ -49,6 +49,7 @@ def analyze_pattern(self, archive: 'EntryArchive', logger: 'BoundLogger') -> Non
         archive.m_context.raw_path(),
         self.analysis_settings.structure_references_directory,
     )
+    print(f'References folder: {references_folder}')
     spectra_folder = os.path.join(
         archive.m_context.raw_path(), self.analysis_settings.patterns_folder_directory
     )
