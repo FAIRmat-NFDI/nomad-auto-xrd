@@ -286,18 +286,18 @@ def run_xrd_model(config: ModelConfig):
     if not config.skip_filter:
         if not os.path.exists(config.all_cifs_dir):
             raise FileNotFoundError(
-                f"No '{config.all_cifs_dir}' directory was found. Please create it or set 'skip_filter' to True."
+                f"No '{config.all_cifs_dir}' directory was found. Please create it or set 'skip_filter' to True."  # noqa: E501
             )
         if os.path.exists(config.references_dir):
             raise FileExistsError(
-                f"'{config.references_dir}' directory already exists. Please remove it or set 'skip_filter' to True."
+                f"'{config.references_dir}' directory already exists. Please remove it or set 'skip_filter' to True."  # noqa: E501
             )
         tabulate_cifs.main(
             config.all_cifs_dir, config.references_dir, config.include_elems
         )
     elif not os.path.exists(config.references_dir):
         raise FileNotFoundError(
-            f"'skip_filter' is True, but '{config.references_dir}' directory was not found."
+            f"'skip_filter' is True, but '{config.references_dir}' directory was not found."  # noqa: E501
         )
 
     # Generate hypothetical solid solutions

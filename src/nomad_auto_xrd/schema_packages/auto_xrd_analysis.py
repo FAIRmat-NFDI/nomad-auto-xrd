@@ -15,16 +15,12 @@ import os
 import time
 
 import numpy as np
-from ase.io import read
 from autoXRD import spectrum_analysis, visualizer
-from matid import SymmetryAnalyzer  # pylint: disable=import-error
 from nomad.config import config
 from nomad.datamodel.data import ArchiveSection, Schema
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
-from nomad.datamodel.results import DiffractionPattern, Material, SymmetryNew, System
+from nomad.datamodel.results import DiffractionPattern
 from nomad.metainfo import Quantity, SchemaPackage, SubSection
-from nomad.normalizing.common import nomad_atoms_from_ase_atoms
-from nomad.normalizing.topology import add_system, add_system_info
 
 configuration = config.get_plugin_entry_point(
     'nomad_auto_xrd.schema_packages:auto_xrd_analysis'
@@ -44,7 +40,7 @@ def convert_to_serializable(obj):
     return obj
 
 
-def analyze_pattern(self, archive: 'EntryArchive', logger: 'BoundLogger') -> None:
+def analyze_pattern(self, archive: 'EntryArchive', logger: 'BoundLogger') -> None:  # noqa: PLR0915
     references_folder = os.path.join(
         archive.m_context.raw_path(),
         self.analysis_settings.structure_references_directory,
@@ -171,7 +167,7 @@ def analyze_pattern(self, archive: 'EntryArchive', logger: 'BoundLogger') -> Non
             remaining_I = max(final_spectrum)
             if remaining_I > unknown_threshold:
                 print(
-                    f'WARNING: some peaks (I ~ {int(remaining_I)}%) were not identified.'
+                    f'WARNING: some peaks (I ~ {int(remaining_I)}%) were not identified.'  # noqa: E501
                 )
         else:
             print('WARNING: no phases were identified')
