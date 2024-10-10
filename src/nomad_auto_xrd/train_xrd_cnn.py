@@ -228,13 +228,22 @@ def build_model(input_shape, n_phases, is_pdf, n_dense=[3100, 1200], dropout_rat
 def train_model(train_x, train_y, model, config: ModelConfig, is_pdf=False):
     """
     Trains the model with optional W&B logging.
+    Returns:
+        wandb_run_url: The wandb run URL if logging is enabled, else None.
     """
+    wandb_run_url = None  # Initialize to None
     # Prepare callbacks
     callbacks = []
     if config.enable_wandb and wandb:
-        wandb.init(project=config.wandb_project, entity=config.wandb_entity)
+        run = wandb.init(
+            project=config.wandb_project,
+            entity=config.wandb_entity,
+            reinit=True,  # Ensure a new run is started
+        )
         wandb.config.update(vars(config))
         callbacks.append(WandbMetricsLogger())
+    else:
+        run = None  # Wandb is not enabled
 
     # Train the model
     model.fit(
@@ -247,11 +256,13 @@ def train_model(train_x, train_y, model, config: ModelConfig, is_pdf=False):
         callbacks=callbacks,
     )
 
-    # Finish W&B run if enabled
-    if config.enable_wandb and wandb:
+    # Get the run URL if wandb is enabled
+    if config.enable_wandb and wandb and run:
+        wandb_run_url = run.url
+        # Finish W&B run
         wandb.finish()
 
-    return model
+    return wandb_run_url
 
 
 def test_model(model, test_x, test_y):
@@ -328,19 +339,23 @@ def run_xrd_model(config: ModelConfig):
     num_phases = dataset.num_phases
     train_x, train_y, test_x, test_y = dataset.split_training_testing()
 
-    # Build and train model
+    # Build the model
     model = build_model(train_x.shape[1:], num_phases, is_pdf=False)
-    model = train_model(train_x, train_y, model, config, is_pdf=False)
 
-    # Save model
+    # Train the model and get the wandb run URL
+    wandb_run_url_xrd = train_model(train_x, train_y, model, config, is_pdf=False)
+
+    # Save the trained model
     xrd_model_path = os.path.join(config.models_dir, 'XRD_Model.h5')
     model.save(xrd_model_path, include_optimizer=False)
 
-    # Test model
+    # Test the model
     test_model(model, test_x, test_y)
 
+    # Initialize wandb_run_url_pdf
+    wandb_run_url_pdf = None
+
     # If specified, train another model on PDFs
-    pdf_model_path = None
     if config.inc_pdf:
         pdf_obj = spectrum_generation.SpectraGenerator(
             config.references_dir,
@@ -367,22 +382,28 @@ def run_xrd_model(config: ModelConfig):
             dataset_pdf.split_training_testing()
         )
 
-        # Build and train model
+        # Build the PDF model
         model_pdf = build_model(train_x_pdf.shape[1:], num_phases_pdf, is_pdf=True)
-        model_pdf = train_model(
+
+        # Train the PDF model and get the wandb run URL
+        wandb_run_url_pdf = train_model(
             train_x_pdf, train_y_pdf, model_pdf, config, is_pdf=True
         )
 
-        # Save model
+        # Save the PDF model
         pdf_model_path = os.path.join(config.models_dir, 'PDF_Model.h5')
         model_pdf.save(pdf_model_path, include_optimizer=False)
 
-        # Test model
+        # Test the PDF model
         test_model(model_pdf, test_x_pdf, test_y_pdf)
 
     # Save NOMAD metadata
     if config.save_nomad_metadata:
-        save_model_metadata(config)
+        save_model_metadata(
+            config,
+            wandb_run_url_xrd=wandb_run_url_xrd,
+            wandb_run_url_pdf=wandb_run_url_pdf,
+        )
 
 
 def get_cif_files_from_folder(folder_name):
@@ -397,6 +418,8 @@ def get_cif_files_from_folder(folder_name):
 
 def save_model_metadata(
     config: ModelConfig,
+    wandb_run_url_xrd: str = None,
+    wandb_run_url_pdf: str = None,
 ):
     """Creates a NOMAD archive to store model metadata."""
     cif_files = get_cif_files_from_folder(config.references_dir)
@@ -410,6 +433,8 @@ def save_model_metadata(
         'pdf_model_file': os.path.join(config.models_dir, 'PDF_Model.h5')
         if os.path.exists(os.path.join(config.models_dir, 'PDF_Model.h5'))
         else None,
+        'wandb_run_url_xrd': wandb_run_url_xrd,
+        'wandb_run_url_pdf': wandb_run_url_pdf,
         'max_texture': config.max_texture,
         'min_domain_size': config.min_domain_size,
         'max_domain_size': config.max_domain_size,
