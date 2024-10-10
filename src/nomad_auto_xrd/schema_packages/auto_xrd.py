@@ -88,6 +88,15 @@ class AutoXRDModel(Schema):
             component=ELNComponentEnum.FileEditQuantity,
         ),
     )
+
+    wandb_run_url_xrd = Quantity(
+        type=str,
+        description='URL to the W&B run containing the XRD model.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.URLEditQuantity,
+        ),
+    )
+
     pdf_model_file = Quantity(
         type=str,
         description='Path to the HDF5 file containing the XRD data.',
@@ -95,6 +104,15 @@ class AutoXRDModel(Schema):
             component=ELNComponentEnum.FileEditQuantity,
         ),
     )
+
+    wandb_run_url_pdf = Quantity(
+        type=str,
+        description='URL to the W&B run containing the PDF model.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.URLEditQuantity,
+        ),
+    )
+
     cif_files = Quantity(
         type=str,
         shape=['*'],
@@ -103,6 +121,7 @@ class AutoXRDModel(Schema):
             component=ELNComponentEnum.FileEditQuantity,
         ),
     )
+
     max_texture = Quantity(
         type=np.float64,
         description='Maximum texture value for the simualtions.',
