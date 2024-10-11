@@ -1,8 +1,8 @@
-import os
 import json
+import os
 import time
-import numpy as np  # Import numpy for array handling
 
+import numpy as np  # Import numpy for array handling
 from autoXRD import spectrum_analysis, visualizer
 
 
@@ -134,7 +134,7 @@ def run_analysis(  # noqa: PLR0913
             remaining_I = max(final_spectrum)
             if remaining_I > unknown_threshold:
                 print(
-                    f'WARNING: some peaks (I ~ {int(remaining_I)}%) were not identified.'
+                    f'WARNING: some peaks (I ~ {int(remaining_I)}%) were not identified.'  # noqa: E501
                 )
         else:
             print('WARNING: no phases were identified')
