@@ -9,7 +9,7 @@ You’ll find a folder called All_CIFs. This contains structure files that can b
 ## 🛠️ How to get started
 Follow the steps below to train the model using the provided CIF files, or feel free to add your own:
 
-1. Click on the FILES tab and open train-xrd-cnn.ipynb.
+1. Click on the FILES tab and open `train-xrd-cnn.ipynb`.
 2. Launch the notebook in Jupyter. If Jupyter is already running, stop it and start a new session.
 3. Follow the instructions in the notebook to complete the tutorial. 🧑‍💻
 
