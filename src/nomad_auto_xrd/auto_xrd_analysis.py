@@ -1,19 +1,13 @@
+import os
 import json
 import time
-from typing import List, Dict, Optional
-from dataclasses import dataclass
+import numpy as np  # Import numpy for array handling
 
-import numpy as np
-
-# Import necessary modules from autoXRD
-from autoXRD import (
-    spectrum_analysis,
-    visualizer,
-)  # Assume these can work with in-memory data
+from autoXRD import spectrum_analysis, visualizer
 
 
-# Function to convert non-serializable objects to serializable formats
 def convert_to_serializable(obj):
+    """Convert non-serializable objects like numpy arrays to serializable formats."""
     if isinstance(obj, np.ndarray):
         return obj.tolist()
     elif isinstance(obj, dict):
@@ -23,103 +17,98 @@ def convert_to_serializable(obj):
     return obj
 
 
-@dataclass
-class AnalysisConfig:
-    # Analysis parameters
-    max_phases: int = 3
-    cutoff_intensity: float = 1.0
-    min_conf: float = 40.0
-    wavelength: str = 'CuKa'
-    unknown_threshold: float = 25.0
-    show_reduced: bool = False
-    inc_pdf: bool = False
-    parallel: bool = False
-    raw: bool = True
-    show_indiv: bool = False
-    min_angle: float = 25.0
-    max_angle: float = 80.0
-
-
-def run_analysis(
-    reference_cifs: List[str],
-    spectra_data: List[np.ndarray],
-    model_data: Dict[str, bytes],
-    config: AnalysisConfig,
+def run_analysis(  # noqa: PLR0913
+    references_folder='References',
+    spectra_folder='Spectra',
+    xrd_model_path='Models/XRD_Model.h5',
+    pdf_model_path='Models/PDF_Model.h5',
+    results_file='results.json',
+    max_phases=3,
+    cutoff_intensity=1,
+    min_conf=40,
+    wavelength='CuKa',
+    unknown_threshold=25.0,
+    show_reduced=False,
+    inc_pdf=False,
+    parallel=False,
+    raw=True,
+    show_indiv=False,
+    min_angle=25.00,
+    max_angle=80.00,
 ):
-    """
-    Runs the analysis on the provided spectra using the reference CIFs and models.
-
-    Args:
-        reference_cifs: List of CIF file contents as strings.
-        spectra_data: List of spectra to analyze, each as a numpy array.
-        model_data: Dictionary with keys 'XRD' and 'PDF' (if inc_pdf=True) containing model data as bytes.
-        config: AnalysisConfig object containing analysis parameters.
-
-    Returns:
-        A dictionary containing the analysis results.
-    """
     start = time.time()
 
-    if not spectra_data or len(spectra_data) == 0:
-        print('Please provide at least one spectrum in spectra_data.')
+    # Check for spectra
+    if not os.path.exists(spectra_folder) or len(os.listdir(spectra_folder)) == 0:
+        print(f'Please provide at least one pattern in the {spectra_folder} directory.')
         return
 
     results = {'XRD': {}, 'PDF': {}}
 
     # XRD/PDF ensemble requires all predictions
-    if config.inc_pdf:
-        final_conf = config.min_conf
+    if inc_pdf:
+        final_conf = min_conf
         min_conf = 10.0
-    else:
-        min_conf = config.min_conf
 
-    # Prepare models
-    xrd_model_bytes = model_data.get('XRD')
-    pdf_model_bytes = model_data.get('PDF') if config.inc_pdf else None
+    # Ensure temp directory exists
+    if not os.path.exists('temp'):
+        os.mkdir('temp')
 
-    # Run XRD analysis
-    xrd_results = spectrum_analysis.run_analysis(
-        spectra_data=spectra_data,
-        reference_cifs=reference_cifs,
-        model_bytes=xrd_model_bytes,
-        max_phases=config.max_phases,
-        cutoff_intensity=config.cutoff_intensity,
-        min_conf=min_conf,
-        wavelength=config.wavelength,
-        min_angle=config.min_angle,
-        max_angle=config.max_angle,
-        parallel=config.parallel,
+    # Get predictions from XRD analysis
+    (
+        results['XRD']['filenames'],
+        results['XRD']['phases'],
+        results['XRD']['confs'],
+        results['XRD']['backup_phases'],
+        results['XRD']['scale_factors'],
+        results['XRD']['reduced_spectra'],
+    ) = spectrum_analysis.main(
+        spectra_folder,
+        references_folder,
+        max_phases,
+        cutoff_intensity,
+        min_conf,
+        wavelength,
+        min_angle,
+        max_angle,
+        parallel,
+        xrd_model_path,
         is_pdf=False,
     )
-    results['XRD'] = xrd_results
 
-    if config.inc_pdf:
-        # Run PDF analysis
-        pdf_results = spectrum_analysis.run_analysis(
-            spectra_data=spectra_data,
-            reference_cifs=reference_cifs,
-            model_bytes=pdf_model_bytes,
-            max_phases=config.max_phases,
-            cutoff_intensity=config.cutoff_intensity,
-            min_conf=min_conf,
-            wavelength=config.wavelength,
-            min_angle=config.min_angle,
-            max_angle=config.max_angle,
-            parallel=config.parallel,
+    if inc_pdf:
+        # Get predictions from PDF analysis
+        (
+            results['PDF']['filenames'],
+            results['PDF']['phases'],
+            results['PDF']['confs'],
+            results['PDF']['backup_phases'],
+            results['PDF']['scale_factors'],
+            results['PDF']['reduced_spectra'],
+        ) = spectrum_analysis.main(
+            spectra_folder,
+            references_folder,
+            max_phases,
+            cutoff_intensity,
+            min_conf,
+            wavelength,
+            min_angle,
+            max_angle,
+            parallel,
+            pdf_model_path,
             is_pdf=True,
         )
-        results['PDF'] = pdf_results
 
         # Merge results
         results['Merged'] = spectrum_analysis.merge_results(
-            results, final_conf, config.max_phases
+            results, final_conf, max_phases
         )
     else:
         results['Merged'] = results['XRD']
 
     # Process results
     for idx, (
-        spectrum,
+        spectrum_fname,
         phase_set,
         confidence,
         backup_set,
@@ -127,7 +116,7 @@ def run_analysis(
         final_spectrum,
     ) in enumerate(
         zip(
-            spectra_data,
+            results['Merged']['filenames'],
             results['Merged']['phases'],
             results['Merged']['confs'],
             results['Merged']['backup_phases'],
@@ -136,14 +125,14 @@ def run_analysis(
         )
     ):
         # Display phase ID info
-        print(f'Spectrum index: {idx}')
+        print(f'Filename: {spectrum_fname}')
         print(f'Predicted phases: {phase_set}')
         print(f'Confidence: {confidence}')
 
         # Check for unknown peaks
         if len(phase_set) > 0 and 'None' not in phase_set:
             remaining_I = max(final_spectrum)
-            if remaining_I > config.unknown_threshold:
+            if remaining_I > unknown_threshold:
                 print(
                     f'WARNING: some peaks (I ~ {int(remaining_I)}%) were not identified.'
                 )
@@ -152,27 +141,29 @@ def run_analysis(
             continue
 
         # Show backup predictions
-        if config.show_indiv:
+        if show_indiv:
             print(f"XRD predicted phases: {results['XRD']['phases'][idx]}")
             print(f"XRD confidence: {results['XRD']['confs'][idx]}")
-            if config.inc_pdf:
+            if inc_pdf:
                 print(f"PDF predicted phases: {results['PDF']['phases'][idx]}")
                 print(f"PDF confidence: {results['PDF']['confs'][idx]}")
 
         # Plot the results
         phasenames = [f'{phase}.cif' for phase in phase_set]
-        visualizer.plot_results(
-            spectrum=spectrum,
-            reference_cifs=reference_cifs,
-            phasenames=phasenames,
-            heights=heights,
-            final_spectrum=final_spectrum,
-            min_angle=config.min_angle,
-            max_angle=config.max_angle,
-            wavelength=config.wavelength,
-            show_reduced=config.show_reduced,
-            inc_pdf=config.inc_pdf,
-            raw=config.raw,
+        visualizer.main(
+            spectra_folder,
+            spectrum_fname,
+            phasenames,
+            heights,
+            final_spectrum,
+            min_angle,
+            max_angle,
+            wavelength,
+            save=False,
+            show_reduced=show_reduced,
+            inc_pdf=inc_pdf,
+            plot_both=False,
+            raw=raw,
         )
 
     end = time.time()
@@ -181,5 +172,7 @@ def run_analysis(
     # Convert results to a JSON serializable format
     serializable_results = convert_to_serializable(results)
 
-    # Return the results dictionary
-    return serializable_results
+    # Save the results dictionary as a JSON file
+    with open(results_file, 'w') as f:
+        json.dump(serializable_results, f, indent=4)
+    print(f'Results saved to {results_file}')

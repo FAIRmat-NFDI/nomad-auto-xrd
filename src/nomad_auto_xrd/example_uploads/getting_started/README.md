@@ -12,3 +12,9 @@ Follow the steps below to train the model using the provided CIF files, or feel 
 1. Click on the FILES tab and open train-xrd-cnn.ipynb.
 2. Launch the notebook in Jupyter. If Jupyter is already running, stop it and start a new session.
 3. Follow the instructions in the notebook to complete the tutorial. 🧑‍💻
+
+## 📈 Run an auto XRD analysis?
+
+Once you have trained the model, you can use it to analyze your XRD patterns automatically.
+you can test this running the `auto-xrd-analysis.ipynb` notebook that will make use of a
+NOMAD XRD entry. 🎉
