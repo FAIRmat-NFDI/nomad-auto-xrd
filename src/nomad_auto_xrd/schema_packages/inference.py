@@ -63,7 +63,7 @@ class AutoXRDAnalysis(ELNJupyterAnalysis):
         repeats=True,
     )
     outputs = SubSection(
-        section_def=AnalysisResult,
-        description='The output section for the auto XRD analysis.',
+        section_def=IdentifiedPhase,
+        description='The phases identified by the auto XRD analysis.',
         repeats=True,
     )
