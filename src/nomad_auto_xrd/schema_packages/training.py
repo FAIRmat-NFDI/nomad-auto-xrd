@@ -1,9 +1,8 @@
-from ase.data import chemical_symbols
-from nomad_analysis.jupyter.schema import ELNJupyterAnalysis
 from nomad.datamodel import ArchiveSection
-from nomad.datamodel.metainfo.annotations import ELNAnnotation, MEnum
-from nomad.datamodel.metainfo.basesections import SectionReference, ElementalComposition
+from nomad.datamodel.metainfo.annotations import ELNAnnotation
+from nomad.datamodel.metainfo.basesections import ElementalComposition, SectionReference
 from nomad.metainfo import Quantity, SubSection
+from nomad_analysis.jupyter.schema import ELNJupyterAnalysis
 
 
 class AutoXRDTrainingInput(ArchiveSection):
