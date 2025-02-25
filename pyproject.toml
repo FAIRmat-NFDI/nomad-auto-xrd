@@ -30,6 +30,8 @@ dependencies = [
     "python-magic-bin; sys_platform == 'win32'",
     "autoXRD @ git+https://github.com/Pepe-Marquez/XRD-AutoAnalyzer.git",
     "wandb",
+    "nomad-analysis",
+    "nomad-measurements",
 ]
 
 [project.urls]
