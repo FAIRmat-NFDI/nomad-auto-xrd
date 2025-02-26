@@ -94,21 +94,9 @@ class AutoXRDAnalysis(ELNJupyterAnalysis):
     description = Quantity(
         type=str,
         description='A description of the auto XRD analysis.',
-        default="""
-            This ELN comes with a Jupyter notebook that can be used to run an auto
-            XRD analysis using a pre-trained ML model. To get started, do the
-            following:\n\n
-
-            1. In the `inputs` sub-section, use the `AutoXRDModelReference` section
-            to reference an `AutoXRDModel` entry containing the pre-trained model.\n
-            2. In the `inputs` sub-section, use the `XRDMeasurement` section to
-            reference an `ELNXRayDiffraction` containing the XRD data you want to
-            analyse.\n
-            3. From the `notebook` quantity, open the the Jupyter notebook and follow
-            the steps mentioned in there to perform the analysis.\n
-        """,
         a_eln=ELNAnnotation(
             component='RichTextEditQuantity',
+            props=dict(height=500),
         ),
     )
     analysis_type = Quantity(
@@ -138,6 +126,37 @@ class AutoXRDAnalysis(ELNJupyterAnalysis):
         description='The phases identified by the auto XRD analysis.',
         repeats=True,
     )
+
+    def normalize(self, archive, logger):
+        """
+        Normalizes the `AutoXRDAnalysis` entry.
+
+        Args:
+            archive (Archive): A NOMAD archive.
+            logger (Logger): A structured logger.
+        """
+        super().normalize(archive, logger)
+        if self.description is None or self.description == '':
+            self.description = """
+            <p>
+            This ELN comes with a Jupyter notebook that can be used to run an auto
+            XRD analysis using a pre-trained ML model. To get started, do the
+            following:</p> <p>
+
+            1. In the <strong><em>inputs</em></strong> sub-section, use the
+            <strong><em>AutoXRDModelReference</em></strong> section to reference an
+            <strong><em>AutoXRDModel</em></strong> entry containing the pre-trained
+            model.</p> <p>
+
+            2. In the <strong><em>inputs</em></strong> sub-section, use the
+            <strong><em>XRDMeasurement</em></strong> section to reference an
+            <strong><em>ELNXRayDiffraction</em></strong> containing the XRD data
+            you want to analyse.</p> <p>
+
+            3. From the <strong><em>notebook</em></strong> quantity, open the the
+            Jupyter notebook and follow the steps mentioned in there to perform the
+            analysis.</p>
+            """
 
 
 m_package.__init_metainfo__()

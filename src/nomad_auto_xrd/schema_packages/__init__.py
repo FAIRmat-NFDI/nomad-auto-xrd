@@ -32,9 +32,9 @@ auto_xrd_analysis = XRDAnalaysisSchemaPackageEntryPoint(
 )
 
 
-class InferenceSchemaPackageEntryPoint(SchemaPackageEntryPoint):
+class AnalysisSchemaPackageEntryPoint(SchemaPackageEntryPoint):
     def load(self):
-        from nomad_auto_xrd.schema_packages.inference import m_package
+        from nomad_auto_xrd.schema_packages.analysis import m_package
 
         return m_package
 
@@ -46,7 +46,7 @@ class TrainingSchemaPackageEntryPoint(SchemaPackageEntryPoint):
         return m_package
 
 
-inference_schema = InferenceSchemaPackageEntryPoint(
+analysis_schema = AnalysisSchemaPackageEntryPoint(
     name='Auto XRD Inference Schema',
     description='Schema for performing Auto XRD analysis.',
 )

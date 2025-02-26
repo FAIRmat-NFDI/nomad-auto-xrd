@@ -118,7 +118,7 @@ where = ["src"]
 
 auto_xrd = "nomad_auto_xrd.schema_packages:auto_xrd"
 auto_xrd_analysis = "nomad_auto_xrd.schema_packages:auto_xrd_analysis"
-inference_schema = "nomad_auto_xrd.schema_packages:inference_schema"
+analysis_schema = "nomad_auto_xrd.schema_packages:analysis_schema"
 training_schema = "nomad_auto_xrd.schema_packages:training_schema"
 
 app_entry_point = "nomad_auto_xrd.apps:app_entry_point"
