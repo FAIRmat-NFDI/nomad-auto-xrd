@@ -230,17 +230,17 @@ def analyze_pattern(  # noqa: PLR0912, PLR0915
         # Show backup predictions
         if settings.show_individual:
             if logger:
-                logger.info(f"XRD predicted phases: {results['XRD'].phases[idx]}")
-                logger.info(f"XRD confidence: {results['XRD'].confidences[idx]}")
+                logger.info(f'XRD predicted phases: {results["XRD"].phases[idx]}')
+                logger.info(f'XRD confidence: {results["XRD"].confidences[idx]}')
                 if settings.include_pdf:
-                    logger.info(f"PDF predicted phases: {results['PDF'].phases[idx]}")
-                    logger.info(f"PDF confidence: {results['PDF'].confidences[idx]}")
+                    logger.info(f'PDF predicted phases: {results["PDF"].phases[idx]}')
+                    logger.info(f'PDF confidence: {results["PDF"].confidences[idx]}')
             else:
-                print(f"XRD predicted phases: {results['XRD'].phases[idx]}")
-                print(f"XRD confidence: {results['XRD'].confidences[idx]}")
+                print(f'XRD predicted phases: {results["XRD"].phases[idx]}')
+                print(f'XRD confidence: {results["XRD"].confidences[idx]}')
                 if settings.include_pdf:
-                    print(f"PDF predicted phases: {results['PDF'].phases[idx]}")
-                    print(f"PDF confidence: {results['PDF'].confidences[idx]}")
+                    print(f'PDF predicted phases: {results["PDF"].phases[idx]}')
+                    print(f'PDF confidence: {results["PDF"].confidences[idx]}')
 
         # Plot the results
         phasenames = [f'{phase}.cif' for phase in phase_set]
