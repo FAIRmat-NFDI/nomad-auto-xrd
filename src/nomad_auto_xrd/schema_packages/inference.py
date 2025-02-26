@@ -1,11 +1,17 @@
 from nomad.datamodel.metainfo.annotations import ELNAnnotation
 from nomad.datamodel.metainfo.basesections import SectionReference
-from nomad.metainfo import Quantity, SubSection
+from nomad.metainfo import (
+    Quantity,
+    SchemaPackage,
+    SubSection,
+)
 from nomad_analysis.general.schema import AnalysisResult
 from nomad_analysis.jupyter.schema import ELNJupyterAnalysis
 from nomad_measurements.xrd.schema import ELNXRayDiffraction
 
 from nomad_auto_xrd.schema_packages.auto_xrd import AutoXRDModel
+
+m_package = SchemaPackage()
 
 
 class AutoXRDAnalysisInput(SectionReference):
@@ -67,3 +73,6 @@ class AutoXRDAnalysis(ELNJupyterAnalysis):
         description='The phases identified by the auto XRD analysis.',
         repeats=True,
     )
+
+
+m_package.__init_metainfo__()
