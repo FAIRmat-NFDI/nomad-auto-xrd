@@ -20,7 +20,7 @@ class CompositionSpace(AutoXRDTrainingInput):
         a_eln=dict(component='StringEditQuantity'),
     )
     element_composition = SubSection(
-        type=ElementalComposition,
+        section_def=ElementalComposition,
         description='The elemental composition of the composition space.',
         repeats=True,
     )
@@ -59,12 +59,12 @@ class AutoXRDModelReference(SectionReference):
 
 class AutoXRDTraining(ELNJupyterAnalysis):
     inputs = SubSection(
-        type=AutoXRDTrainingInput,
+        section_def=AutoXRDTrainingInput,
         description='The inputs for the training.',
         repeats=True,
     )
     outputs = SubSection(
-        type=AutoXRDModelReference,
+        section_def=AutoXRDModelReference,
         description='Reference to the entry of the trained model.',
     )
 
