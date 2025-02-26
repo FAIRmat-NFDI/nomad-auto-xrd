@@ -1,8 +1,13 @@
-from nomad.datamodel.metainfo.annotations import ELNAnnotation
+from nomad.datamodel.metainfo.annotations import (
+    ELNAnnotation,
+    Filter,
+    SectionProperties,
+)
 from nomad.datamodel.metainfo.basesections import SectionReference
 from nomad.metainfo import (
     Quantity,
     SchemaPackage,
+    Section,
     SubSection,
 )
 from nomad_analysis.general.schema import AnalysisResult
@@ -47,7 +52,7 @@ class IdentifiedPhase(AnalysisResult):
 
     phase = Quantity(
         type=str,
-        description='The identified phase.',
+        description='The identified phase in the XRD data.',
     )
     reference_cif = Quantity(
         type=str,
@@ -63,6 +68,66 @@ class IdentifiedPhase(AnalysisResult):
 
 
 class AutoXRDAnalysis(ELNJupyterAnalysis):
+    """
+    Schema for running an auto XRD analysis using an pre-trained ML model.
+    """
+
+    m_def = Section(
+        a_eln=ELNAnnotation(
+            properties=SectionProperties(
+                visible=Filter(
+                    exclude=['input_entry_class', 'query_for_inputs'],
+                ),
+                order=[
+                    'name',
+                    'datetime',
+                    'lab_id',
+                    'location',
+                    'notebook',
+                    'reset_notebook',
+                    'description',
+                    'analysis_type',
+                ],
+            ),
+        ),
+    )
+    description = Quantity(
+        type=str,
+        description='A description of the auto XRD analysis.',
+        default="""
+            This ELN comes with a Jupyter notebook that can be used to run an auto
+            XRD analysis using a pre-trained ML model. To get started, do the
+            following:\n\n
+
+            1. In the `inputs` sub-section, use the `AutoXRDModelReference` section
+            to reference an `AutoXRDModel` entry containing the pre-trained model.\n
+            2. In the `inputs` sub-section, use the `XRDMeasurement` section to
+            reference an `ELNXRayDiffraction` containing the XRD data you want to
+            analyse.\n
+            3. From the `notebook` quantity, open the the Jupyter notebook and follow
+            the steps mentioned in there to perform the analysis.\n
+        """,
+        a_eln=ELNAnnotation(
+            component='RichTextEditQuantity',
+        ),
+    )
+    analysis_type = Quantity(
+        type=str,
+        default='Auto XRD',
+        description=(
+            'Based on the analysis type, code cells will be added to the Jupyter '
+            'notebook. Code cells from **Generic** are always included.'
+            """
+            | Analysis Type       | Description                                     |
+            |---------------------|-------------------------------------------------|
+            | **Generic**         | Basic setup including connection \
+                                    with entry data.                                |
+            | **XRD**             | Adds XRD related analysis functions.            |
+            | **Auto XRD**        | (Default) Analysis XRD patterns using machine \
+                                    learning.                                       |
+            """
+        ),
+    )
     inputs = SubSection(
         section_def=AutoXRDAnalysisInput,
         description='The input section for the auto XRD analysis.',
