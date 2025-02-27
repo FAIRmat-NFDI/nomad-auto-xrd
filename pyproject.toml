@@ -27,9 +27,6 @@ maintainers = [
 license = { file = "LICENSE" }
 dependencies = [
     "nomad-lab>=1.3.0",
-    "python-magic-bin; sys_platform == 'win32'",
-    "autoXRD @ git+https://github.com/Pepe-Marquez/XRD-AutoAnalyzer.git",
-    "wandb",
 ]
 
 [project.urls]
@@ -37,6 +34,11 @@ Repository = "https://github.com/foo/nomad-auto-xrd"
 
 [project.optional-dependencies]
 dev = ["ruff", "pytest", "structlog"]
+analysis = [
+    "autoXRD @ git+https://github.com/Pepe-Marquez/XRD-AutoAnalyzer.git",
+    "python-magic-bin; sys_platform == 'win32'",
+    "wandb",
+]
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
