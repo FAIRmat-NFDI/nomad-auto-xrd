@@ -116,7 +116,7 @@ where = ["src"]
 
 [project.entry-points.'nomad.plugin']
 
-auto_xrd = "nomad_auto_xrd.schema_packages:auto_xrd"
+model_schema = "nomad_auto_xrd.schema_packages:model_schema"
 auto_xrd_analysis = "nomad_auto_xrd.schema_packages:auto_xrd_analysis"
 analysis_schema = "nomad_auto_xrd.schema_packages:analysis_schema"
 training_schema = "nomad_auto_xrd.schema_packages:training_schema"
