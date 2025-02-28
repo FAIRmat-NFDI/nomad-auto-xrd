@@ -14,7 +14,7 @@ from nomad_analysis.general.schema import AnalysisResult
 from nomad_analysis.jupyter.schema import ELNJupyterAnalysis
 from nomad_measurements.xrd.schema import ELNXRayDiffraction
 
-from nomad_auto_xrd.schema_packages.auto_xrd import AutoXRDModel
+from nomad_auto_xrd.schema_packages.model import AutoXRDModel
 
 m_package = SchemaPackage()
 
