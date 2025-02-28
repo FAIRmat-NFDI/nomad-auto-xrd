@@ -21,8 +21,6 @@ from nomad.metainfo import Quantity, SchemaPackage
 from nomad.normalizing.common import nomad_atoms_from_ase_atoms
 from nomad.normalizing.topology import add_system, add_system_info
 
-configuration = config.get_plugin_entry_point('nomad_auto_xrd.schema_packages:auto_xrd')
-
 m_package = SchemaPackage()
 
 
