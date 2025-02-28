@@ -2,19 +2,11 @@ from nomad.config.models.plugins import SchemaPackageEntryPoint
 from pydantic import Field
 
 
-class NewSchemaPackageEntryPoint(SchemaPackageEntryPoint):
-    parameter: int = Field(0, description='Custom configuration parameter')
-
+class ModelSchemaPackageEntryPoint(SchemaPackageEntryPoint):
     def load(self):
         from nomad_auto_xrd.schema_packages.model import m_package
 
         return m_package
-
-
-auto_xrd = NewSchemaPackageEntryPoint(
-    name='auto_xrd',
-    description='New schema package entry point configuration.',
-)
 
 
 class XRDAnalaysisSchemaPackageEntryPoint(SchemaPackageEntryPoint):
@@ -54,4 +46,9 @@ analysis_schema = AnalysisSchemaPackageEntryPoint(
 training_schema = TrainingSchemaPackageEntryPoint(
     name='Auto XRD Training Schema',
     description='Schema for training Auto XRD models.',
+)
+
+model_schema = ModelSchemaPackageEntryPoint(
+    name='Auto XRD Model Schema',
+    description='Schema for storing Auto XRD models.',
 )
