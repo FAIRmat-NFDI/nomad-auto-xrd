@@ -1,3 +1,6 @@
+import os
+
+import nbformat
 from nomad.datamodel.metainfo.annotations import (
     ELNAnnotation,
     Filter,
@@ -126,6 +129,32 @@ class AutoXRDAnalysis(ELNJupyterAnalysis):
         description='The phases identified by the auto XRD analysis.',
         repeats=True,
     )
+
+    def write_jupyter_notebook(self, archive, logger):
+        """
+        Writes the Jupyter notebook for the `AutoXRDAnalysis` entry.
+        Uses the notebook template from the `nomad_auto_xrd/jupyter_notebooks`.
+        Overwrites the `analysis_entry_id` in the notebook with the current entry id.
+        """
+
+        module_path = os.path.abspath(__file__)
+        package_path = os.path.dirname(os.path.dirname(module_path))
+        notebook_path = os.path.join(
+            package_path, 'jupyter_notebooks', 'auto-xrd-analysis.ipynb'
+        )
+        with open(notebook_path, 'r') as f:
+            nb = nbformat.read(f, as_version=4)
+        for cell in nb.cells:
+            if cell.cell_type == 'code':
+                if 'analysis_entry_id' in cell.metadata.get('tags', []):
+                    cell.source = f'analysis_entry_id = "{archive.entry_id}"'
+                    break
+
+        nb['metadata']['trusted'] = True
+
+        with archive.m_context.raw_file(self.notebook, 'w') as nb_file:
+            nbformat.write(nb, nb_file)
+        archive.m_context.process_updated_raw_file(self.notebook, allow_modify=True)
 
     def normalize(self, archive, logger):
         """
