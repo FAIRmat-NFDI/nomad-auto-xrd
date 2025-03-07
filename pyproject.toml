@@ -112,10 +112,6 @@ package-dir = { "" = "src" }
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[project.entry-points.'nomad.plugin']
-app_entry_point = "nomad_auto_xrd.apps:app_entry_point"
-example_upload_entry_point = "nomad_auto_xrd.example_uploads:example_upload_entry_point"
-
 [tool.cruft]
 # Avoid updating workflow files, this leads to permissions issues
 skip = [".github/*"]
