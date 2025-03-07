@@ -26,7 +26,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 try:
-    from nomad_auto_xrd.schema_packages.auto_xrd import AutoXRDModel
+    from nomad_analysis.auto_xrd import AutoXRDModel
 except ImportError:
     AutoXRDModel = None
 
