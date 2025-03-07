@@ -1,4 +1,0 @@
-data:
-  m_def: nomad_auto_xrd.schema_packages.auto_xrd.AutoXRDModel
-  cif_files:
-    - 'Cu3PS4_31.cif'
