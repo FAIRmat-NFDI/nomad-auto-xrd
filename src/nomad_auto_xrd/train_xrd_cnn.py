@@ -290,6 +290,61 @@ class WandbMetricsLogger(Callback):
             )
 
 
+def generate_reference_structures(working_directory: str, settings: SimulationSettings):
+    """
+    Generates hypothetical solid solution structure files from provided CIF files and
+    saves them to the working directory under '<working_directory>/references/'.
+
+    Args:
+        working_directory (str): Path to the working directory where generated data will
+            be saved.
+        settings (SimulationSettings): Settings for generating hypothetical solid
+            solutions.
+    """
+    unprocessed_structures_path = os.path.join(
+        working_directory, 'unprocessed_structure_files'
+    )
+    reference_structures_path = os.path.join(working_directory, 'references')
+
+    # make dirs and copy CIFs to the working directory
+    os.makedirs(working_directory, exist_ok=True)
+    os.makedirs(unprocessed_structures_path, exist_ok=True)
+    for file in settings.structure_files:
+        try:
+            shutil.copy(file, unprocessed_structures_path)
+        except shutil.SameFileError:
+            continue
+
+    # Filter CIFs
+    if settings.skip_filter and not os.path.exists(reference_structures_path):
+        raise FileNotFoundError(
+            f'"skip_filter" is True, but "{reference_structures_path}" directory was '
+            'not found.'
+        )
+    elif not settings.skip_filter:
+        if not unprocessed_structures_path:
+            raise ValueError(
+                'No structure files were provided. Please provide a list of CIF files.'
+            )
+        if os.path.exists(reference_structures_path) or os.listdir(
+            reference_structures_path
+        ):
+            raise FileExistsError(
+                f'"{reference_structures_path}" already contains structure files. '
+                'Please clear the directory or set "skip_filter=True".'
+            )
+        tabulate_cifs.main(
+            unprocessed_structures_path,
+            reference_structures_path,
+            settings.include_elems,
+        )
+
+    # Generate hypothetical solid solutions
+    solid_solns.main(reference_structures_path)
+
+    return reference_structures_path
+
+
 def run_xrd_model(config: ModelConfig):
     """Main function to run the XRD model pipeline using a configuration object."""
     # Filter CIFs
