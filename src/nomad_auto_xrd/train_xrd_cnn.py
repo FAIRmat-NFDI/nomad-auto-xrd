@@ -7,15 +7,19 @@ from random import shuffle
 
 import numpy as np
 import tensorflow as tf
+from autoXRD import solid_solns, spectrum_generation, tabulate_cifs  # noqa: E402
 from nomad.datamodel import EntryArchive
+
+# Import necessary modules from autoXRD
+from nomad_analysis.auto_xrd.schema import (
+    AutoXRDModel,
+    SimulationSettings,
+    TrainingSettings,
+)
 from tensorflow.keras.callbacks import Callback  # type: ignore
 
 # Suppress specific warnings
 warnings.filterwarnings('ignore')
-
-# Import necessary modules from autoXRD
-from autoXRD import solid_solns, spectrum_generation, tabulate_cifs  # noqa: E402
-
 try:
     import wandb
 except ImportError:
@@ -24,11 +28,6 @@ except ImportError:
 # Optional NOMAD imports
 
 logger = logging.getLogger(__name__)
-
-try:
-    from nomad_analysis.auto_xrd import AutoXRDModel
-except ImportError:
-    AutoXRDModel = None
 
 
 @dataclass
