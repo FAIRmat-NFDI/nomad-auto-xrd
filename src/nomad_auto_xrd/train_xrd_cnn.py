@@ -224,22 +224,23 @@ def build_model(input_shape, n_phases, is_pdf, n_dense=[3100, 1200], dropout_rat
     return model
 
 
-def train_model(train_x, train_y, model, config: ModelConfig, is_pdf=False):
+def train_model(train_x, train_y, model, settings: TrainingSettings):
     """
     Trains the model with optional W&B logging.
+
     Returns:
         wandb_run_url: The wandb run URL if logging is enabled, else None.
     """
     wandb_run_url = None  # Initialize to None
     # Prepare callbacks
     callbacks = []
-    if config.enable_wandb and wandb:
+    if settings.enable_wandb and wandb:
         run = wandb.init(
-            project=config.wandb_project,
-            entity=config.wandb_entity,
+            project=settings.wandb_project,
+            entity=settings.wandb_entity,
             reinit=True,  # Ensure a new run is started
         )
-        wandb.config.update(vars(config))
+        wandb.config.update(vars(settings))  # TODO check what this does
         callbacks.append(WandbMetricsLogger())
     else:
         run = None  # Wandb is not enabled
@@ -249,19 +250,20 @@ def train_model(train_x, train_y, model, config: ModelConfig, is_pdf=False):
         train_x,
         train_y,
         batch_size=32,
-        epochs=config.num_epochs,
+        epochs=settings.num_epochs,
         validation_split=0.2,
         shuffle=True,
         callbacks=callbacks,
     )
 
     # Get the run URL if wandb is enabled
-    if config.enable_wandb and wandb and run:
+    if settings.enable_wandb and wandb and run:
         wandb_run_url = run.url
         # Finish W&B run
         wandb.finish()
+        return wandb_run_url
 
-    return wandb_run_url
+    return None
 
 
 def test_model(model, test_x, test_y):
@@ -345,119 +347,103 @@ def generate_reference_structures(working_directory: str, settings: SimulationSe
     return reference_structures_path
 
 
-def run_xrd_model(config: ModelConfig):
-    """Main function to run the XRD model pipeline using a configuration object."""
-    # Filter CIFs
-    if not config.skip_filter:
-        if not os.path.exists(config.all_cifs_dir):
-            raise FileNotFoundError(
-                f"No '{config.all_cifs_dir}' directory was found. Please create it or set 'skip_filter' to True."  # noqa: E501
-            )
-        if os.path.exists(config.references_dir):
-            raise FileExistsError(
-                f"'{config.references_dir}' directory already exists. Please remove it or set 'skip_filter' to True."  # noqa: E501
-            )
-        tabulate_cifs.main(
-            config.all_cifs_dir, config.references_dir, config.include_elems
-        )
-    elif not os.path.exists(config.references_dir):
-        raise FileNotFoundError(
-            f"'skip_filter' is True, but '{config.references_dir}' directory was not found."  # noqa: E501
-        )
+def train(model_config: AutoXRDModel):
+    """
+    Main function to run the XRD model pipeline: generate reference structures,
+    simulate XRD patterns, setup data for training, initialize the model, and train it.
 
-    # Generate hypothetical solid solutions
-    solid_solns.main(config.references_dir)
-
-    # Clean up the Models directory
-    if os.path.exists(config.models_dir):
-        shutil.rmtree(config.models_dir)
-    os.makedirs(config.models_dir, exist_ok=True)
-
-    # Simulate and save augmented XRD spectra
-    xrd_obj = spectrum_generation.SpectraGenerator(
-        config.references_dir,
-        config.num_spectra,
-        config.max_texture,
-        config.min_domain_size,
-        config.max_domain_size,
-        config.max_strain,
-        config.min_angle,
-        config.max_angle,
-        config.separate,
-    )
-    xrd_specs = xrd_obj.augmented_spectra
-    np.save(config.xrd_output_file, xrd_specs)
+    Args:
+        model (AutoXRDModel): The model object containing all the necessary settings.
+            The object will also be updated with the trained model and W&B run URLs.
+    """
 
     # Prepare data
-    dataset = DataSetUp(xrd_specs, testing_fraction=config.test_fraction)
+    reference_structures_path = generate_reference_structures(
+        model_config.working_directory, model_config.simulation_settings
+    )
+    xrd_spectras = spectrum_generation.SpectraGenerator(
+        reference_dir=reference_structures_path,
+        num_spectra=model_config.simulation_settings.num_spectra,
+        max_texture=model_config.simulation_settings.max_texture,
+        min_domain_size=model_config.simulation_settings.min_domain_size,
+        max_domain_size=model_config.simulation_settings.max_domain_size,
+        max_strain=model_config.simulation_settings.max_strain,
+        min_angle=model_config.simulation_settings.min_angle,
+        max_angle=model_config.simulation_settings.max_angle,
+        separate=model_config.simulation_settings.separate,
+        is_pdf=False,
+    ).augmented_spectra
+    dataset = DataSetUp(
+        xrd_spectras, testing_fraction=model_config.training_settings.test_fraction
+    )
     num_phases = dataset.num_phases
     train_x, train_y, test_x, test_y = dataset.split_training_testing()
+
+    # Clean up the Models directory
+    models_dir = os.path.join(model_config.working_directory, 'models')
+    if os.path.exists(models_dir):
+        shutil.rmtree(models_dir)
+    os.makedirs(models_dir, exist_ok=True)
+    model_config.wandb_run_urls = []
+    model_config.models = []
 
     # Build the model
     model = build_model(train_x.shape[1:], num_phases, is_pdf=False)
 
     # Train the model and get the wandb run URL
-    wandb_run_url_xrd = train_model(train_x, train_y, model, config, is_pdf=False)
+    wandb_run_url_xrd = train_model(
+        train_x, train_y, model, model_config.training_settings
+    )
+    model_config.wandb_run_urls.append(wandb_run_url_xrd)
 
     # Save the trained model
-    xrd_model_path = os.path.join(config.models_dir, 'XRD_Model.h5')
+    xrd_model_path = os.path.join(models_dir, 'XRD_Model.h5')
     model.save(xrd_model_path, include_optimizer=False)
+    model_config.models.append(xrd_model_path)
 
     # Test the model
     test_model(model, test_x, test_y)
 
-    # Initialize wandb_run_url_pdf
-    wandb_run_url_pdf = None
+    if not model_config.includes_pdf:
+        return
 
-    # If specified, train another model on PDFs
-    if config.inc_pdf:
-        pdf_obj = spectrum_generation.SpectraGenerator(
-            config.references_dir,
-            config.num_spectra,
-            config.max_texture,
-            config.min_domain_size,
-            config.max_domain_size,
-            config.max_strain,
-            config.max_shift,
-            config.impur_amt,
-            config.min_angle,
-            config.max_angle,
-            config.separate,
-            is_pdf=True,
-        )
-        pdf_specs = pdf_obj.augmented_spectra
-        if config.save_pdf:
-            np.save(config.pdf_output_file, np.array(pdf_specs))
+    # If `model_config.includes_pdf` is True, train another model on PDFs
+    pdf_spectras = spectrum_generation.SpectraGenerator(
+        reference_dir=reference_structures_path,
+        num_spectra=model_config.simulation_settings.num_spectra,
+        max_texture=model_config.simulation_settings.max_texture,
+        min_domain_size=model_config.simulation_settings.min_domain_size,
+        max_domain_size=model_config.simulation_settings.max_domain_size,
+        max_strain=model_config.simulation_settings.max_strain,
+        min_angle=model_config.simulation_settings.min_angle,
+        max_angle=model_config.simulation_settings.max_angle,
+        separate=model_config.simulation_settings.separate,
+        is_pdf=True,
+    ).augmented_spectra
+    dataset_pdf = DataSetUp(
+        pdf_spectras, testing_fraction=model_config.training_settings.test_fraction
+    )
+    num_phases_pdf = dataset_pdf.num_phases
+    train_x_pdf, train_y_pdf, test_x_pdf, test_y_pdf = (
+        dataset_pdf.split_training_testing()
+    )
 
-        # Prepare data
-        dataset_pdf = DataSetUp(pdf_specs, testing_fraction=config.test_fraction)
-        num_phases_pdf = dataset_pdf.num_phases
-        train_x_pdf, train_y_pdf, test_x_pdf, test_y_pdf = (
-            dataset_pdf.split_training_testing()
-        )
+    # Build the PDF model
+    model_pdf = build_model(train_x_pdf.shape[1:], num_phases_pdf, is_pdf=True)
 
-        # Build the PDF model
-        model_pdf = build_model(train_x_pdf.shape[1:], num_phases_pdf, is_pdf=True)
+    # Train the PDF model and get the wandb run URL
+    wandb_run_url_pdf = train_model(
+        train_x_pdf, train_y_pdf, model_pdf, model_config.training_settings
+    )
+    model_config.wandb_run_urls.append(wandb_run_url_pdf)
 
-        # Train the PDF model and get the wandb run URL
-        wandb_run_url_pdf = train_model(
-            train_x_pdf, train_y_pdf, model_pdf, config, is_pdf=True
-        )
+    # Save the PDF model
+    pdf_model_path = os.path.join(models_dir, 'PDF_Model.h5')
+    model_config.models.append(pdf_model_path)
+    model_pdf.save(pdf_model_path, include_optimizer=False)
 
-        # Save the PDF model
-        pdf_model_path = os.path.join(config.models_dir, 'PDF_Model.h5')
-        model_pdf.save(pdf_model_path, include_optimizer=False)
-
-        # Test the PDF model
-        test_model(model_pdf, test_x_pdf, test_y_pdf)
-
-    # Save NOMAD metadata
-    if config.save_nomad_metadata:
-        save_model_metadata(
-            config,
-            wandb_run_url_xrd=wandb_run_url_xrd,
-            wandb_run_url_pdf=wandb_run_url_pdf,
-        )
+    # Test the PDF model
+    test_model(model_pdf, test_x_pdf, test_y_pdf)
 
 
 def get_cif_files_from_folder(folder_name):
