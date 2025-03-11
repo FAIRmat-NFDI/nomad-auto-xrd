@@ -34,7 +34,7 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/foo/nomad-auto-xrd"
+Repository = "https://github.com/FAIRmat-NFDI/nomad-auto-xrd"
 
 [project.optional-dependencies]
 dev = ["ruff", "pytest", "structlog"]
