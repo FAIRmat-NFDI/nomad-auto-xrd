@@ -307,6 +307,7 @@ def generate_reference_structures(working_directory: str, settings: SimulationSe
         working_directory, 'unprocessed_structure_files'
     )
     reference_structures_path = os.path.join(working_directory, 'references')
+    os.makedirs(reference_structures_path, exist_ok=True)
 
     # make dirs and copy CIFs to the working directory
     os.makedirs(working_directory, exist_ok=True)
@@ -328,9 +329,7 @@ def generate_reference_structures(working_directory: str, settings: SimulationSe
             raise ValueError(
                 'No structure files were provided. Please provide a list of CIF files.'
             )
-        if os.path.exists(reference_structures_path) or os.listdir(
-            reference_structures_path
-        ):
+        if os.listdir(reference_structures_path):
             raise FileExistsError(
                 f'"{reference_structures_path}" already contains structure files. '
                 'Please clear the directory or set "skip_filter=True".'
@@ -361,9 +360,9 @@ def train(model_config: AutoXRDModel):
     reference_structures_path = generate_reference_structures(
         model_config.working_directory, model_config.simulation_settings
     )
-    xrd_spectras = spectrum_generation.SpectraGenerator(
+    xrd_obj = spectrum_generation.SpectraGenerator(
         reference_dir=reference_structures_path,
-        num_spectra=model_config.simulation_settings.num_spectra,
+        num_spectra=model_config.simulation_settings.num_patterns,
         max_texture=model_config.simulation_settings.max_texture,
         min_domain_size=model_config.simulation_settings.min_domain_size,
         max_domain_size=model_config.simulation_settings.max_domain_size,
@@ -372,7 +371,8 @@ def train(model_config: AutoXRDModel):
         max_angle=model_config.simulation_settings.max_angle,
         separate=model_config.simulation_settings.separate,
         is_pdf=False,
-    ).augmented_spectra
+    )
+    xrd_spectras = xrd_obj.augmented_spectra
     dataset = DataSetUp(
         xrd_spectras, testing_fraction=model_config.training_settings.test_fraction
     )
@@ -410,7 +410,7 @@ def train(model_config: AutoXRDModel):
     # If `model_config.includes_pdf` is True, train another model on PDFs
     pdf_spectras = spectrum_generation.SpectraGenerator(
         reference_dir=reference_structures_path,
-        num_spectra=model_config.simulation_settings.num_spectra,
+        num_spectra=model_config.simulation_settings.num_patterns,
         max_texture=model_config.simulation_settings.max_texture,
         min_domain_size=model_config.simulation_settings.min_domain_size,
         max_domain_size=model_config.simulation_settings.max_domain_size,
