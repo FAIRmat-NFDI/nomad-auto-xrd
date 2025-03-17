@@ -295,7 +295,7 @@ class WandbMetricsLogger(Callback):
 def generate_reference_structures(working_directory: str, settings: SimulationSettings):
     """
     Generates hypothetical solid solution structure files from provided CIF files and
-    saves them to the working directory under '<working_directory>/references/'.
+    saves them to the working directory under '<working_directory>/References/'.
 
     Args:
         working_directory (str): Path to the working directory where generated data will
@@ -306,7 +306,7 @@ def generate_reference_structures(working_directory: str, settings: SimulationSe
     unprocessed_structures_path = os.path.join(
         working_directory, 'unprocessed_structure_files'
     )
-    reference_structures_path = os.path.join(working_directory, 'references')
+    reference_structures_path = os.path.join(working_directory, 'References')
     os.makedirs(reference_structures_path, exist_ok=True)
 
     # make dirs and copy CIFs to the working directory
@@ -380,7 +380,7 @@ def train(model_config: AutoXRDModel):
     train_x, train_y, test_x, test_y = dataset.split_training_testing()
 
     # Clean up the Models directory
-    models_dir = os.path.join(model_config.working_directory, 'models')
+    models_dir = os.path.join(model_config.working_directory, 'Models')
     if os.path.exists(models_dir):
         shutil.rmtree(models_dir)
     os.makedirs(models_dir, exist_ok=True)
