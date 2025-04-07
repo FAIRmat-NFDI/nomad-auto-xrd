@@ -42,7 +42,6 @@ from nomad.metainfo import (
 )
 from nomad.normalizing.common import nomad_atoms_from_ase_atoms
 from nomad.normalizing.topology import add_system, add_system_info
-
 from nomad_analysis.jupyter.schema import JupyterAnalysis
 
 if TYPE_CHECKING:

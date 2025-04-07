@@ -6,8 +6,9 @@ from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from autoXRD import spectrum_analysis, visualizer
-from nomad_analysis.auto_xrd.schema import AutoXRDModel
 from nomad_measurements.xrd.schema import ELNXRayDiffraction
+
+from nomad_auto_xrd.schema import AutoXRDModel
 
 if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive

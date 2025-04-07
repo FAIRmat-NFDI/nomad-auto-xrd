@@ -9,14 +9,14 @@ import numpy as np
 import tensorflow as tf
 from autoXRD import solid_solns, spectrum_generation, tabulate_cifs  # noqa: E402
 from nomad.datamodel import EntryArchive
+from tensorflow.keras.callbacks import Callback  # type: ignore
 
 # Import necessary modules from autoXRD
-from nomad_analysis.auto_xrd.schema import (
+from nomad_auto_xrd.schema import (
     AutoXRDModel,
     SimulationSettings,
     TrainingSettings,
 )
-from tensorflow.keras.callbacks import Callback  # type: ignore
 
 # Suppress specific warnings
 warnings.filterwarnings('ignore')

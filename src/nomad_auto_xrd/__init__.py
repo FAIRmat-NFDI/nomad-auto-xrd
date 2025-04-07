@@ -30,7 +30,7 @@ class AutoXRDSchemaPackageEntryPoint(SchemaPackageEntryPoint):
     """
 
     def load(self):
-        from nomad_analysis.auto_xrd.schema import m_package
+        from nomad_auto_xrd.schema import m_package
 
         return m_package
 

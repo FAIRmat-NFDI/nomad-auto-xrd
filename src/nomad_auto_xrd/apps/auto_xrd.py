@@ -10,13 +10,13 @@ readme: 'This page allows you to search **auto XRD models entries** based
 on model parameters and reference structures used to train the model.'
 filters:
   include:
-    - '*#nomad_analysis.auto_xrd.schema.AutoXRDModel'
+    - '*#nomad_auto_xrd.schema.AutoXRDModel'
   exclude:
     - mainfile
     - entry_name
     - combine
 filters_locked:
-  sections: nomad_analysis.auto_xrd.schema.AutoXRDModel
+  sections: nomad_auto_xrd.schema.AutoXRDModel
 pagination:
   order_by: results.properties.optoelectronic.solar_cell.efficiency
 search_syntaxes:
@@ -25,16 +25,16 @@ search_syntaxes:
 columns:
   selected:
     - results.material.elements
-    - data.simulation_settings.min_angle#nomad_analysis.auto_xrd.schema.AutoXRDModel
-    - data.simulation_settings.max_angle#nomad_analysis.auto_xrd.schema.AutoXRDModel
-    - data.training_settings.num_epochs#nomad_analysis.auto_xrd.schema.AutoXRDModel
+    - data.simulation_settings.min_angle#nomad_auto_xrd.schema.AutoXRDModel
+    - data.simulation_settings.max_angle#nomad_auto_xrd.schema.AutoXRDModel
+    - data.training_settings.num_epochs#nomad_auto_xrd.schema.AutoXRDModel
     - entry_name
   options:
-    data.simulation_settings.min_angle#nomad_analysis.auto_xrd.schema.AutoXRDModel:
+    data.simulation_settings.min_angle#nomad_auto_xrd.schema.AutoXRDModel:
       label: Minimum 2 theta
-    data.simulation_settings.max_angle#nomad_analysis.auto_xrd.schema.AutoXRDModel:
+    data.simulation_settings.max_angle#nomad_auto_xrd.schema.AutoXRDModel:
       label: Maximum 2 theta
-    data.training_settings.num_epochs#nomad_analysis.auto_xrd.schema.AutoXRDModel:
+    data.training_settings.num_epochs#nomad_auto_xrd.schema.AutoXRDModel:
       label: Number of epochs
     results.material.chemical_formula_descriptive: {label: Descriptive formula}
     references: {}
@@ -104,7 +104,7 @@ dashboard:
       y:
         scale: linear
       x:
-        quantity: data.training_settings.num_epochs#nomad_analysis.auto_xrd.schema.AutoXRDModel
+        quantity: data.training_settings.num_epochs#nomad_auto_xrd.schema.AutoXRDModel
         title: Number of epochs
       title: Number of epochs
       layout:
@@ -120,7 +120,7 @@ dashboard:
       y:
         scale: linear
       x:
-        quantity: data.simulation_settings.max_angle#nomad_analysis.auto_xrd.schema.AutoXRDModel
+        quantity: data.simulation_settings.max_angle#nomad_auto_xrd.schema.AutoXRDModel
         title: Maximum 2 theta
       title: Maximum 2 theta
       layout:
@@ -136,7 +136,7 @@ dashboard:
       y:
         scale: linear
       x:
-        quantity: data.simulation_settings.min_angle#nomad_analysis.auto_xrd.schema.AutoXRDModel
+        quantity: data.simulation_settings.min_angle#nomad_auto_xrd.schema.AutoXRDModel
         title: Minimum 2 theta
       title: Minimum 2 theta
       layout:
