@@ -34,8 +34,15 @@ dependencies = [
 Repository = "https://github.com/FAIRmat-NFDI/nomad-auto-xrd"
 
 [project.optional-dependencies]
-dev = ["ruff", "pytest", "structlog"]
-analysis = [
+analytics = [
+    "python-magic-bin; sys_platform == 'win32'",
+    "autoXRD @ git+https://github.com/Pepe-Marquez/XRD-AutoAnalyzer.git",
+    "wandb",
+]
+dev = [
+    "ruff",
+    "pytest",
+    "structlog",
     "python-magic-bin; sys_platform == 'win32'",
     "autoXRD @ git+https://github.com/Pepe-Marquez/XRD-AutoAnalyzer.git",
     "wandb",

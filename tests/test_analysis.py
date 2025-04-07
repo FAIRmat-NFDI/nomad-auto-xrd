@@ -1,11 +1,10 @@
 import os
 
-from nomad_analysis.auto_xrd.schema import (
+from nomad_auto_xrd.schema import (
     AutoXRDModel,
     SimulationSettings,
     TrainingSettings,
 )
-
 from nomad_auto_xrd.training import train
 
 
