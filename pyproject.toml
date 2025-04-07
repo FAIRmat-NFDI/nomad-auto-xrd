@@ -116,3 +116,8 @@ where = ["src"]
 [tool.cruft]
 # Avoid updating workflow files, this leads to permissions issues
 skip = [".github/*"]
+
+[project.entry-points.'nomad.plugin']
+auto_xrd_schema = "nomad_auto_xrd:schema"
+auto_xrd_app = "nomad_auto_xrd.apps:auto_xrd_models_app"
+auto_xrd_example_upload = "nomad_auto_xrd.example_uploads:auto_xrd_example_upload"
