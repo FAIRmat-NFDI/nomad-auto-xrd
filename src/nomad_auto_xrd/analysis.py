@@ -424,10 +424,14 @@ def analyse(
         raise ValueError('The provided entry is not a valid AutoXRDModel entry.')
 
     two_theta = xrd_entry.results.properties.structural.diffraction_pattern.two_theta
-    intensity = xrd_entry.results.properties.structural.diffraction_pattern.intensity
-    incident_wavelength = (
-        xrd_entry.results.properties.structural.diffraction_pattern.incident_wavelength
-    )
+    # intensity = xrd_entry.results.properties.structural.diffraction_pattern.intensity
+    # incident_wavelength = (
+    #    xrd_entry.results.properties.structural.diffraction_pattern.incident_wavelength
+    # )
+
+    # TODO make temporary directory for spectra
+    # pass on the directory path to the reference CIFs
+    # how to make this work for different uploads?
 
     if (
         model_entry.data.simulation_settings.min_angle != two_theta.min()
@@ -439,8 +443,8 @@ def analyse(
 
     results = dict()
     results['xrd'] = spectrum_analysis.main(
-        xrd_entry.data,
-        model_entry.data,
+        spectra_directory=xrd_entry.data,
+        reference_directory=model_entry.data,
         max_phases=settings.max_phases,
         cutoff_intensity=settings.cutoff_intensity,
         min_conf=settings.min_confidence,
