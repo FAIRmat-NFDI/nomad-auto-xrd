@@ -1,0 +1,23 @@
+{
+    "data": {
+        "m_def": "nomad_auto_xrd.schema_packages.auto_xrd_analysis.AutoXRDAnalysis",
+        "auto_xrd_model_entry": "../uploads/XMnFaWngTpqwG4g35jewYA/archive/TE6UJUctEz68nMuceGC6BVTcvOs3#/data",
+        "analysis_settings": {
+            "xrd_model": "Model.h5",
+            "patterns_folder_directory": "Spectra",
+            "max_phases": 3,
+            "cutoff_intensity": 1,
+            "min_confidence": 40,
+            "wavelength": "CuKa",
+            "unknown_threshold": 25,
+            "show_reduced": false,
+            "include_pdf": false,
+            "parallel": false,
+            "raw": true,
+            "show_individual": false,
+            "min_angle": 25,
+            "max_angle": 80,
+            "structure_references_directory": "References"
+        }
+    }
+}
