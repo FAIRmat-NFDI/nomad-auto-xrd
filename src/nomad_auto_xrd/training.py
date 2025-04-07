@@ -346,7 +346,7 @@ def generate_reference_structures(working_directory: str, settings: SimulationSe
     return reference_structures_path
 
 
-def train(model_config: AutoXRDModel):
+def train(model_entry: AutoXRDModel):
     """
     Main function to run the XRD model pipeline: generate reference structures,
     simulate XRD patterns, setup data for training, initialize the model, and train it.
@@ -358,74 +358,74 @@ def train(model_config: AutoXRDModel):
 
     # Prepare data
     reference_structures_path = generate_reference_structures(
-        model_config.working_directory, model_config.simulation_settings
+        model_entry.working_directory, model_entry.simulation_settings
     )
     xrd_obj = spectrum_generation.SpectraGenerator(
         reference_dir=reference_structures_path,
-        num_spectra=model_config.simulation_settings.num_patterns,
-        max_texture=model_config.simulation_settings.max_texture,
-        min_domain_size=model_config.simulation_settings.min_domain_size.magnitude,
-        max_domain_size=model_config.simulation_settings.max_domain_size.magnitude,
-        max_strain=model_config.simulation_settings.max_strain,
-        max_shift=model_config.simulation_settings.max_shift.magnitude,
-        impur_amt=model_config.simulation_settings.impur_amt,
-        min_angle=model_config.simulation_settings.min_angle.magnitude,
-        max_angle=model_config.simulation_settings.max_angle.magnitude,
-        separate=model_config.simulation_settings.separate,
+        num_spectra=model_entry.simulation_settings.num_patterns,
+        max_texture=model_entry.simulation_settings.max_texture,
+        min_domain_size=model_entry.simulation_settings.min_domain_size.magnitude,
+        max_domain_size=model_entry.simulation_settings.max_domain_size.magnitude,
+        max_strain=model_entry.simulation_settings.max_strain,
+        max_shift=model_entry.simulation_settings.max_shift.magnitude,
+        impur_amt=model_entry.simulation_settings.impur_amt,
+        min_angle=model_entry.simulation_settings.min_angle.magnitude,
+        max_angle=model_entry.simulation_settings.max_angle.magnitude,
+        separate=model_entry.simulation_settings.separate,
         is_pdf=False,
     )
     xrd_spectras = xrd_obj.augmented_spectra
     dataset = DataSetUp(
-        xrd_spectras, testing_fraction=model_config.training_settings.test_fraction
+        xrd_spectras, testing_fraction=model_entry.training_settings.test_fraction
     )
     num_phases = dataset.num_phases
     train_x, train_y, test_x, test_y = dataset.split_training_testing()
 
     # Clean up the Models directory
-    models_dir = os.path.join(model_config.working_directory, 'Models')
+    models_dir = os.path.join(model_entry.working_directory, 'Models')
     if os.path.exists(models_dir):
         shutil.rmtree(models_dir)
     os.makedirs(models_dir, exist_ok=True)
-    model_config.wandb_run_urls = []
-    model_config.models = []
+    model_entry.wandb_run_urls = []
+    model_entry.models = []
 
     # Build the model
     model = build_model(train_x.shape[1:], num_phases, is_pdf=False)
 
     # Train the model and get the wandb run URL
     wandb_run_url_xrd = train_model(
-        train_x, train_y, model, model_config.training_settings
+        train_x, train_y, model, model_entry.training_settings
     )
-    model_config.wandb_run_urls.append(wandb_run_url_xrd)
+    model_entry.wandb_run_urls.append(wandb_run_url_xrd)
 
     # Save the trained model
     xrd_model_path = os.path.join(models_dir, 'XRD_Model.h5')
     model.save(xrd_model_path, include_optimizer=False)
-    model_config.models.append(xrd_model_path)
+    model_entry.models.append(xrd_model_path)
 
     # Test the model
     test_model(model, test_x, test_y)
 
-    if not model_config.includes_pdf:
+    if not model_entry.includes_pdf:
         return
 
     # If `model_config.includes_pdf` is True, train another model on PDFs
     pdf_spectras = spectrum_generation.SpectraGenerator(
         reference_dir=reference_structures_path,
-        num_spectra=model_config.simulation_settings.num_patterns,
-        max_texture=model_config.simulation_settings.max_texture,
-        min_domain_size=model_config.simulation_settings.min_domain_size.magnitude,
-        max_domain_size=model_config.simulation_settings.max_domain_size.magnitude,
-        max_strain=model_config.simulation_settings.max_strain,
-        max_shift=model_config.simulation_settings.max_shift.magnitude,
-        impur_amt=model_config.simulation_settings.impur_amt,
-        min_angle=model_config.simulation_settings.min_angle.magnitude,
-        max_angle=model_config.simulation_settings.max_angle.magnitude,
-        separate=model_config.simulation_settings.separate,
+        num_spectra=model_entry.simulation_settings.num_patterns,
+        max_texture=model_entry.simulation_settings.max_texture,
+        min_domain_size=model_entry.simulation_settings.min_domain_size.magnitude,
+        max_domain_size=model_entry.simulation_settings.max_domain_size.magnitude,
+        max_strain=model_entry.simulation_settings.max_strain,
+        max_shift=model_entry.simulation_settings.max_shift.magnitude,
+        impur_amt=model_entry.simulation_settings.impur_amt,
+        min_angle=model_entry.simulation_settings.min_angle.magnitude,
+        max_angle=model_entry.simulation_settings.max_angle.magnitude,
+        separate=model_entry.simulation_settings.separate,
         is_pdf=True,
     ).augmented_spectra
     dataset_pdf = DataSetUp(
-        pdf_spectras, testing_fraction=model_config.training_settings.test_fraction
+        pdf_spectras, testing_fraction=model_entry.training_settings.test_fraction
     )
     num_phases_pdf = dataset_pdf.num_phases
     train_x_pdf, train_y_pdf, test_x_pdf, test_y_pdf = (
@@ -437,13 +437,13 @@ def train(model_config: AutoXRDModel):
 
     # Train the PDF model and get the wandb run URL
     wandb_run_url_pdf = train_model(
-        train_x_pdf, train_y_pdf, model_pdf, model_config.training_settings
+        train_x_pdf, train_y_pdf, model_pdf, model_entry.training_settings
     )
-    model_config.wandb_run_urls.append(wandb_run_url_pdf)
+    model_entry.wandb_run_urls.append(wandb_run_url_pdf)
 
     # Save the PDF model
     pdf_model_path = os.path.join(models_dir, 'PDF_Model.h5')
-    model_config.models.append(pdf_model_path)
+    model_entry.models.append(pdf_model_path)
     model_pdf.save(pdf_model_path, include_optimizer=False)
 
     # Test the PDF model

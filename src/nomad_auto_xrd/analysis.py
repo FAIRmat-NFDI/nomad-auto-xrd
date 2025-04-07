@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from autoXRD import spectrum_analysis, visualizer
+from nomad_analysis.auto_xrd.schema import AutoXRDModel
+from nomad_measurements.xrd.schema import ELNXRayDiffraction
 
 if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive
@@ -399,3 +401,51 @@ if __name__ == '__main__':
         )
     else:
         print("Invalid choice. Please select either '1' or '2'.")
+
+
+def analyse(
+    xrd_entry: 'EntryArchive', model_entry: 'EntryArchive', settings: 'AnalysisSettings'
+) -> None:
+    """
+    The main function to run the Auto XRD analysis for the given XRD and Auto XRD model
+    entries.
+    This function orchestrates the analysis process, including loading the model,
+    extracting patterns, and running the analysis.
+
+    Args:
+        xrd: The `EntryArchive` entry containing the data to be analyzed.
+        model: The `AutoXRDModel` entry containing the model metadata.
+        settings: The AnalysisSettings object containing the analysis settings.
+    """
+    if not isinstance(xrd_entry.data, ELNXRayDiffraction):
+        raise ValueError('The provided entry is not a valid XRayDiffraction entry.')
+    if not isinstance(model_entry.data, AutoXRDModel):
+        raise ValueError('The provided entry is not a valid AutoXRDModel entry.')
+
+    two_theta = xrd_entry.results.properties.structural.diffraction_pattern.two_theta
+    intensity = xrd_entry.results.properties.structural.diffraction_pattern.intensity
+    incident_wavelength = (
+        xrd_entry.results.properties.structural.diffraction_pattern.incident_wavelength
+    )
+
+    if (
+        model_entry.data.simulation_settings.min_angle != two_theta.min()
+        or model_entry.data.simulation_settings.max_angle != two_theta.max()
+    ):
+        raise ValueError(
+            'The range of angles in the model entry does not match the XRD data.'
+        )
+
+    results = dict()
+    results['xrd'] = spectrum_analysis.main(
+        xrd_entry.data,
+        model_entry.data,
+        max_phases=settings.max_phases,
+        cutoff_intensity=settings.cutoff_intensity,
+        min_conf=settings.min_confidence,
+        wavelength=settings.wavelength,
+        min_angle=settings.min_angle,
+        max_angle=settings.max_angle,
+        parallel=settings.parallel,
+        model_path=settings.xrd_model,
+    )
