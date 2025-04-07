@@ -6,10 +6,18 @@ from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from autoXRD import spectrum_analysis, visualizer
+from nomad.config import config
+from nomad.metainfo import SchemaPackage
 
 if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive
     from structlog.stdlib import BoundLogger
+
+configuration = config.get_plugin_entry_point(
+    'nomad_auto_xrd.schema_packages:auto_xrd_analysis'
+)
+
+m_package = SchemaPackage()
 
 
 def convert_to_serializable(obj):
@@ -222,17 +230,17 @@ def analyze_pattern(  # noqa: PLR0912, PLR0915
         # Show backup predictions
         if settings.show_individual:
             if logger:
-                logger.info(f'XRD predicted phases: {results["XRD"].phases[idx]}')
-                logger.info(f'XRD confidence: {results["XRD"].confidences[idx]}')
+                logger.info(f"XRD predicted phases: {results['XRD'].phases[idx]}")
+                logger.info(f"XRD confidence: {results['XRD'].confidences[idx]}")
                 if settings.include_pdf:
-                    logger.info(f'PDF predicted phases: {results["PDF"].phases[idx]}')
-                    logger.info(f'PDF confidence: {results["PDF"].confidences[idx]}')
+                    logger.info(f"PDF predicted phases: {results['PDF'].phases[idx]}")
+                    logger.info(f"PDF confidence: {results['PDF'].confidences[idx]}")
             else:
-                print(f'XRD predicted phases: {results["XRD"].phases[idx]}')
-                print(f'XRD confidence: {results["XRD"].confidences[idx]}')
+                print(f"XRD predicted phases: {results['XRD'].phases[idx]}")
+                print(f"XRD confidence: {results['XRD'].confidences[idx]}")
                 if settings.include_pdf:
-                    print(f'PDF predicted phases: {results["PDF"].phases[idx]}')
-                    print(f'PDF confidence: {results["PDF"].confidences[idx]}')
+                    print(f"PDF predicted phases: {results['PDF'].phases[idx]}")
+                    print(f"PDF confidence: {results['PDF'].confidences[idx]}")
 
         # Plot the results
         phasenames = [f'{phase}.cif' for phase in phase_set]
