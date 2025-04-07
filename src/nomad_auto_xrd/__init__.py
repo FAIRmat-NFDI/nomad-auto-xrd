@@ -35,7 +35,7 @@ class AutoXRDSchemaPackageEntryPoint(SchemaPackageEntryPoint):
         return m_package
 
 
-schema = AutoXRDSchemaPackageEntryPoint(
+schema_entry_point = AutoXRDSchemaPackageEntryPoint(
     name='Auto XRD',
     description='Schema for training Auto XRD models and running Auto XRD analysis.',
 )
