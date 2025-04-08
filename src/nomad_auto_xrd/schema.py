@@ -32,7 +32,7 @@ from nomad.datamodel.metainfo.annotations import (
     ELNComponentEnum,
     SectionProperties,
 )
-from nomad.datamodel.metainfo.basesections import Measurement, SectionReference
+from nomad.datamodel.metainfo.basesections import SectionReference
 from nomad.datamodel.results import Material, SymmetryNew, System
 from nomad.metainfo import (
     Quantity,
@@ -43,6 +43,7 @@ from nomad.metainfo import (
 from nomad.normalizing.common import nomad_atoms_from_ase_atoms
 from nomad.normalizing.topology import add_system, add_system_info
 from nomad_analysis.jupyter.schema import JupyterAnalysis
+from nomad_measurements.xrd.schema import ELNXRayDiffraction
 
 if TYPE_CHECKING:
     from structlog.stdlib import (
@@ -375,11 +376,11 @@ class AutoXRDModelReference(SectionReference):
 
 class AutoXRDMeasurementReference(SectionReference):
     """
-    A reference to an `Measurement` entry.
+    A reference to an `ELNXRayDiffraction` entry.
     """
 
     reference = Quantity(
-        type=Measurement,
+        type=ELNXRayDiffraction,
         description='A reference to an `Measurement` entry.',
         a_eln=ELNAnnotation(
             component='ReferenceEditQuantity',
@@ -481,9 +482,9 @@ class IdentifiedPhase(ArchiveSection):
     Section for the identified phase.
     """
 
-    phase = Quantity(
+    name = Quantity(
         type=str,
-        description='The identified phase in the XRD data.',
+        description='The name of the identified phase in the XRD data.',
     )
     reference_structure = Quantity(
         type=System,
@@ -496,6 +497,32 @@ class IdentifiedPhase(ArchiveSection):
     probability = Quantity(
         type=float,
         description='The probability that the phase is present.',
+    )
+
+    def normalize(self, archive, logger):
+        """
+        Copy over the label of the reference structure to the name of the identified
+        phase.
+        """
+        super().normalize(archive, logger)
+        if self.reference_structure and self.reference_structure.label:
+            # Get the structure label from the reference structure
+            self.name = self.reference_structure.label
+
+
+class AutoXRDAnalysisResult(ArchiveSection):
+    """
+    Section for the results of the auto XRD analysis.
+    """
+
+    xrd_measurement = SubSection(
+        section_def=AutoXRDMeasurementReference,
+        description='The XRD pattern used for analysis.',
+    )
+    identified_phases = SubSection(
+        section_def=IdentifiedPhase,
+        repeats=True,
+        description='The identified phases in the XRD data.',
     )
 
 
@@ -688,7 +715,9 @@ class AutoXRDTraining(JupyterAnalysis):
 
 class AutoXRDAnalysis(JupyterAnalysis):
     """
-    Schema for running an auto XRD analysis using an pre-trained ML model.
+    Schema for running an auto XRD analysis using an pre-trained Auto XRD model.
+    Allows to attach Auto XRD model and XRD measurement entries and run the analysis
+    using a pre-defined Jupyter notebook to identify the phases in the XRD data.
     """
 
     m_def = Section(
@@ -704,8 +733,9 @@ class AutoXRDAnalysis(JupyterAnalysis):
                     'query_for_inputs',
                     'notebook',
                     'action_trigger',
+                    'analysis_settings',
                     'inputs',
-                    'identified_phases',
+                    'results',
                 ],
             ),
         ),
@@ -718,10 +748,19 @@ class AutoXRDAnalysis(JupyterAnalysis):
             props=dict(height=500),
         ),
     )
-    identified_phases = SubSection(
-        section_def='IdentifiedPhase',
+    analysis_settings = SubSection(
+        section_def=AnalysisSettings,
+        description='Settings for running the analysis.',
+    )
+    inputs = SubSection(
+        section_def=AutoXRDMeasurementReference,
         repeats=True,
-        description='The identified phases in the XRD data.',
+        description='A reference to an `ELNXRayDiffraction` entry.',
+    )
+    results = SubSection(
+        section_def='AutoXRDAnalysisResult',
+        repeats=True,
+        description='Results of the auto XRD analysis.',
     )
 
     def write_predefined_cells(self, archive, logger):
