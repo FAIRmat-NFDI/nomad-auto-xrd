@@ -387,6 +387,95 @@ class AutoXRDMeasurementReference(SectionReference):
     )
 
 
+class AnalysisSettings(ArchiveSection):
+    """
+    A schema for the settings for running the analysis.
+    """
+
+    auto_xrd_model = Quantity(
+        type=AutoXRDModel,
+        a_eln=ELNAnnotation(
+            component='ReferenceEditQuantity',
+        ),
+        description='Reference to an `AutoXRDModel` entry.',
+    )
+    max_phases = Quantity(
+        type=int,
+        description='Maximum number of phases to identify.',
+        default=5,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+        ),
+    )
+    cutoff_intensity = Quantity(
+        type=float,
+        description='Cutoff intensity for the XRD pattern.',
+        default=0.05,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+        ),
+    )
+    min_confidence = Quantity(
+        type=float,
+        description='Minimum confidence for phase identification.',
+        default=10.0,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+        ),
+    )
+    unknown_threshold = Quantity(
+        type=float,
+        description='Threshold for unknown phase identification.',
+        default=0.2,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+        ),
+    )
+    show_reduced = Quantity(
+        type=bool,
+        description='Flag to show reduced patterns.',
+        default=False,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.BoolEditQuantity,
+        ),
+    )
+    include_pdf = Quantity(
+        type=bool,
+        description='Flag to include PDFs in the analysis.',
+        default=False,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.BoolEditQuantity,
+        ),
+    )
+    parallel = Quantity(
+        type=bool,
+        description='Flag to run the analysis in parallel.',
+        default=False,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.BoolEditQuantity,
+        ),
+    )
+    raw = Quantity(
+        type=bool,
+        description='Flag to show raw data.',
+        default=False,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.BoolEditQuantity,
+        ),
+    )
+    show_individual = Quantity(
+        type=bool,
+        description='Flag to show individual patterns.',
+        default=False,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.BoolEditQuantity,
+        ),
+    )
+    # wavelength: str = 'CuKa'
+    # min_angle: Optional[float] = None
+    # max_angle: Optional[float] = None
+
+
 class IdentifiedPhase(ArchiveSection):
     """
     Section for the identified phase.
