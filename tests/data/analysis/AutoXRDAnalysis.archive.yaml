@@ -1,0 +1,5 @@
+data:
+  m_def: nomad_auto_xrd.schema.AutoXRDModel
+  analysis_settings:
+    min_angle: 10.0
+    max_angle: 60.0
