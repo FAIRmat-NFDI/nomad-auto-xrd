@@ -32,7 +32,7 @@ from nomad.datamodel.metainfo.annotations import (
     ELNComponentEnum,
     SectionProperties,
 )
-from nomad.datamodel.metainfo.basesections import SectionReference
+from nomad.datamodel.metainfo.basesections import Entity, SectionReference
 from nomad.datamodel.results import Material, SymmetryNew, System
 from nomad.metainfo import (
     Quantity,
@@ -113,7 +113,7 @@ class SimulationSettings(ArchiveSection):
         type=np.float64,
         description='Minimum angle value.',
         unit='deg',
-        default=20.0,
+        default=10.0,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity,
         ),
@@ -237,7 +237,7 @@ class TrainingSettings(ArchiveSection):
     )
 
 
-class AutoXRDModel(Schema):
+class AutoXRDModel(Entity, Schema):
     """
     Section for describing an auto XRD model.
     """
@@ -472,9 +472,33 @@ class AnalysisSettings(ArchiveSection):
             component=ELNComponentEnum.BoolEditQuantity,
         ),
     )
-    # wavelength: str = 'CuKa'
-    # min_angle: Optional[float] = None
-    # max_angle: Optional[float] = None
+    wavelength = Quantity(
+        type=float,
+        unit='m',
+        description='Wavelength of the X-ray tube source used for the measurement.',
+        default=1.540598e-10,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+        ),
+    )
+    min_angle = Quantity(
+        type=float,
+        unit='deg',
+        description='Minimum angle for the analysis.',
+        default=10.0,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+        ),
+    )
+    max_angle = Quantity(
+        type=float,
+        unit='deg',
+        description='Maximum angle for the analysis.',
+        default=80.0,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+        ),
+    )
 
 
 class IdentifiedPhase(ArchiveSection):
