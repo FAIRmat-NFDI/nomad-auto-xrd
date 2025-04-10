@@ -1,14 +1,14 @@
 import json
 import os
+import tempfile
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from autoXRD import spectrum_analysis, visualizer
-from nomad_measurements.xrd.schema import ELNXRayDiffraction
 
-from nomad_auto_xrd.schema import AutoXRDModel
+from nomad_auto_xrd.schema import AutoXRDAnalysis, AutoXRDModel
 
 if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive
@@ -374,6 +374,98 @@ def run_analysis_existing_spectra(
     )  # Replace 'logger=None' with an actual logger instance if available
 
 
+def analyse(analysis: 'AutoXRDAnalysis'):
+    """
+    Runs the Auto XRD analysis for the given Auto XRD analysis entry. This function
+    orchestrates the analysis process, including loading the model, extracting patterns,
+    and running the analysis to identify the phases.
+
+    Args:
+        analysis (AutoXRDAnalysis): NOMAD analysis section containing the XRD
+            data and model information.
+    """
+    model: AutoXRDModel = analysis.analysis_settings.auto_xrd_model
+
+    # get the xrd data from the analysis inputs
+    xrd_data = []
+    for xrd_reference in analysis.inputs:
+        data_dict = dict()
+        if not xrd_reference.reference:
+            print('Referenced entry not found. Skipping the XRD entry.')
+            continue
+        xrd = xrd_reference.reference
+        # TODO resolve the reference using the context if it's a MProxyValue
+        # TODO add reference paths to the data dict for populating the analysis results
+        try:
+            pattern = xrd.m_parent.results.properties.structural.diffraction_pattern[0]
+            two_theta = pattern.two_theta_angles.to('degree').magnitude
+            intensity = pattern.intensity
+        except AttributeError as e:
+            print(f'AttributeError: {e}. Skipping the XRD entry.')
+            continue
+        if two_theta is None or intensity is None:
+            print('XRD data is missing. Skipping the XRD entry.')
+            continue
+
+        data_dict['two_theta'] = two_theta
+        data_dict['intensity'] = intensity
+        data_dict['reference_path'] = None
+
+        xrd_data.append(data_dict)
+
+    # TODO make temporary directory for spectra
+    # pass on the directory path to the reference CIFs
+    # how to get the reference CIFs and models from a different upload?
+    ref_dir, _ = os.path.split(model.reference_files[0])
+    xrd_model_path = model.models[0]
+    pdf_model_path = model.models[1] if len(model.models) > 1 else None
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Create a temporary directory for the spectra
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # Save the XRD data to temporary files
+        for i, xrd_reference in enumerate(xrd_data):
+            with open(
+                os.path.join(temp_dir, f'spectrum_{i}.xy'), 'w', encoding='utf-8'
+            ) as f:
+                for angle, intensity in zip(
+                    xrd_reference['two_theta'], xrd_reference['intensity']
+                ):
+                    f.write(f'{angle} {intensity}\n')
+
+        results = dict()
+        settings = analysis.analysis_settings
+        results['xrd'] = spectrum_analysis.main(
+            spectra_directory=temp_dir,
+            reference_directory=ref_dir,
+            max_phases=settings.max_phases,
+            cutoff_intensity=settings.cutoff_intensity,
+            min_conf=settings.min_confidence,
+            wavelength=settings.wavelength.to('angstrom').magnitude,
+            min_angle=settings.min_angle.to('degree').magnitude,
+            max_angle=settings.max_angle.to('degree').magnitude,
+            parallel=settings.parallel,
+            model_path=xrd_model_path,
+        )
+        if pdf_model_path:
+            results['pdf'] = spectrum_analysis.main(
+                spectra_directory=temp_dir,
+                reference_directory=ref_dir,
+                max_phases=settings.max_phases,
+                cutoff_intensity=settings.cutoff_intensity,
+                min_conf=settings.min_confidence,
+                wavelength=settings.wavelength.to('angstrom').magnitude,
+                min_angle=settings.min_angle.to('degree').magnitude,
+                max_angle=settings.max_angle.to('degree').magnitude,
+                parallel=settings.parallel,
+                model_path=pdf_model_path,
+                is_pdf=True,
+            )
+
+    return results
+
+
 # Example usage
 if __name__ == '__main__':
     settings = AnalysisSettings(
@@ -402,55 +494,3 @@ if __name__ == '__main__':
         )
     else:
         print("Invalid choice. Please select either '1' or '2'.")
-
-
-def analyse(
-    xrd_entry: 'EntryArchive', model_entry: 'EntryArchive', settings: 'AnalysisSettings'
-) -> None:
-    """
-    The main function to run the Auto XRD analysis for the given XRD and Auto XRD model
-    entries.
-    This function orchestrates the analysis process, including loading the model,
-    extracting patterns, and running the analysis.
-
-    Args:
-        xrd: The `EntryArchive` entry containing the data to be analyzed.
-        model: The `AutoXRDModel` entry containing the model metadata.
-        settings: The AnalysisSettings object containing the analysis settings.
-    """
-    if not isinstance(xrd_entry.data, ELNXRayDiffraction):
-        raise ValueError('The provided entry is not a valid XRayDiffraction entry.')
-    if not isinstance(model_entry.data, AutoXRDModel):
-        raise ValueError('The provided entry is not a valid AutoXRDModel entry.')
-
-    two_theta = xrd_entry.results.properties.structural.diffraction_pattern.two_theta
-    # intensity = xrd_entry.results.properties.structural.diffraction_pattern.intensity
-    # incident_wavelength = (
-    #    xrd_entry.results.properties.structural.diffraction_pattern.incident_wavelength
-    # )
-
-    # TODO make temporary directory for spectra
-    # pass on the directory path to the reference CIFs
-    # how to make this work for different uploads?
-
-    if (
-        model_entry.data.simulation_settings.min_angle != two_theta.min()
-        or model_entry.data.simulation_settings.max_angle != two_theta.max()
-    ):
-        raise ValueError(
-            'The range of angles in the model entry does not match the XRD data.'
-        )
-
-    results = dict()
-    results['xrd'] = spectrum_analysis.main(
-        spectra_directory=xrd_entry.data,
-        reference_directory=model_entry.data,
-        max_phases=settings.max_phases,
-        cutoff_intensity=settings.cutoff_intensity,
-        min_conf=settings.min_confidence,
-        wavelength=settings.wavelength,
-        min_angle=settings.min_angle,
-        max_angle=settings.max_angle,
-        parallel=settings.parallel,
-        model_path=settings.xrd_model,
-    )
