@@ -40,17 +40,15 @@ def test_analysis(parsed_measurement_archives, caplog):
     model.data.reference_files = reference_files
     model.data.xrd_model = os.path.join(data_dir, 'Models', 'XRD_Model.h5')
     model.data.pdf_model = os.path.join(data_dir, 'Models', 'PDF_Model.h5')
-
     normalize_all(model)
 
     # prepare the analysis
     analysis = parse(os.path.join(data_dir, 'AutoXRDAnalysis.archive.yaml'))[0]
-    analysis.analysis_settings.auto_xrd_model = model.data
-    analysis.m_setdefault('inputs/0')
-    analysis.inputs[0].reference = parsed_measurement_archives[0].data
-    analysis.m_setdefault('inputs/1')
-    analysis.inputs[1].reference = parsed_measurement_archives[1].data
+    analysis.data.analysis_settings.auto_xrd_model = model.data
+    analysis.m_setdefault('data/inputs/0')
+    analysis.data.inputs[0].reference = parsed_measurement_archives[0].data
+    analysis.m_setdefault('data/inputs/1')
+    analysis.data.inputs[1].reference = parsed_measurement_archives[1].data
     normalize_all(analysis)
 
-    results = analyse(analysis)
-    print(results)
+    analyse(analysis.data)

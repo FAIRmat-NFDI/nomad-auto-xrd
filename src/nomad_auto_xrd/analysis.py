@@ -374,7 +374,7 @@ def run_analysis_existing_spectra(
     )  # Replace 'logger=None' with an actual logger instance if available
 
 
-def analyse(analysis: 'AutoXRDAnalysis') -> list['IdentifiedPhase']:
+def analyse(analysis: 'AutoXRDAnalysis'):
     """
     Runs the Auto XRD analysis for the given Auto XRD analysis entry. This function
     orchestrates the analysis process, including loading the model, extracting patterns,
@@ -383,9 +383,6 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list['IdentifiedPhase']:
     Args:
         analysis (AutoXRDAnalysis): NOMAD analysis section containing the XRD
             data and model information.
-
-    Returns:
-        list[IdentifiedPhase]: List of identified phases from the analysis.
     """
     model: AutoXRDModel = analysis.analysis_settings.auto_xrd_model
 
@@ -501,7 +498,6 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list['IdentifiedPhase']:
 
     # TODO process the results and save them as IdentifiedPhase objects
     # extend the IdentifiedPhase class if necessary
-    return []
 
 
 # Example usage
