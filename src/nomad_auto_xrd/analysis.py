@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Optional
 import numpy as np
 from autoXRD import spectrum_analysis, visualizer
 
-from nomad_auto_xrd.schema import AutoXRDAnalysis, AutoXRDModel
+from nomad_auto_xrd.schema import AutoXRDAnalysis, AutoXRDModel, IdentifiedPhase
 
 if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive
@@ -374,7 +374,7 @@ def run_analysis_existing_spectra(
     )  # Replace 'logger=None' with an actual logger instance if available
 
 
-def analyse(analysis: 'AutoXRDAnalysis'):
+def analyse(analysis: 'AutoXRDAnalysis') -> list['IdentifiedPhase']:
     """
     Runs the Auto XRD analysis for the given Auto XRD analysis entry. This function
     orchestrates the analysis process, including loading the model, extracting patterns,
@@ -383,6 +383,9 @@ def analyse(analysis: 'AutoXRDAnalysis'):
     Args:
         analysis (AutoXRDAnalysis): NOMAD analysis section containing the XRD
             data and model information.
+
+    Returns:
+        list[IdentifiedPhase]: List of identified phases from the analysis.
     """
     model: AutoXRDModel = analysis.analysis_settings.auto_xrd_model
 
