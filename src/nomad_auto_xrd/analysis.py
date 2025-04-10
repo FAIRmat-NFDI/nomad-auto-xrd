@@ -413,57 +413,92 @@ def analyse(analysis: 'AutoXRDAnalysis'):
 
         xrd_data.append(data_dict)
 
-    # TODO make temporary directory for spectra
-    # pass on the directory path to the reference CIFs
-    # how to get the reference CIFs and models from a different upload?
-    ref_dir, _ = os.path.split(model.reference_files[0])
-    xrd_model_path = model.models[0]
-    pdf_model_path = model.models[1] if len(model.models) > 1 else None
+    # TODO: Handle downloading of reference CIFs and models from a different upload
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Create a temporary directory for the spectra
-        os.makedirs(temp_dir, exist_ok=True)
-
-        # Save the XRD data to temporary files
+        # Generate .xy files for the XRD data
+        spectra_dir = os.path.join(temp_dir, 'Spectra')
+        os.makedirs(spectra_dir, exist_ok=True)
         for i, xrd_reference in enumerate(xrd_data):
             with open(
-                os.path.join(temp_dir, f'spectrum_{i}.xy'), 'w', encoding='utf-8'
+                os.path.join(spectra_dir, f'spectrum_{i}.xy'), 'w', encoding='utf-8'
             ) as f:
                 for angle, intensity in zip(
                     xrd_reference['two_theta'], xrd_reference['intensity']
                 ):
                     f.write(f'{angle} {intensity}\n')
+        # Create symlinks to the reference CIF files
+        references_dir = os.path.join(temp_dir, 'References')
+        os.makedirs(references_dir, exist_ok=True)
+        for reference in model.reference_files:
+            if os.path.exists(reference):
+                os.symlink(
+                    os.path.abspath(reference),
+                    os.path.join(references_dir, os.path.basename(reference)),
+                )
+            else:
+                print(f'Reference file {reference} does not exist. Skipping.')
+                continue
+        # Create symlinks to the model files
+        xrd_model_path = ''
+        pdf_model_path = ''
+        tmp_models_path = os.path.join(temp_dir, 'Models')
+        os.makedirs(tmp_models_path, exist_ok=True)
+        if model.xrd_model and os.path.exists(model.xrd_model):
+            xrd_model_path = os.path.join(
+                tmp_models_path, os.path.basename(model.xrd_model)
+            )
+            os.symlink(os.path.abspath(model.xrd_model), xrd_model_path)
+        if model.pdf_model and os.path.exists(model.pdf_model):
+            pdf_model_path = os.path.join(
+                tmp_models_path, os.path.basename(model.pdf_model)
+            )
+            os.symlink(os.path.abspath(model.pdf_model), pdf_model_path)
+
+        # Save the original working directory and change to the temporary directory
+        original_dir = os.getcwd()
+        os.chdir(temp_dir)
+        # Create a directory 'temp' that is being used by the spectrum_analysis module
+        os.makedirs('temp', exist_ok=True)
 
         results = dict()
-        settings = analysis.analysis_settings
-        results['xrd'] = spectrum_analysis.main(
-            spectra_directory=temp_dir,
-            reference_directory=ref_dir,
-            max_phases=settings.max_phases,
-            cutoff_intensity=settings.cutoff_intensity,
-            min_conf=settings.min_confidence,
-            wavelength=settings.wavelength.to('angstrom').magnitude,
-            min_angle=settings.min_angle.to('degree').magnitude,
-            max_angle=settings.max_angle.to('degree').magnitude,
-            parallel=settings.parallel,
-            model_path=xrd_model_path,
-        )
+        if xrd_model_path:
+            results['xrd'] = spectrum_analysis.main(
+                spectra_directory='Spectra',
+                reference_directory='References',
+                max_phases=analysis.analysis_settings.max_phases,
+                cutoff_intensity=analysis.analysis_settings.cutoff_intensity,
+                min_conf=analysis.analysis_settings.min_confidence,
+                wavelength=analysis.analysis_settings.wavelength.to(
+                    'angstrom'
+                ).magnitude,
+                min_angle=analysis.analysis_settings.min_angle.to('degree').magnitude,
+                max_angle=analysis.analysis_settings.max_angle.to('degree').magnitude,
+                parallel=analysis.analysis_settings.parallel,
+                model_path=os.path.join('Models', os.path.basename(xrd_model_path)),
+            )
         if pdf_model_path:
             results['pdf'] = spectrum_analysis.main(
-                spectra_directory=temp_dir,
-                reference_directory=ref_dir,
-                max_phases=settings.max_phases,
-                cutoff_intensity=settings.cutoff_intensity,
-                min_conf=settings.min_confidence,
-                wavelength=settings.wavelength.to('angstrom').magnitude,
-                min_angle=settings.min_angle.to('degree').magnitude,
-                max_angle=settings.max_angle.to('degree').magnitude,
-                parallel=settings.parallel,
-                model_path=pdf_model_path,
+                spectra_directory='Spectra',
+                reference_directory='References',
+                max_phases=analysis.analysis_settings.max_phases,
+                cutoff_intensity=analysis.analysis_settings.cutoff_intensity,
+                min_conf=analysis.analysis_settings.min_confidence,
+                wavelength=analysis.analysis_settings.wavelength.to(
+                    'angstrom'
+                ).magnitude,
+                min_angle=analysis.analysis_settings.min_angle.to('degree').magnitude,
+                max_angle=analysis.analysis_settings.max_angle.to('degree').magnitude,
+                parallel=analysis.analysis_settings.parallel,
+                model_path=os.path.join('Models', os.path.basename(pdf_model_path)),
                 is_pdf=True,
             )
+        # Restore the original working directory
+        os.chdir(original_dir)
 
-    return results
+    # TODO process the results and save them as IdentifiedPhase objects
+    # extend the IdentifiedPhase class if necessary
+    return []
 
 
 # Example usage
