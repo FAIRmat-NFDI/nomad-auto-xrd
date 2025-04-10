@@ -53,6 +53,14 @@ if TYPE_CHECKING:
 m_package = SchemaPackage()
 
 
+class Model(Entity, Schema):
+    """
+    Schema for a generic machine learning model. If the saved model file is from PyTorch
+    or TensorFlow, the model can be loaded using the `load_model` method. These model
+    file also normalized to populate the current model section.
+    """
+
+
 class SimulationSettings(ArchiveSection):
     """
     A schema for the settings for simulating XRD patterns.
@@ -268,10 +276,17 @@ class AutoXRDModel(Entity, Schema):
         ),
         a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
     )
-    models = Quantity(
+    xrd_model = Quantity(
         type=str,
-        shape=['*'],
-        description='Path to the trained model file.',
+        description='Path to the trained XRD model file.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.FileEditQuantity,
+        ),
+        a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
+    )
+    pdf_model = Quantity(
+        type=str,
+        description='Path to the trained XRD model file.',
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.FileEditQuantity,
         ),
