@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "nomad-auto-xrd"
+authors:
+  - family-names: "Marquez"
+    given-names: "Pepe"
+  - family-names: "Kapoor"
+    given-names: "Sarthak"
+date-released: "2025-01-01"
+version: "0.0.1"
+repository-code: "https://github.com/FAIRmat-NFDI/nomad-auto-xrd"
+license: "Apache-2.0"
+keywords:
+  - "XRD"
+  - "automation"
+  - "materials science"
+  - "data analysis"
