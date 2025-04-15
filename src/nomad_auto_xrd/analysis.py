@@ -385,20 +385,24 @@ def run_analysis_existing_spectra(
     )  # Replace 'logger=None' with an actual logger instance if available
 
 
-def analyse(analysis: 'AutoXRDAnalysis'):
+def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:
     """
     Runs the Auto XRD analysis for the given Auto XRD analysis entry. This function
     orchestrates the analysis process, including loading the model, extracting patterns,
-    and running the analysis to identify the phases.
+    and running the analysis to identify the phases. Populates
+    `analysis.results[0].identified_phases` with the identified phases and their
+    confidences.
 
     Args:
         analysis (AutoXRDAnalysis): NOMAD analysis section containing the XRD
             data and model information.
-    """
-    model: AutoXRDModel = analysis.analysis_settings.auto_xrd_model
 
+    Returns:
+        list[AnalysisResult]: List of analysis results attained from XRD-AutoAnalyser
+    """
     # get the xrd data from the analysis inputs
     xrd_data = []
+    entry_iter = 0
     for xrd_reference in analysis.inputs:
         data_dict = dict()
         if not xrd_reference.reference:
@@ -409,7 +413,7 @@ def analyse(analysis: 'AutoXRDAnalysis'):
         # TODO add reference paths to the data dict for populating the analysis results
         try:
             pattern = xrd.m_parent.results.properties.structural.diffraction_pattern[0]
-            two_theta = pattern.two_theta_angles.to('degree').magnitude
+            two_theta = pattern.two_theta_angles
             intensity = pattern.intensity
         except AttributeError as e:
             print(f'AttributeError: {e}. Skipping the XRD entry.')
@@ -418,13 +422,18 @@ def analyse(analysis: 'AutoXRDAnalysis'):
             print('XRD data is missing. Skipping the XRD entry.')
             continue
 
-        data_dict['two_theta'] = two_theta
+        data_dict['two_theta'] = two_theta.to('degree').magnitude
         data_dict['intensity'] = intensity
         data_dict['reference_path'] = None
 
         xrd_data.append(data_dict)
+        analysis.m_setdefault(f'results/{entry_iter}')
+        analysis.results[entry_iter].xrd_measurement = xrd_reference
+        entry_iter += 1
 
     # TODO: Handle downloading of reference CIFs and models from a different upload
+
+    model: AutoXRDModel = analysis.analysis_settings.auto_xrd_model
 
     with tempfile.TemporaryDirectory() as temp_dir:
         # Generate .xy files for the XRD data
@@ -474,41 +483,77 @@ def analyse(analysis: 'AutoXRDAnalysis'):
 
         results = dict()
         if xrd_model_path:
-            results['xrd'] = spectrum_analysis.main(
-                spectra_directory='Spectra',
-                reference_directory='References',
-                max_phases=analysis.analysis_settings.max_phases,
-                cutoff_intensity=analysis.analysis_settings.cutoff_intensity,
-                min_conf=analysis.analysis_settings.min_confidence,
-                wavelength=analysis.analysis_settings.wavelength.to(
-                    'angstrom'
-                ).magnitude,
-                min_angle=analysis.analysis_settings.min_angle.to('degree').magnitude,
-                max_angle=analysis.analysis_settings.max_angle.to('degree').magnitude,
-                parallel=analysis.analysis_settings.parallel,
-                model_path=os.path.join('Models', os.path.basename(xrd_model_path)),
+            results['xrd'] = AnalysisResult(
+                *spectrum_analysis.main(
+                    spectra_directory='Spectra',
+                    reference_directory='References',
+                    max_phases=analysis.analysis_settings.max_phases,
+                    cutoff_intensity=analysis.analysis_settings.cutoff_intensity,
+                    min_conf=analysis.analysis_settings.min_confidence,
+                    wavelength=analysis.analysis_settings.wavelength.to(
+                        'angstrom'
+                    ).magnitude,
+                    min_angle=analysis.analysis_settings.min_angle.to(
+                        'degree'
+                    ).magnitude,
+                    max_angle=analysis.analysis_settings.max_angle.to(
+                        'degree'
+                    ).magnitude,
+                    parallel=analysis.analysis_settings.parallel,
+                    model_path=os.path.join('Models', os.path.basename(xrd_model_path)),
+                )
             )
         if pdf_model_path:
-            results['pdf'] = spectrum_analysis.main(
-                spectra_directory='Spectra',
-                reference_directory='References',
-                max_phases=analysis.analysis_settings.max_phases,
-                cutoff_intensity=analysis.analysis_settings.cutoff_intensity,
-                min_conf=analysis.analysis_settings.min_confidence,
-                wavelength=analysis.analysis_settings.wavelength.to(
-                    'angstrom'
-                ).magnitude,
-                min_angle=analysis.analysis_settings.min_angle.to('degree').magnitude,
-                max_angle=analysis.analysis_settings.max_angle.to('degree').magnitude,
-                parallel=analysis.analysis_settings.parallel,
-                model_path=os.path.join('Models', os.path.basename(pdf_model_path)),
-                is_pdf=True,
+            results['pdf'] = AnalysisResult(
+                *spectrum_analysis.main(
+                    spectra_directory='Spectra',
+                    reference_directory='References',
+                    max_phases=analysis.analysis_settings.max_phases,
+                    cutoff_intensity=analysis.analysis_settings.cutoff_intensity,
+                    min_conf=analysis.analysis_settings.min_confidence,
+                    wavelength=analysis.analysis_settings.wavelength.to(
+                        'angstrom'
+                    ).magnitude,
+                    min_angle=analysis.analysis_settings.min_angle.to(
+                        'degree'
+                    ).magnitude,
+                    max_angle=analysis.analysis_settings.max_angle.to(
+                        'degree'
+                    ).magnitude,
+                    parallel=analysis.analysis_settings.parallel,
+                    model_path=os.path.join('Models', os.path.basename(pdf_model_path)),
+                    is_pdf=True,
+                )
             )
         # Restore the original working directory
         os.chdir(original_dir)
 
-    # TODO process the results and save them as IdentifiedPhase objects
-    # extend the IdentifiedPhase class if necessary
+    if results.get('xrd') and results.get('pdf'):
+        # merge results
+        results['merged_results'] = AnalysisResult.from_dict(
+            spectrum_analysis.merge_results(
+                {'XRD': results['xrd'].to_dict(), 'PDF': results['pdf'].to_dict()},
+                analysis.analysis_settings.min_confidence,
+                analysis.analysis_settings.max_phases,
+            )
+        )
+    elif results.get('xrd'):
+        results['merged_results'] = results['xrd']
+    else:
+        return results
+
+    for result_iter, (phases, confidences) in enumerate(
+        zip(results['merged_results'].phases, results['merged_results'].confidences)
+    ):
+        for phase, confidence in zip(phases, confidences):
+            analysis.results[result_iter].identified_phases.append(
+                IdentifiedPhase(
+                    name=phase,
+                    confidence=confidence,
+                )
+            )
+
+    return results
 
 
 # Example usage

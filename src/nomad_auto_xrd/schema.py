@@ -481,7 +481,7 @@ class AnalysisSettings(ArchiveSection):
     )
     show_individual = Quantity(
         type=bool,
-        description='Flag to show individual patterns.',
+        description='Flag to shows individual prediction results: XRD and PDF.',
         default=False,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.BoolEditQuantity,
@@ -499,7 +499,11 @@ class AnalysisSettings(ArchiveSection):
     min_angle = Quantity(
         type=float,
         unit='deg',
-        description='Minimum angle for the analysis.',
+        description="""
+        Minimum 2-theta angle to be assumed for the analysis. Even if the measured
+        spectra has a lower angle, the analysis will be performed on the spectra
+        starting from this angle.
+        """,
         default=10.0,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity,
@@ -508,7 +512,11 @@ class AnalysisSettings(ArchiveSection):
     max_angle = Quantity(
         type=float,
         unit='deg',
-        description='Maximum angle for the analysis.',
+        description="""
+        Maximum 2-theta angle to be assumed for the analysis. Even if the measured
+        spectra has a higher angle, the analysis will be performed on the spectra up to
+        this angle.
+        """,
         default=80.0,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity,
@@ -533,9 +541,9 @@ class IdentifiedPhase(ArchiveSection):
             component='ReferenceEditQuantity',
         ),
     )
-    probability = Quantity(
+    confidence = Quantity(
         type=float,
-        description='The probability that the phase is present.',
+        description='The confidence that the phase is present, ranging from 0 to 100.',
     )
 
     def normalize(self, archive, logger):
@@ -797,7 +805,7 @@ class AutoXRDAnalysis(JupyterAnalysis):
         description='A reference to an `ELNXRayDiffraction` entry.',
     )
     results = SubSection(
-        section_def='AutoXRDAnalysisResult',
+        section_def=AutoXRDAnalysisResult,
         repeats=True,
         description='Results of the auto XRD analysis.',
     )
