@@ -30,7 +30,7 @@ def test_analysis(parsed_measurement_archives, caplog):
         - The analysis entry stores the settings for the analysis including references
           to the XRD entry and the model entry.
     """
-    # prepare the pre-trained model
+    # prepare the pre-trained model entry
     reference_files = [
         os.path.join(data_dir, 'References', path)
         for path in os.listdir(os.path.join(data_dir, 'References'))
@@ -42,7 +42,7 @@ def test_analysis(parsed_measurement_archives, caplog):
     model.data.pdf_model = os.path.join(data_dir, 'Models', 'PDF_Model.h5')
     normalize_all(model)
 
-    # prepare the analysis
+    # prepare the analysis entry
     analysis = parse(os.path.join(data_dir, 'AutoXRDAnalysis.archive.yaml'))[0]
     analysis.data.analysis_settings.auto_xrd_model = model.data
     analysis.m_setdefault('data/inputs/0')
@@ -51,4 +51,8 @@ def test_analysis(parsed_measurement_archives, caplog):
     analysis.data.inputs[1].reference = parsed_measurement_archives[1].data
     normalize_all(analysis)
 
+    # run the analysis
     analyse(analysis.data)
+
+    assert analysis.data.results[0].identified_phases[0].name == 'CuPS3_136'
+    assert analysis.data.results[1].identified_phases[0].name == 'Cu3P_165'
