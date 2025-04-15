@@ -86,11 +86,22 @@ class AnalysisResult:
         return {
             'filenames': self.filenames,
             'phases': self.phases,
-            'confidences': self.confidences,
+            'confs': self.confidences,
             'backup_phases': self.backup_phases,
             'scale_factors': self.scale_factors,
             'reduced_spectra': self.reduced_spectra,
         }
+
+    @classmethod
+    def from_dict(self, data):
+        return AnalysisResult(
+            filenames=list(data['filenames']),
+            phases=list(data['phases']),
+            confidences=list(data['confs']),
+            backup_phases=list(data['backup_phases']),
+            scale_factors=list(data['scale_factors']),
+            reduced_spectra=list(data['reduced_spectra']),
+        )
 
 
 def analyze_pattern(  # noqa: PLR0912, PLR0915
