@@ -1,4 +1,5 @@
 import os
+import tempfile
 
 import pytest
 from nomad.client import normalize_all, parse
@@ -30,6 +31,13 @@ def test_train(caplog):
     model.data.simulation_settings.structure_files = structure_files
     normalize_all(model)
 
-    os.chdir('tests')
-    train(model.data)
-    # Check if the model was trained successfully
+    # Create a temporary directory for the training
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        # Set the training directory
+        model.data.working_directory = tmpdirname
+        train(model.data)
+        normalize_all(model)
+
+        assert os.path.exists(os.path.join(tmpdirname, model.data.xrd_model))
+        assert os.path.exists(os.path.join(tmpdirname, model.data.pdf_model))
+        assert os.path.exists(os.path.join(tmpdirname, model.data.reference_files[0]))
