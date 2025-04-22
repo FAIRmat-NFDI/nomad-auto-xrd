@@ -261,9 +261,10 @@ class AutoXRDModel(Entity, Schema):
         type=str,
         description='Path to the directory containing the simulated data and trained '
         'models.',
-        default='nomad_auto_xrd',
+        default='auto_xrd_training',
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.StringEditQuantity,
+            default='auto_xrd_training',
         ),
     )
     reference_files = Quantity(
@@ -292,10 +293,18 @@ class AutoXRDModel(Entity, Schema):
         ),
         a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
     )
-    wandb_run_urls = Quantity(
+    wandb_run_url_xrd = Quantity(
         type=str,
         shape=['*'],
-        description='URL to the "Weights and Biases" run containing the trained model.',
+        description='URL to the "Weights and Biases" run for training XRD model.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.URLEditQuantity,
+        ),
+    )
+    wandb_run_url_pdf = Quantity(
+        type=str,
+        shape=['*'],
+        description='URL to the "Weights and Biases" run for training PDF model.',
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.URLEditQuantity,
         ),

@@ -292,76 +292,106 @@ class WandbMetricsLogger(Callback):
             )
 
 
-def generate_reference_structures(working_directory: str, settings: SimulationSettings):
+def generate_reference_structures(
+    structure_files,
+    skip_filter,
+    include_elems,
+):
     """
     Generates hypothetical solid solution structure files from provided CIF files and
-    saves them to the working directory under '<working_directory>/References/'.
+    saves them in the working directory under 'References/' path.
 
     Args:
-        working_directory (str): Path to the working directory where generated data will
-            be saved.
-        settings (SimulationSettings): Settings for generating hypothetical solid
-            solutions.
+        structure_files (list): List of CIF files to be processed.
+        skip_filter (bool): If True, skips the filtering step.
+        include_elems (bool): If True, include structures with only one element in their
+          composition.
+
+    Returns:
+        str: Path to the directory containing the generated reference structures.
     """
-    unprocessed_structures_path = os.path.join(
-        working_directory, 'unprocessed_structure_files'
-    )
-    reference_structures_path = os.path.join(working_directory, 'References')
-    os.makedirs(reference_structures_path, exist_ok=True)
+    # Reset the directories for input and reference structures
+    input_structures_dir = os.path.join('Input_Structures')
+    if os.path.exists(input_structures_dir):
+        shutil.rmtree(input_structures_dir)
+    os.makedirs(input_structures_dir, exist_ok=True)
+    reference_structures_dir = os.path.join('References')
+    if os.path.exists(reference_structures_dir):
+        shutil.rmtree(reference_structures_dir)
+    os.makedirs(reference_structures_dir, exist_ok=True)
 
-    # make dirs and copy CIFs to the working directory
-    os.makedirs(working_directory, exist_ok=True)
-    os.makedirs(unprocessed_structures_path, exist_ok=True)
-    for file in settings.structure_files:
-        try:
-            shutil.copy(file, unprocessed_structures_path)
-        except shutil.SameFileError:
+    # Remove the contents of the Filtered_CIFs folder if it exists
+    filter_cifs_dir = os.path.join('Filtered_CIFs')
+    if os.path.exists(filter_cifs_dir):
+        shutil.rmtree(filter_cifs_dir)
+
+    # Create symbolic links for the input CIF files
+    for file in structure_files:
+        if not os.path.exists(file):
+            print(f'File does not exist: {file}')
             continue
-
-    # Filter CIFs
-    if settings.skip_filter and not os.path.exists(reference_structures_path):
-        raise FileNotFoundError(
-            f'"skip_filter" is True, but "{reference_structures_path}" directory was '
-            'not found.'
+        input_path = os.path.join(input_structures_dir, os.path.basename(file))
+        if os.path.islink(input_path):
+            print(f'Symlink already exists: {input_path}')
+            continue
+        os.symlink(file, input_path)
+    if not os.listdir(input_structures_dir):
+        raise ValueError(
+            'No CIF files found at the paths provided in the `structure_files`.'
         )
-    elif not settings.skip_filter:
-        if not unprocessed_structures_path:
-            raise ValueError(
-                'No structure files were provided. Please provide a list of CIF files.'
-            )
-        if os.listdir(reference_structures_path):
-            raise FileExistsError(
-                f'"{reference_structures_path}" already contains structure files. '
-                'Please clear the directory or set "skip_filter=True".'
-            )
+
+    if skip_filter:
+        # Create symlinks to the inputs with running filtering
+        for file in os.listdir(input_structures_dir):
+            input_path = os.path.join(input_structures_dir, file)
+            reference_path = os.path.join(reference_structures_dir, file)
+            if os.path.islink(input_path):
+                target_path = os.readlink(input_path)
+                os.symlink(target_path, reference_path)
+    else:
+        # Run the filtering process: adds the filtered structures to the
+        # reference_structures_path directory
         tabulate_cifs.main(
-            unprocessed_structures_path,
-            reference_structures_path,
-            settings.include_elems,
+            input_structures_dir,
+            reference_structures_dir,
+            include_elems,
         )
 
     # Generate hypothetical solid solutions
-    solid_solns.main(reference_structures_path)
+    solid_solns.main(reference_structures_dir)
 
-    return reference_structures_path
+    return reference_structures_dir
 
 
 def train(model_entry: AutoXRDModel):
     """
     Main function to run the XRD model pipeline: generate reference structures,
     simulate XRD patterns, setup data for training, initialize the model, and train it.
+    Runs the autoXRD training pipeline in the specified working directory. Saves the
+    path of the reference structures and the trained model along with the W&B run URL
+    in the `model_entry`.
 
     Args:
-        model (AutoXRDModel): The model object containing all the necessary settings.
-            The object will also be updated with the trained model and W&B run URLs.
+        model_entry (AutoXRDModel): The model object containing all the necessary
+            settings. The object will also be updated with the trained model and W&B
+            run URLs.
     """
-
-    # Prepare data
-    reference_structures_path = generate_reference_structures(
-        model_entry.working_directory, model_entry.simulation_settings
+    original_dir = os.getcwd()
+    working_dir = (
+        model_entry.working_directory
+        if model_entry.working_directory
+        else os.path.join('auto_xrd_training')
     )
+    os.makedirs(working_dir, exist_ok=True)
+    os.chdir(working_dir)
+    reference_structures_dir = generate_reference_structures(
+        model_entry.simulation_settings.structure_files,
+        model_entry.simulation_settings.skip_filter,
+        model_entry.simulation_settings.include_elems,
+    )
+    # Generate XRD patterns
     xrd_obj = spectrum_generation.SpectraGenerator(
-        reference_dir=reference_structures_path,
+        reference_dir=reference_structures_dir,
         num_spectra=model_entry.simulation_settings.num_patterns,
         max_texture=model_entry.simulation_settings.max_texture,
         min_domain_size=model_entry.simulation_settings.min_domain_size.magnitude,
@@ -382,7 +412,7 @@ def train(model_entry: AutoXRDModel):
     train_x, train_y, test_x, test_y = dataset.split_training_testing()
 
     # Clean up the Models directory
-    models_dir = os.path.join(model_entry.working_directory, 'Models')
+    models_dir = os.path.join(working_dir, 'Models')
     if os.path.exists(models_dir):
         shutil.rmtree(models_dir)
     os.makedirs(models_dir, exist_ok=True)
@@ -396,12 +426,12 @@ def train(model_entry: AutoXRDModel):
     wandb_run_url_xrd = train_model(
         train_x, train_y, model, model_entry.training_settings
     )
-    model_entry.wandb_run_urls.append(wandb_run_url_xrd)
+    model_entry.wandb_run_url_xrd = wandb_run_url_xrd
 
     # Save the trained model
     xrd_model_path = os.path.join(models_dir, 'XRD_Model.h5')
     model.save(xrd_model_path, include_optimizer=False)
-    model_entry.models.append(xrd_model_path)
+    model_entry.xrd_model = xrd_model_path
 
     # Test the model
     test_model(model, test_x, test_y)
@@ -411,7 +441,7 @@ def train(model_entry: AutoXRDModel):
 
     # If `model_config.includes_pdf` is True, train another model on PDFs
     pdf_spectras = spectrum_generation.SpectraGenerator(
-        reference_dir=reference_structures_path,
+        reference_dir=reference_structures_dir,
         num_spectra=model_entry.simulation_settings.num_patterns,
         max_texture=model_entry.simulation_settings.max_texture,
         min_domain_size=model_entry.simulation_settings.min_domain_size.magnitude,
@@ -439,15 +469,21 @@ def train(model_entry: AutoXRDModel):
     wandb_run_url_pdf = train_model(
         train_x_pdf, train_y_pdf, model_pdf, model_entry.training_settings
     )
-    model_entry.wandb_run_urls.append(wandb_run_url_pdf)
+    model_entry.wandb_run_url_pdf = wandb_run_url_pdf
 
     # Save the PDF model
     pdf_model_path = os.path.join(models_dir, 'PDF_Model.h5')
-    model_entry.models.append(pdf_model_path)
     model_pdf.save(pdf_model_path, include_optimizer=False)
+    model_entry.pdf_model = pdf_model_path
 
     # Test the PDF model
     test_model(model_pdf, test_x_pdf, test_y_pdf)
+
+    # Restore the original working directory and saves the reference structures
+    os.chdir(original_dir)
+    model_entry.reference_files = get_cif_files_from_folder(
+        os.path.join(working_dir, reference_structures_dir)
+    )
 
 
 def get_cif_files_from_folder(folder_name):
