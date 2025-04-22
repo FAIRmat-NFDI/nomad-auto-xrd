@@ -859,6 +859,10 @@ class AutoXRDAnalysis(JupyterAnalysis):
             analysis.</p>
             """
         super().normalize(archive, logger)
+        # TODO add references for the identified phases, or
+        # use the cif files to populate the topology of results
+        # for the identified phases and make references to them
+        # in the identified phases section
 
 
 m_package.__init_metainfo__()
