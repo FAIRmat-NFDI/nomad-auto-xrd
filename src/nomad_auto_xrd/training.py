@@ -433,7 +433,6 @@ def train(model_entry: AutoXRDModel):
     if os.path.exists(models_dir):
         shutil.rmtree(models_dir)
     os.makedirs(models_dir, exist_ok=True)
-    model_entry.wandb_run_urls = []
     model_entry.models = []
 
     # Build the model
