@@ -33,6 +33,7 @@ dependencies = [
     "nomad-analysis>=0.1.0",
     "nomad-measurements",
     "nomad-schema-plugin-run>=1.0.1",
+    "nomad-schema-plugin-simulation-workflow>=1.0.9",
 ]
 
 [project.urls]
