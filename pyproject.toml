@@ -1,5 +1,8 @@
 [build-system]
-requires = ["setuptools>=61.0.0", "setuptools-scm>=8.0"]
+requires = [
+    "setuptools>=61.0.0",
+    "setuptools-scm>=8.0",
+]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,27 +10,27 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: Apache Software License",
 ]
 name = "nomad-auto-xrd"
-description = "Nomad example template"
-version = "0.1.0"
+description = "A NOMAD plugin containing schemas for automatic XRD analysis."
+dynamic = ["version"]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     { name = "Pepe Márquez", email = "jose.marquez@physik.hu-berlin.de" },
+    { name = "Sarthak Kapoor", email = "sarthak.kapoor@physik.hu-berlin.de" },
 ]
 maintainers = [
-    { name = "Pepe Márquez", email = "jose.marquez@physik.hu-berlin.de" },
+    { name = "FAIRmat", email = "fairmat@physik.hu-berlin.de" },
 ]
 license = { file = "LICENSE" }
 dependencies = [
-    "nomad-lab>=1.3.0",
-    "nomad-analysis @ git+https://github.com/FAIRmat-NFDI/nomad-analysis.git@d74cf3377bface49d81eaf6850c285188a5f2faf",
+    "nomad-lab>=1.3.14",
+    "nomad-analysis>=0.1.0",
 ]
 
 [project.urls]
