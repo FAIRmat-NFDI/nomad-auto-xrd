@@ -21,6 +21,7 @@ import shutil
 import warnings
 from dataclasses import dataclass
 from random import shuffle
+from typing import TYPE_CHECKING
 
 import numpy as np
 import tensorflow as tf
@@ -29,11 +30,10 @@ from nomad.datamodel import EntryArchive
 from tensorflow.keras.callbacks import Callback  # type: ignore
 
 # Import necessary modules from autoXRD
-from nomad_auto_xrd.schema import (
-    AutoXRDModel,
-    SimulationSettings,
-    TrainingSettings,
-)
+from nomad_auto_xrd.schema import AutoXRDModel
+
+if TYPE_CHECKING:
+    from nomad_auto_xrd.schema import TrainingSettings
 
 # Suppress specific warnings
 warnings.filterwarnings('ignore')

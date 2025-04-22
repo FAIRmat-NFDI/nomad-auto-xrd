@@ -68,14 +68,14 @@ def extract_min_max_angles_from_folder(folder_path):
 
 @dataclass
 class AnalysisSettings:
-    structure_references_directory: Optional[str] = (
+    structure_references_directory: str | None = (
         None  # Defaults to the directory containing the CIF files from the archive if not provided  # noqa: E501
     )
     patterns_folder_directory: str = 'temp_patterns'
-    xrd_model: Optional[str] = (
+    xrd_model: str | None = (
         None  # Defaults to the XRD model file from the archive if not provided
     )
-    pdf_model: Optional[str] = None
+    pdf_model: str | None = None
     max_phases: int = 5
     cutoff_intensity: float = 0.05
     min_confidence: float = 10.0
@@ -86,8 +86,8 @@ class AnalysisSettings:
     parallel: bool = False
     raw: bool = False
     show_individual: bool = False
-    min_angle: Optional[float] = None
-    max_angle: Optional[float] = None
+    min_angle: float | None = None
+    max_angle: float | None = None
 
 
 @dataclass
@@ -402,7 +402,7 @@ def run_analysis_existing_spectra(
     )  # Replace 'logger=None' with an actual logger instance if available
 
 
-def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:
+def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR0912, PLR0915
     """
     Runs the Auto XRD analysis for the given Auto XRD analysis entry. This function
     orchestrates the analysis process, including loading the model, extracting patterns,
