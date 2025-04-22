@@ -34,8 +34,8 @@ setattr(logging, 'Formatter', structlogging.ConsoleFormatter)
 )
 def fixture_caplog(request):
     """
-    Extracts log messages from the logger and raises an assertion error if any of the
-    specified log levels in the `request.param` are found.
+    Extracts log messages from the logger and raises an assertion error if the specified
+    log levels in the `request.param` are found.
     """
     caplog = LogCapture()
     processors = structlog.get_config()['processors']
