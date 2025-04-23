@@ -53,7 +53,7 @@ def test_auto_xrd_model(caplog):
     [log_levels],
     indirect=True,
 )
-def test_auto_xrd_analysis(caplog):
+def test_auto_xrd_analysis(caplog, clean_up):
     """
     Test the AutoXRDAnalysis schema by parsing the schema file.
     """
@@ -64,13 +64,15 @@ def test_auto_xrd_analysis(caplog):
 
     assert entry_archive.data.method == 'Auto XRD Analysis'
 
+    clean_up.track(os.path.join(data_dir, 'schemas', entry_archive.data.notebook))
+
 
 @pytest.mark.parametrize(
     'caplog',
     [log_levels],
     indirect=True,
 )
-def test_auto_xrd_training(caplog):
+def test_auto_xrd_training(caplog, clean_up):
     """
     Test the AutoXRDAnalysis schema by parsing the schema file.
     """
@@ -80,3 +82,5 @@ def test_auto_xrd_training(caplog):
     normalize_all(entry_archive)
 
     assert entry_archive.data.method == 'Auto XRD Model Training'
+
+    clean_up.track(os.path.join(data_dir, 'schemas', entry_archive.data.notebook))
