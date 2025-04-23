@@ -362,7 +362,6 @@ class AutoXRDModel(Entity, Schema):
             for ase_atoms in ase_atoms_list:
                 symmetry = SymmetryNew()
                 symmetry_analyzer = SymmetryAnalyzer(ase_atoms, symmetry_tol=1)
-                print(symmetry_analyzer.get_space_group_number())
                 symmetry.bravais_lattice = symmetry_analyzer.get_bravais_lattice()
                 symmetry.space_group_number = symmetry_analyzer.get_space_group_number()
                 symmetry.space_group_symbol = (

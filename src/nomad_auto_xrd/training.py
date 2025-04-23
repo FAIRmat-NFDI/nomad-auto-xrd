@@ -241,7 +241,7 @@ def build_model(input_shape, n_phases, is_pdf, n_dense=[3100, 1200], dropout_rat
     return model
 
 
-def train_model(train_x, train_y, model, settings: TrainingSettings):
+def train_model(train_x, train_y, model, settings: 'TrainingSettings'):
     """
     Trains the model with optional W&B logging.
 
