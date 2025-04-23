@@ -708,14 +708,15 @@ class AutoXRDTraining(JupyterAnalysis):
         source = [
             '## Saving the Model\n',
             '\n',
-            'After training successfully, we can find that `model.models` is\n',
-            'populated with the path to the trained model file. Additionally, \n',
-            '`model.reference_structures` holds a list of section references to \n',
-            'possible structures that can be predicted by the model. \n',
+            'After completing the training, the `model.xrd_model` and\n',
+            '`model.pdf_model`\n',
+            'attributes contain the path to the trained model files. Additionally,\n',
+            '`model.reference_files` provides a list of CIF files of the structures \n',
+            'that the model can predict.\n',
             '\n',
-            'Let us now make an entry for this model in NOMAD, after which you can\n',
-            'use the model entry to run Auto XRD analysis.\n',
-            'We will also save a reference to model entry from the analysis entry.\n',
+            'Next, we will create an entry for this model in NOMAD, enabling its use\n',
+            'for Auto XRD analysis. We will also link the model entry to the\n',
+            '`analysis.outputs` for future reference.\n',
         ]
         cells.append(
             nbformat.v4.new_markdown_cell(
@@ -821,7 +822,63 @@ class AutoXRDAnalysis(JupyterAnalysis):
     def write_predefined_cells(self, archive, logger):
         cells = super().write_predefined_cells(archive, logger)
 
-        # TODO add the code to run the analysis in notebook
+        source = [
+            '## Running Auto XRD Analysis\n',
+            '\n',
+            'This workflow uses a pre-trained Auto XRD model to analyze multiple XRD ',
+            'patterns simultaneously. The model and XRD measurements entries can be ',
+            'connected in the analysis entry by creating references in the NOMAD GUI. ',
+            'These will reflect under `analysis.analysis_settings.model` and ',
+            '`analysis.inputs`.\n',
+            '\n',
+            'Once this is done, we can use the `nomad_auto_xrd.analysis.analyse` ',
+            'routine to execute the analysis workflow on the `analysis` entry. This ',
+            'will populate the `analysis.results`; one results sub-section is created ',
+            'for each XRD measurement input.\n',
+        ]
+        cells.append(
+            nbformat.v4.new_markdown_cell(
+                source=source,
+                metadata={'tags': ['nomad-analysis-predefined']},
+            )
+        )
+
+        source = [
+            'from nomad_auto_xrd.analysis import analyse\n',
+            '\n',
+            'analyse(analysis)\n',
+            '\n',
+            'analysis.results\n',
+        ]
+        cells.append(
+            nbformat.v4.new_code_cell(
+                source=source,
+                metadata={'tags': ['nomad-analysis-predefined']},
+            ),
+        )
+
+        source = [
+            '## Saving the results\n',
+            '\n',
+            'Once the analysis results are generated, save the analysis entry to ',
+            'update the results in NOMAD.\n',
+        ]
+        cells.append(
+            nbformat.v4.new_markdown_cell(
+                source=source,
+                metadata={'tags': ['nomad-analysis-predefined']},
+            ),
+        )
+
+        source = [
+            'analysis.save()\n',
+        ]
+        cells.append(
+            nbformat.v4.new_code_cell(
+                source=source,
+                metadata={'tags': ['nomad-analysis-predefined']},
+            ),
+        )
 
         return cells
 
@@ -837,25 +894,30 @@ class AutoXRDAnalysis(JupyterAnalysis):
         if self.description is None or self.description == '':
             self.description = """
             <p>
-            This ELN comes with a Jupyter notebook that can be used to run an auto
-            XRD analysis using a pre-trained ML model. To get started, do the
-            following:</p> <p>
-
-            1. In the <strong><em>inputs</em></strong> sub-section, use the
-            <strong><em>AutoXRDModelReference</em></strong> section to reference an
-            <strong><em>AutoXRDModel</em></strong> entry containing the pre-trained
-            model. Select a model trained on a composition space that includes the
-            composition of the given sample.
-            </p> <p>
-
-            2. In the <strong><em>inputs</em></strong> sub-section, use the
-            <strong><em>AutoXRDMeasurementReference</em></strong> section to reference
-            an <strong><em>ELNXRayDiffraction</em></strong> entry containing the XRD
-            data for which phases are to be identified.</p> <p>
-
-            3. From the <strong><em>notebook</em></strong> quantity, open the the
-            Jupyter notebook and follow the steps mentioned in there to perform the
-            analysis.</p>
+            This ELN includes a Jupyter notebook designed to perform auto XRD analysis
+            using a pre-trained ML model. Follow these steps to perform the
+            analysis:</p>
+            <ol>
+                <li>
+                Initialize the <strong><em>analysis_settings</em></strong> section and
+                ensure that the <strong><em>analysis_settings.model</em></strong>
+                quantity references an <strong><em>AutoXRDModel</em></strong> entry.
+                The selected model should be compatible with the sample's composition
+                space.
+                </li>
+                <li>
+                Review and adjust the default analysis settings in the
+                <strong><em>analysis_settings</em></strong> section if necessary to
+                match the requirements of your analysis.
+                </li>
+                <li>
+                Use the <strong><em>analysis.inputs</em></strong> section to add the XRD
+                measurement entries for which the analysis is to be performed.
+                </li>
+            </ol>
+            <p>
+            Open the Jupyter notebook from the <strong><em>notebook</em></strong>
+            quantity and follow the provided instructions to execute the analysis. </p>
             """
         super().normalize(archive, logger)
         # TODO add references for the identified phases, or

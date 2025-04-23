@@ -1,0 +1,5 @@
+data:
+  m_def: nomad_auto_xrd.schema.AutoXRDTraining
+  training_settings:
+    num_epochs: 2
+  trigger_generate_notebook: true

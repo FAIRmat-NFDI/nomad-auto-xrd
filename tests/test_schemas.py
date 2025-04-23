@@ -46,3 +46,37 @@ def test_auto_xrd_model(caplog):
     normalize_all(entry_archive)
     assert entry_archive.data is not None
     assert isinstance(entry_archive.data, AutoXRDModel)
+
+
+@pytest.mark.parametrize(
+    'caplog',
+    [log_levels],
+    indirect=True,
+)
+def test_auto_xrd_analysis(caplog):
+    """
+    Test the AutoXRDAnalysis schema by parsing the schema file.
+    """
+    entry_archive = parse(
+        os.path.join(data_dir, 'schemas', 'AutoXRDAnalysis.archive.yaml')
+    )[0]
+    normalize_all(entry_archive)
+
+    assert entry_archive.data.method == 'Auto XRD Analysis'
+
+
+@pytest.mark.parametrize(
+    'caplog',
+    [log_levels],
+    indirect=True,
+)
+def test_auto_xrd_training(caplog):
+    """
+    Test the AutoXRDAnalysis schema by parsing the schema file.
+    """
+    entry_archive = parse(
+        os.path.join(data_dir, 'schemas', 'AutoXRDTraining.archive.yaml')
+    )[0]
+    normalize_all(entry_archive)
+
+    assert entry_archive.data.method == 'Auto XRD Model Training'
