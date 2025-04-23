@@ -1,0 +1,5 @@
+data:
+  m_def: nomad_auto_xrd.schema.AutoXRDAnalysis
+  analysis_settings:
+    max_phases: 10
+  trigger_generate_notebook: true

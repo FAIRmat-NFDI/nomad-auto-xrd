@@ -1,8 +1,27 @@
+#
+# Copyright The NOMAD Authors.
+#
+# This file is part of NOMAD. See https://nomad-lab.eu for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 from nomad.config.models.plugins import ExampleUploadEntryPoint
 
 example_upload_entry_point = ExampleUploadEntryPoint(
     title='Auto XRD example upload',
     category='Examples',
-    description='This example upload contains a notebook and sinstructions on how to train an [XRD Auto Analyzer](https://github.com/njszym/XRD-AutoAnalyzer) model in NORTH and save it as an entry.',  # noqa: E501
-    path='example_uploads/getting_started',
+    description='This example upload contains a notebook and instructions on how to '
+    'train an [XRD Auto Analyzer](https://github.com/njszym/XRD-AutoAnalyzer) model '
+    'in NORTH and save it as an entry.',
+    path='example_uploads/auto_xrd/',
 )

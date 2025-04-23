@@ -1,9 +1,26 @@
+#
+# Copyright The NOMAD Authors.
+#
+# This file is part of NOMAD. See https://nomad-lab.eu for further info.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 from nomad.config.models.plugins import AppEntryPoint
 
-from nomad_auto_xrd.apps.auto_xrd_models_app import auto_xrd_models_app
+from nomad_auto_xrd.apps.models_app import models_app
 
-app_entry_point = AppEntryPoint(
+models_app_entry_point = AppEntryPoint(
     name='Auto XRD Models',
     description='Search auto XRD models',
-    app=auto_xrd_models_app,
+    app=models_app,
 )

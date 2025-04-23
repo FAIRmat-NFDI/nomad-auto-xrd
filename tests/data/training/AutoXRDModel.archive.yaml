@@ -1,0 +1,8 @@
+data:
+  m_def: nomad_auto_xrd.schema.AutoXRDModel
+  name: test model
+  description: A test model for training.
+  includes_pdf: true
+  training_settings:
+    num_epochs: 2
+

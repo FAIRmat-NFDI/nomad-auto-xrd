@@ -1,5 +1,8 @@
 [build-system]
-requires = ["setuptools>=61.0.0", "setuptools-scm>=8.0"]
+requires = [
+    "setuptools>=61.0.0",
+    "setuptools-scm>=8.0",
+]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,36 +10,48 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: Apache Software License",
 ]
 name = "nomad-auto-xrd"
-description = "Nomad example template"
-version = "0.1.0"
+description = "A NOMAD plugin containing schemas for automatic XRD analysis."
+dynamic = ["version"]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     { name = "Pepe Márquez", email = "jose.marquez@physik.hu-berlin.de" },
+    { name = "Sarthak Kapoor", email = "sarthak.kapoor@physik.hu-berlin.de" },
 ]
 maintainers = [
-    { name = "Pepe Márquez", email = "jose.marquez@physik.hu-berlin.de" },
+    { name = "FAIRmat", email = "fairmat@physik.hu-berlin.de" },
 ]
 license = { file = "LICENSE" }
 dependencies = [
-    "nomad-lab>=1.3.0",
+    "nomad-lab>=1.3.14",
+    "nomad-analysis>=0.1.1",
+    "nomad-measurements",
+    "nomad-schema-plugin-run>=1.0.1",
+    "nomad-schema-plugin-simulation-workflow>=1.0.9",
+]
+
+[project.urls]
+Repository = "https://github.com/FAIRmat-NFDI/nomad-auto-xrd"
+
+[project.optional-dependencies]
+analytics = [
     "python-magic-bin; sys_platform == 'win32'",
     "autoXRD @ git+https://github.com/Pepe-Marquez/XRD-AutoAnalyzer.git",
     "wandb",
 ]
-
-[project.urls]
-Repository = "https://github.com/foo/nomad-auto-xrd"
-
-[project.optional-dependencies]
-dev = ["ruff", "pytest", "structlog"]
+dev = [
+    "nomad-auto-xrd[analytics]",
+    "nomad-lab[infrastructure]>=1.3.14",
+    "ruff",
+    "pytest",
+    "structlog",
+]
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
@@ -112,13 +127,11 @@ package-dir = { "" = "src" }
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[project.entry-points.'nomad.plugin']
-
-auto_xrd = "nomad_auto_xrd.schema_packages:auto_xrd"
-auto_xrd_analysis = "nomad_auto_xrd.schema_packages:auto_xrd_analysis"
-
-app_entry_point = "nomad_auto_xrd.apps:app_entry_point"
-example_upload_entry_point = "nomad_auto_xrd.example_uploads:example_upload_entry_point"
 [tool.cruft]
 # Avoid updating workflow files, this leads to permissions issues
 skip = [".github/*"]
+
+[project.entry-points.'nomad.plugin']
+schema = "nomad_auto_xrd:schema_entry_point"
+models_app = "nomad_auto_xrd.apps:models_app_entry_point"
+example_upload = "nomad_auto_xrd.example_uploads:example_upload_entry_point"
