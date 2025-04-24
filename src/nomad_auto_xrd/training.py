@@ -347,7 +347,9 @@ def generate_reference_structures(
         if not os.path.exists(file):
             print(f'File does not exist: {file}')
             continue
-        input_path = os.path.join(input_structures_dir, os.path.basename(file))
+        input_path = os.path.abspath(
+            os.path.join(input_structures_dir, os.path.basename(file))
+        )
         if os.path.islink(input_path):
             print(f'Symlink already exists: {input_path}')
             continue
@@ -363,7 +365,7 @@ def generate_reference_structures(
             input_path = os.path.join(input_structures_dir, file)
             reference_path = os.path.join(reference_structures_dir, file)
             if os.path.islink(input_path):
-                target_path = os.readlink(input_path)
+                target_path = os.path.abspath(os.readlink(input_path))
                 os.symlink(target_path, reference_path)
     else:
         # Run the filtering process: adds the filtered structures to the
