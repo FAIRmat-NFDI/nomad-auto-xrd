@@ -18,6 +18,7 @@
 import logging
 import os
 import shutil
+import tempfile
 import warnings
 from dataclasses import dataclass
 from random import shuffle
@@ -327,11 +328,7 @@ def generate_reference_structures(
     Returns:
         str: Path to the directory containing the generated reference structures.
     """
-    # Reset the directories for input and reference structures
-    input_structures_dir = os.path.join('Input_Structures')
-    if os.path.exists(input_structures_dir):
-        shutil.rmtree(input_structures_dir)
-    os.makedirs(input_structures_dir, exist_ok=True)
+    # Reset the directory for reference structures
     reference_structures_dir = os.path.join('References')
     if os.path.exists(reference_structures_dir):
         shutil.rmtree(reference_structures_dir)
@@ -342,39 +339,29 @@ def generate_reference_structures(
     if os.path.exists(filter_cifs_dir):
         shutil.rmtree(filter_cifs_dir)
 
-    # Create symbolic links for the input CIF files
-    for file in structure_files:
-        if not os.path.exists(file):
-            print(f'File does not exist: {file}')
-            continue
-        input_path = os.path.abspath(
-            os.path.join(input_structures_dir, os.path.basename(file))
-        )
-        if os.path.islink(input_path):
-            print(f'Symlink already exists: {input_path}')
-            continue
-        os.symlink(file, input_path)
-    if not os.listdir(input_structures_dir):
-        raise ValueError(
-            'No CIF files found at the paths provided in the `structure_files`.'
-        )
+    # Check if the input structure files exist
+    if not structure_files:
+        raise ValueError('No CIF files are provided.')
 
     if skip_filter:
-        # Create symlinks to the inputs with running filtering
-        for file in os.listdir(input_structures_dir):
-            input_path = os.path.join(input_structures_dir, file)
+        # Copy the input files to the reference directory without filtering
+        for path in structure_files:
+            file = os.path.basename(path)
             reference_path = os.path.join(reference_structures_dir, file)
-            if os.path.islink(input_path):
-                target_path = os.path.abspath(os.readlink(input_path))
-                os.symlink(target_path, reference_path)
+            if os.path.isfile(path):
+                shutil.copy(path, reference_path)
     else:
         # Run the filtering process: adds the filtered structures to the
         # reference_structures_path directory
-        tabulate_cifs.main(
-            input_structures_dir,
-            reference_structures_dir,
-            include_elems,
-        )
+        with tempfile.TemporaryDirectory() as tmp_input_dir:
+            for path in structure_files:
+                if os.path.isfile(path):
+                    shutil.copy(path, tmp_input_dir)
+            tabulate_cifs.main(
+                tmp_input_dir,
+                reference_structures_dir,
+                include_elems,
+            )
 
     # Generate hypothetical solid solutions
     solid_solns.main(reference_structures_dir)
