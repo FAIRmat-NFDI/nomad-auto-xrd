@@ -705,6 +705,7 @@ class AutoXRDTraining(JupyterAnalysis):
             'model.simulation_settings.structure_files = [\n',
             "    os.path.join('Input_structures', file_name)\n",
             "    for file_name in os.listdir('Input_structures')\n",
+            "    if file_name.endswith('.cif')\n",
             ']\n',
         ]
         cells.append(
