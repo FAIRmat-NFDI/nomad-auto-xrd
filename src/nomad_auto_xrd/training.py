@@ -347,6 +347,8 @@ def generate_reference_structures(
         # Copy the input files to the reference directory without filtering
         for path in structure_files:
             file = os.path.basename(path)
+            if not file.endswith('.cif'):
+                continue
             reference_path = os.path.join(reference_structures_dir, file)
             if os.path.isfile(path):
                 shutil.copy(path, reference_path)
@@ -355,6 +357,8 @@ def generate_reference_structures(
         # reference_structures_path directory
         with tempfile.TemporaryDirectory() as tmp_input_dir:
             for path in structure_files:
+                if not file.endswith('.cif'):
+                    continue
                 if os.path.isfile(path):
                     shutil.copy(path, tmp_input_dir)
             tabulate_cifs.main(
