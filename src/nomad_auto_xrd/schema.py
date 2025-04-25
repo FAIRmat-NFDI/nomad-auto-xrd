@@ -599,7 +599,8 @@ class AutoXRDTraining(JupyterAnalysis):
                     'method',
                     'query_for_inputs',
                     'notebook',
-                    'action_trigger',
+                    'trigger_generate_notebook',
+                    'trigger_reset_inputs',
                 ],
             ),
         ),
@@ -609,6 +610,13 @@ class AutoXRDTraining(JupyterAnalysis):
         a_eln=ELNAnnotation(
             component='RichTextEditQuantity',
             props=dict(height=500),
+        ),
+    )
+    trigger_generate_notebook = Quantity(
+        default=True,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.ActionEditQuantity,
+            label='Generate Notebook',
         ),
     )
     outputs = SubSection(
@@ -788,10 +796,8 @@ class AutoXRDAnalysis(JupyterAnalysis):
                     'method',
                     'query_for_inputs',
                     'notebook',
-                    'action_trigger',
-                    'analysis_settings',
-                    'inputs',
-                    'results',
+                    'trigger_generate_notebook',
+                    'trigger_reset_inputs',
                 ],
             ),
         ),
@@ -802,6 +808,13 @@ class AutoXRDAnalysis(JupyterAnalysis):
         a_eln=ELNAnnotation(
             component='RichTextEditQuantity',
             props=dict(height=500),
+        ),
+    )
+    trigger_generate_notebook = Quantity(
+        default=True,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.ActionEditQuantity,
+            label='Generate Notebook',
         ),
     )
     analysis_settings = SubSection(
