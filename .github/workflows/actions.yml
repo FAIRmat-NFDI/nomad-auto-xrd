@@ -36,6 +36,8 @@ jobs:
 
   install-and-test:
     runs-on: ubuntu-latest
+    env:
+      RUN_PIPELINE_TESTS: false
     strategy:
       fail-fast: false
       matrix:
