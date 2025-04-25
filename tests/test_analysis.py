@@ -23,7 +23,7 @@ from nomad.client import normalize_all, parse
 from nomad_auto_xrd.analysis import analyse
 
 # Check environment variable
-run_pipline_tests = os.environ.get('RUN_PIPELINE_TESTS', 'false').lower() == 'true'
+run_pipeline_tests = os.environ.get('RUN_PIPELINE_TESTS', 'false').lower() == 'true'
 
 data_dir = os.path.abspath(os.path.join('tests', 'data', 'analysis'))
 
@@ -35,7 +35,7 @@ log_levels = ['error', 'critical']
 
 
 @pytest.mark.skipif(
-    not run_pipline_tests,
+    not run_pipeline_tests,
     reason='Skipping analysis test. Set environment variable RUN_PIPELINE_TESTS=true '
     'to run.',
 )
