@@ -962,7 +962,8 @@ class AutoXRDAnalysis(JupyterAnalysis):
             <ol>
                 <li>
                 Initialize the <strong><em>analysis_settings</em></strong> section and
-                ensure that the <strong><em>analysis_settings.model</em></strong>
+                ensure that the
+                <strong><em>analysis_settings.auto_xrd_model</em></strong>
                 quantity references an <strong><em>AutoXRDModel</em></strong> entry.
                 The selected model should be compatible with the sample's composition
                 space.
