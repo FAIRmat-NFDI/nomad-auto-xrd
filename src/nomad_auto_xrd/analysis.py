@@ -495,55 +495,64 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
         # Save the original working directory and change to the temporary directory
         original_dir = os.getcwd()
         os.chdir(temp_dir)
-        # Create a directory 'temp' that is being used by the spectrum_analysis module
-        os.makedirs('temp', exist_ok=True)
 
-        results = dict()
-        if xrd_model_path:
-            results['xrd'] = AnalysisResult(
-                *spectrum_analysis.main(
-                    spectra_directory='Spectra',
-                    reference_directory='References',
-                    max_phases=analysis.analysis_settings.max_phases,
-                    cutoff_intensity=analysis.analysis_settings.cutoff_intensity,
-                    min_conf=analysis.analysis_settings.min_confidence,
-                    wavelength=analysis.analysis_settings.wavelength.to(
-                        'angstrom'
-                    ).magnitude,
-                    min_angle=analysis.analysis_settings.min_angle.to(
-                        'degree'
-                    ).magnitude,
-                    max_angle=analysis.analysis_settings.max_angle.to(
-                        'degree'
-                    ).magnitude,
-                    parallel=analysis.analysis_settings.parallel,
-                    model_path=os.path.join('Models', os.path.basename(xrd_model_path)),
+        try:
+            # Create a directory 'temp' that is being used by the spectrum_analysis module
+            os.makedirs('temp', exist_ok=True)
+
+            results = dict()
+            if xrd_model_path:
+                results['xrd'] = AnalysisResult(
+                    *spectrum_analysis.main(
+                        spectra_directory='Spectra',
+                        reference_directory='References',
+                        max_phases=analysis.analysis_settings.max_phases,
+                        cutoff_intensity=analysis.analysis_settings.cutoff_intensity,
+                        min_conf=analysis.analysis_settings.min_confidence,
+                        wavelength=analysis.analysis_settings.wavelength.to(
+                            'angstrom'
+                        ).magnitude,
+                        min_angle=analysis.analysis_settings.min_angle.to(
+                            'degree'
+                        ).magnitude,
+                        max_angle=analysis.analysis_settings.max_angle.to(
+                            'degree'
+                        ).magnitude,
+                        parallel=analysis.analysis_settings.parallel,
+                        model_path=os.path.join(
+                            'Models', os.path.basename(xrd_model_path)
+                        ),
+                    )
                 )
-            )
-        if pdf_model_path:
-            results['pdf'] = AnalysisResult(
-                *spectrum_analysis.main(
-                    spectra_directory='Spectra',
-                    reference_directory='References',
-                    max_phases=analysis.analysis_settings.max_phases,
-                    cutoff_intensity=analysis.analysis_settings.cutoff_intensity,
-                    min_conf=analysis.analysis_settings.min_confidence,
-                    wavelength=analysis.analysis_settings.wavelength.to(
-                        'angstrom'
-                    ).magnitude,
-                    min_angle=analysis.analysis_settings.min_angle.to(
-                        'degree'
-                    ).magnitude,
-                    max_angle=analysis.analysis_settings.max_angle.to(
-                        'degree'
-                    ).magnitude,
-                    parallel=analysis.analysis_settings.parallel,
-                    model_path=os.path.join('Models', os.path.basename(pdf_model_path)),
-                    is_pdf=True,
+            if pdf_model_path:
+                results['pdf'] = AnalysisResult(
+                    *spectrum_analysis.main(
+                        spectra_directory='Spectra',
+                        reference_directory='References',
+                        max_phases=analysis.analysis_settings.max_phases,
+                        cutoff_intensity=analysis.analysis_settings.cutoff_intensity,
+                        min_conf=analysis.analysis_settings.min_confidence,
+                        wavelength=analysis.analysis_settings.wavelength.to(
+                            'angstrom'
+                        ).magnitude,
+                        min_angle=analysis.analysis_settings.min_angle.to(
+                            'degree'
+                        ).magnitude,
+                        max_angle=analysis.analysis_settings.max_angle.to(
+                            'degree'
+                        ).magnitude,
+                        parallel=analysis.analysis_settings.parallel,
+                        model_path=os.path.join(
+                            'Models', os.path.basename(pdf_model_path)
+                        ),
+                        is_pdf=True,
+                    )
                 )
-            )
-        # Restore the original working directory
-        os.chdir(original_dir)
+        except Exception as e:
+            print(f'Error during analysis: {e}')
+        finally:
+            # Restore the original working directory
+            os.chdir(original_dir)
 
     if results.get('xrd') and results.get('pdf'):
         # merge results
