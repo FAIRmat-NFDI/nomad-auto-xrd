@@ -499,7 +499,8 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
         os.chdir(temp_dir)
 
         try:
-            # Create a directory 'temp' that is being used by the spectrum_analysis module
+            # Create a directory 'temp' that is being used by the spectrum_analysis
+            # module
             os.makedirs('temp', exist_ok=True)
 
             results = dict()
