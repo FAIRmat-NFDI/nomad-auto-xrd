@@ -2,8 +2,10 @@ name: Deploy MkDocs Site
 
 on:
   push:
-    branches:
-      - main  # Triggers deployment on push to the main branch
+    branches: ["main"]  # Triggers deployment on push to the main branch
+
+permissions:
+  contents: write  # Required to push to the gh-pages branch
 
 jobs:
   deploy:
