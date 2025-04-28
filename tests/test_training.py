@@ -23,10 +23,18 @@ from nomad.client import normalize_all, parse
 
 from nomad_auto_xrd.training import train
 
+# Check environment variable
+run_pipeline_tests = os.environ.get('RUN_PIPELINE_TESTS', 'false').lower() == 'true'
+
 data_dir = os.path.abspath(os.path.join('tests', 'data', 'training'))
 log_levels = ['error', 'critical']
 
 
+@pytest.mark.skipif(
+    not run_pipeline_tests,
+    reason='Skipping training test. Set environment variable RUN_PIPELINE_TESTS=true '
+    'to run.',
+)
 @pytest.mark.parametrize(
     'caplog',
     [log_levels],

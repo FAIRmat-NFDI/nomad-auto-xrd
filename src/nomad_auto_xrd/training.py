@@ -18,6 +18,7 @@
 import logging
 import os
 import shutil
+import tempfile
 import warnings
 from dataclasses import dataclass
 from random import shuffle
@@ -327,11 +328,7 @@ def generate_reference_structures(
     Returns:
         str: Path to the directory containing the generated reference structures.
     """
-    # Reset the directories for input and reference structures
-    input_structures_dir = os.path.join('Input_Structures')
-    if os.path.exists(input_structures_dir):
-        shutil.rmtree(input_structures_dir)
-    os.makedirs(input_structures_dir, exist_ok=True)
+    # Reset the directory for reference structures
     reference_structures_dir = os.path.join('References')
     if os.path.exists(reference_structures_dir):
         shutil.rmtree(reference_structures_dir)
@@ -342,37 +339,33 @@ def generate_reference_structures(
     if os.path.exists(filter_cifs_dir):
         shutil.rmtree(filter_cifs_dir)
 
-    # Create symbolic links for the input CIF files
-    for file in structure_files:
-        if not os.path.exists(file):
-            print(f'File does not exist: {file}')
-            continue
-        input_path = os.path.join(input_structures_dir, os.path.basename(file))
-        if os.path.islink(input_path):
-            print(f'Symlink already exists: {input_path}')
-            continue
-        os.symlink(file, input_path)
-    if not os.listdir(input_structures_dir):
-        raise ValueError(
-            'No CIF files found at the paths provided in the `structure_files`.'
-        )
+    # Check if the input structure files exist
+    if not structure_files:
+        raise ValueError('No CIF files are provided.')
 
     if skip_filter:
-        # Create symlinks to the inputs with running filtering
-        for file in os.listdir(input_structures_dir):
-            input_path = os.path.join(input_structures_dir, file)
+        # Copy the input files to the reference directory without filtering
+        for path in structure_files:
+            if not path.endswith('.cif'):
+                continue
+            file = os.path.basename(path)
             reference_path = os.path.join(reference_structures_dir, file)
-            if os.path.islink(input_path):
-                target_path = os.readlink(input_path)
-                os.symlink(target_path, reference_path)
+            if os.path.isfile(path):
+                shutil.copy(path, reference_path)
     else:
         # Run the filtering process: adds the filtered structures to the
         # reference_structures_path directory
-        tabulate_cifs.main(
-            input_structures_dir,
-            reference_structures_dir,
-            include_elems,
-        )
+        with tempfile.TemporaryDirectory() as tmp_input_dir:
+            for path in structure_files:
+                if not path.endswith('.cif'):
+                    continue
+                if os.path.isfile(path):
+                    shutil.copy(path, tmp_input_dir)
+            tabulate_cifs.main(
+                tmp_input_dir,
+                reference_structures_dir,
+                include_elems,
+            )
 
     # Generate hypothetical solid solutions
     solid_solns.main(reference_structures_dir)
@@ -401,105 +394,111 @@ def train(model_entry: AutoXRDModel):
     )
     os.makedirs(working_dir, exist_ok=True)
     os.chdir(working_dir)
-    reference_structures_dir = generate_reference_structures(
-        model_entry.simulation_settings.structure_files,
-        model_entry.simulation_settings.skip_filter,
-        model_entry.simulation_settings.include_elems,
-    )
-    # Generate XRD patterns
-    xrd_obj = spectrum_generation.SpectraGenerator(
-        reference_dir=reference_structures_dir,
-        num_spectra=model_entry.simulation_settings.num_patterns,
-        max_texture=model_entry.simulation_settings.max_texture,
-        min_domain_size=model_entry.simulation_settings.min_domain_size.magnitude,
-        max_domain_size=model_entry.simulation_settings.max_domain_size.magnitude,
-        max_strain=model_entry.simulation_settings.max_strain,
-        max_shift=model_entry.simulation_settings.max_shift.magnitude,
-        impur_amt=model_entry.simulation_settings.impur_amt,
-        min_angle=model_entry.simulation_settings.min_angle.magnitude,
-        max_angle=model_entry.simulation_settings.max_angle.magnitude,
-        separate=model_entry.simulation_settings.separate,
-        is_pdf=False,
-    )
-    xrd_spectras = xrd_obj.augmented_spectra
-    dataset = DataSetUp(
-        xrd_spectras, testing_fraction=model_entry.training_settings.test_fraction
-    )
-    num_phases = dataset.num_phases
-    train_x, train_y, test_x, test_y = dataset.split_training_testing()
 
-    # Clean up the Models directory
-    models_dir = os.path.join(working_dir, 'Models')
-    if os.path.exists(models_dir):
-        shutil.rmtree(models_dir)
-    os.makedirs(models_dir, exist_ok=True)
-    model_entry.models = []
+    try:
+        reference_structures_dir = generate_reference_structures(
+            model_entry.simulation_settings.structure_files,
+            model_entry.simulation_settings.skip_filter,
+            model_entry.simulation_settings.include_elems,
+        )
+        # Generate XRD patterns
+        xrd_obj = spectrum_generation.SpectraGenerator(
+            reference_dir=reference_structures_dir,
+            num_spectra=model_entry.simulation_settings.num_patterns,
+            max_texture=model_entry.simulation_settings.max_texture,
+            min_domain_size=model_entry.simulation_settings.min_domain_size.magnitude,
+            max_domain_size=model_entry.simulation_settings.max_domain_size.magnitude,
+            max_strain=model_entry.simulation_settings.max_strain,
+            max_shift=model_entry.simulation_settings.max_shift.magnitude,
+            impur_amt=model_entry.simulation_settings.impur_amt,
+            min_angle=model_entry.simulation_settings.min_angle.magnitude,
+            max_angle=model_entry.simulation_settings.max_angle.magnitude,
+            separate=model_entry.simulation_settings.separate,
+            is_pdf=False,
+        )
+        xrd_spectras = xrd_obj.augmented_spectra
+        dataset = DataSetUp(
+            xrd_spectras, testing_fraction=model_entry.training_settings.test_fraction
+        )
+        num_phases = dataset.num_phases
+        train_x, train_y, test_x, test_y = dataset.split_training_testing()
 
-    # Build the model
-    model = build_model(train_x.shape[1:], num_phases, is_pdf=False)
+        # Clean up the Models directory
+        models_dir = os.path.join(working_dir, 'Models')
+        if os.path.exists(models_dir):
+            shutil.rmtree(models_dir)
+        os.makedirs(models_dir, exist_ok=True)
+        model_entry.models = []
 
-    # Train the model and get the wandb run URL
-    wandb_run_url_xrd = train_model(
-        train_x, train_y, model, model_entry.training_settings
-    )
-    model_entry.wandb_run_url_xrd = wandb_run_url_xrd
+        # Build the model
+        model = build_model(train_x.shape[1:], num_phases, is_pdf=False)
 
-    # Save the trained model
-    xrd_model_path = os.path.join(models_dir, 'XRD_Model.h5')
-    model.save(xrd_model_path, include_optimizer=False)
-    model_entry.xrd_model = xrd_model_path
+        # Train the model and get the wandb run URL
+        wandb_run_url_xrd = train_model(
+            train_x, train_y, model, model_entry.training_settings
+        )
+        model_entry.wandb_run_url_xrd = wandb_run_url_xrd
 
-    # Test the model
-    test_model(model, test_x, test_y)
+        # Save the trained model
+        xrd_model_path = os.path.join(models_dir, 'XRD_Model.h5')
+        model.save(xrd_model_path, include_optimizer=False)
+        model_entry.xrd_model = xrd_model_path
 
-    if not model_entry.includes_pdf:
-        return
+        # Test the model
+        test_model(model, test_x, test_y)
 
-    # If `model_config.includes_pdf` is True, train another model on PDFs
-    pdf_spectras = spectrum_generation.SpectraGenerator(
-        reference_dir=reference_structures_dir,
-        num_spectra=model_entry.simulation_settings.num_patterns,
-        max_texture=model_entry.simulation_settings.max_texture,
-        min_domain_size=model_entry.simulation_settings.min_domain_size.magnitude,
-        max_domain_size=model_entry.simulation_settings.max_domain_size.magnitude,
-        max_strain=model_entry.simulation_settings.max_strain,
-        max_shift=model_entry.simulation_settings.max_shift.magnitude,
-        impur_amt=model_entry.simulation_settings.impur_amt,
-        min_angle=model_entry.simulation_settings.min_angle.magnitude,
-        max_angle=model_entry.simulation_settings.max_angle.magnitude,
-        separate=model_entry.simulation_settings.separate,
-        is_pdf=True,
-    ).augmented_spectra
-    dataset_pdf = DataSetUp(
-        pdf_spectras, testing_fraction=model_entry.training_settings.test_fraction
-    )
-    num_phases_pdf = dataset_pdf.num_phases
-    train_x_pdf, train_y_pdf, test_x_pdf, test_y_pdf = (
-        dataset_pdf.split_training_testing()
-    )
+        if not model_entry.includes_pdf:
+            return
 
-    # Build the PDF model
-    model_pdf = build_model(train_x_pdf.shape[1:], num_phases_pdf, is_pdf=True)
+        # If `model_config.includes_pdf` is True, train another model on PDFs
+        pdf_spectras = spectrum_generation.SpectraGenerator(
+            reference_dir=reference_structures_dir,
+            num_spectra=model_entry.simulation_settings.num_patterns,
+            max_texture=model_entry.simulation_settings.max_texture,
+            min_domain_size=model_entry.simulation_settings.min_domain_size.magnitude,
+            max_domain_size=model_entry.simulation_settings.max_domain_size.magnitude,
+            max_strain=model_entry.simulation_settings.max_strain,
+            max_shift=model_entry.simulation_settings.max_shift.magnitude,
+            impur_amt=model_entry.simulation_settings.impur_amt,
+            min_angle=model_entry.simulation_settings.min_angle.magnitude,
+            max_angle=model_entry.simulation_settings.max_angle.magnitude,
+            separate=model_entry.simulation_settings.separate,
+            is_pdf=True,
+        ).augmented_spectra
+        dataset_pdf = DataSetUp(
+            pdf_spectras, testing_fraction=model_entry.training_settings.test_fraction
+        )
+        num_phases_pdf = dataset_pdf.num_phases
+        train_x_pdf, train_y_pdf, test_x_pdf, test_y_pdf = (
+            dataset_pdf.split_training_testing()
+        )
 
-    # Train the PDF model and get the wandb run URL
-    wandb_run_url_pdf = train_model(
-        train_x_pdf, train_y_pdf, model_pdf, model_entry.training_settings
-    )
-    model_entry.wandb_run_url_pdf = wandb_run_url_pdf
+        # Build the PDF model
+        model_pdf = build_model(train_x_pdf.shape[1:], num_phases_pdf, is_pdf=True)
 
-    # Save the PDF model
-    pdf_model_path = os.path.join(models_dir, 'PDF_Model.h5')
-    model_pdf.save(pdf_model_path, include_optimizer=False)
-    model_entry.pdf_model = pdf_model_path
+        # Train the PDF model and get the wandb run URL
+        wandb_run_url_pdf = train_model(
+            train_x_pdf, train_y_pdf, model_pdf, model_entry.training_settings
+        )
+        model_entry.wandb_run_url_pdf = wandb_run_url_pdf
 
-    # Test the PDF model
-    test_model(model_pdf, test_x_pdf, test_y_pdf)
+        # Save the PDF model
+        pdf_model_path = os.path.join(models_dir, 'PDF_Model.h5')
+        model_pdf.save(pdf_model_path, include_optimizer=False)
+        model_entry.pdf_model = pdf_model_path
 
-    # Restore the original working directory and saves the reference structures
-    os.chdir(original_dir)
-    model_entry.reference_files = get_cif_files_from_folder(
-        os.path.join(working_dir, reference_structures_dir)
-    )
+        # Test the PDF model
+        test_model(model_pdf, test_x_pdf, test_y_pdf)
+
+        # Save the reference structures
+        model_entry.reference_files = get_cif_files_from_folder(
+            os.path.join(working_dir, reference_structures_dir)
+        )
+    except Exception as e:
+        print(f'Error during training: {e}')
+    finally:
+        # Restore the original working directory
+        os.chdir(original_dir)
 
 
 def get_cif_files_from_folder(folder_name):

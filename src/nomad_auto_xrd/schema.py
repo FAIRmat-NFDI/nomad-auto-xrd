@@ -599,7 +599,8 @@ class AutoXRDTraining(JupyterAnalysis):
                     'method',
                     'query_for_inputs',
                     'notebook',
-                    'action_trigger',
+                    'trigger_generate_notebook',
+                    'trigger_reset_inputs',
                 ],
             ),
         ),
@@ -609,6 +610,13 @@ class AutoXRDTraining(JupyterAnalysis):
         a_eln=ELNAnnotation(
             component='RichTextEditQuantity',
             props=dict(height=500),
+        ),
+    )
+    trigger_generate_notebook = Quantity(
+        default=True,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.ActionEditQuantity,
+            label='Generate Notebook',
         ),
     )
     outputs = SubSection(
@@ -648,10 +656,10 @@ class AutoXRDTraining(JupyterAnalysis):
         )
 
         source = [
-            'from nomad_analysis.auto_xrd.schema import (\n',
+            'from nomad_auto_xrd.schema import (\n',
+            '    AutoXRDModel,\n',
             '    SimulationSettings,\n',
             '    TrainingSettings,\n',
-            '    AutoXRDModel,\n',
             ')\n',
             '\n',
             '# either specify or use the default settings\n',
@@ -679,9 +687,36 @@ class AutoXRDTraining(JupyterAnalysis):
         source = [
             '## Training the Model\n',
             '\n',
-            'Next, we add the path to the structure files (CIF files) containing\n',
-            'the crystal structures to be used for setting up training data.\n',
-            'Then, we train the model using the `train` function.\n',
+            'Next, we connect the structure files (CIF files) of the structures to\n',
+            'be used as training data. Create a "Input_structures" folder and upload\n',
+            'the CIF files there. Then, run the following code block.\n',
+        ]
+        cells.append(
+            nbformat.v4.new_markdown_cell(
+                source=source,
+                metadata={'tags': ['nomad-analysis-predefined']},
+            ),
+        )
+
+        source = [
+            'import os\n',
+            '\n',
+            '# Specify the path to the input structures\n',
+            'model.simulation_settings.structure_files = [\n',
+            "    os.path.join('Input_structures', file_name)\n",
+            "    for file_name in os.listdir('Input_structures')\n",
+            "    if file_name.endswith('.cif')\n",
+            ']\n',
+        ]
+        cells.append(
+            nbformat.v4.new_code_cell(
+                source=source,
+                metadata={'tags': ['nomad-analysis-predefined']},
+            ),
+        )
+
+        source = [
+            'Now, we import the training module and execute it for the model\n',
         ]
         cells.append(
             nbformat.v4.new_markdown_cell(
@@ -692,9 +727,6 @@ class AutoXRDTraining(JupyterAnalysis):
 
         source = [
             'from nomad_auto_xrd.training import train\n',
-            '\n',
-            'structure_files =\n',
-            'model.simulation_settings.structure_files = structure_files\n',
             '\n',
             'train(model)',
         ]
@@ -728,14 +760,39 @@ class AutoXRDTraining(JupyterAnalysis):
         source = [
             'from nomad_analysis.utils import create_entry_with_api\n',
             '\n',
+            'file_name = (\n',
+            "    os.path.basename(analysis.m_parent.metadata.mainfile).rsplit('.archive.', 1)[0]\n",  # noqa: E501
+            "    + '_model.archive.json'\n",
+            ')\n',
             "analysis.m_setdefault('outputs/0')\n",
-            '\n',
             'analysis.outputs[0].reference = create_entry_with_api(\n',
             '    model,\n',
             '    base_url=analysis.m_context.installation_url,\n',
             '    upload_id=analysis.m_context.upload_id,\n',
-            "    file_name=f'{analysis.name}_auto_xrd_model.archive.json',\n",
+            '    file_name=file_name,\n',
             ')\n',
+        ]
+        cells.append(
+            nbformat.v4.new_code_cell(
+                source=source,
+                metadata={'tags': ['nomad-analysis-predefined']},
+            ),
+        )
+
+        source = [
+            '## Saving the Analysis Entry\n',
+            '\n',
+            'Finally, we save the analysis entry to update the changes in NOMAD.\n',
+        ]
+        cells.append(
+            nbformat.v4.new_markdown_cell(
+                source=source,
+                metadata={'tags': ['nomad-analysis-predefined']},
+            ),
+        )
+
+        source = [
+            'analysis.save()\n',
         ]
         cells.append(
             nbformat.v4.new_code_cell(
@@ -788,10 +845,8 @@ class AutoXRDAnalysis(JupyterAnalysis):
                     'method',
                     'query_for_inputs',
                     'notebook',
-                    'action_trigger',
-                    'analysis_settings',
-                    'inputs',
-                    'results',
+                    'trigger_generate_notebook',
+                    'trigger_reset_inputs',
                 ],
             ),
         ),
@@ -802,6 +857,13 @@ class AutoXRDAnalysis(JupyterAnalysis):
         a_eln=ELNAnnotation(
             component='RichTextEditQuantity',
             props=dict(height=500),
+        ),
+    )
+    trigger_generate_notebook = Quantity(
+        default=True,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.ActionEditQuantity,
+            label='Generate Notebook',
         ),
     )
     analysis_settings = SubSection(
@@ -900,7 +962,8 @@ class AutoXRDAnalysis(JupyterAnalysis):
             <ol>
                 <li>
                 Initialize the <strong><em>analysis_settings</em></strong> section and
-                ensure that the <strong><em>analysis_settings.model</em></strong>
+                ensure that the
+                <strong><em>analysis_settings.auto_xrd_model</em></strong>
                 quantity references an <strong><em>AutoXRDModel</em></strong> entry.
                 The selected model should be compatible with the sample's composition
                 space.

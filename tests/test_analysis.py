@@ -22,6 +22,9 @@ from nomad.client import normalize_all, parse
 
 from nomad_auto_xrd.analysis import analyse
 
+# Check environment variable
+run_pipeline_tests = os.environ.get('RUN_PIPELINE_TESTS', 'false').lower() == 'true'
+
 data_dir = os.path.abspath(os.path.join('tests', 'data', 'analysis'))
 
 xrd_files = [
@@ -31,13 +34,17 @@ xrd_files = [
 log_levels = ['error', 'critical']
 
 
-# TODO separate into analysis entry setup fixture and analysis functionality
+@pytest.mark.skipif(
+    not run_pipeline_tests,
+    reason='Skipping analysis test. Set environment variable RUN_PIPELINE_TESTS=true '
+    'to run.',
+)
 @pytest.mark.parametrize(
     'parsed_measurement_archives, caplog',
     [(xrd_files, log_levels)],
     indirect=True,
 )
-def test_analysis(parsed_measurement_archives, caplog):
+def test_analysis(parsed_measurement_archives, caplog, clean_up):
     """
     Test the `analyse` functions of the AutoXRD package. Set ups the NOMAD entries that
     are needed for the analysis and then runs the analysis.
@@ -73,3 +80,6 @@ def test_analysis(parsed_measurement_archives, caplog):
 
     assert analysis.data.results[0].identified_phases[0].name == 'CuPS3_136'
     assert analysis.data.results[1].identified_phases[0].name == 'Cu3P_165'
+
+    # clean up the created files
+    clean_up.track(os.path.join(data_dir, analysis.data.notebook))
