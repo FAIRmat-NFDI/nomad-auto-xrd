@@ -245,6 +245,28 @@ class TrainingSettings(ArchiveSection):
     )
 
 
+class ReferenceStructure(ArchiveSection):
+    """
+    A schema for the reference structures.
+    """
+
+    name = Quantity(
+        type=str,
+        description="""
+        A label for the reference structure that is also generated from model
+        inference.
+        """,
+    )
+    cif_file = Quantity(
+        type=str,
+        description='Path to the CIF file of the reference structure.',
+    )
+    reference_structure = Quantity(
+        type=System,
+        description='Parsed structure of the phase based on the CIF file.',
+    )
+
+
 class AutoXRDModel(Entity, Schema):
     """
     Section for describing an auto XRD model.
@@ -266,16 +288,6 @@ class AutoXRDModel(Entity, Schema):
             component=ELNComponentEnum.StringEditQuantity,
             default='auto_xrd_training',
         ),
-    )
-    reference_files = Quantity(
-        type=str,
-        shape=['*'],
-        description='Path to the filtered reference structure files (.cif) used to '
-        'train the model.',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.FileEditQuantity,
-        ),
-        a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
     )
     xrd_model = Quantity(
         type=str,
@@ -326,14 +338,19 @@ class AutoXRDModel(Entity, Schema):
         section_def=TrainingSettings,
         description='Settings for training the model.',
     )
+    reference_structures = SubSection(
+        section_def=ReferenceStructure,
+        repeats=True,
+    )
 
     def normalize(self, archive: 'ArchiveSection', logger: 'BoundLogger'):
         super().normalize(archive, logger)
-        if self.reference_files is not None:
+        if self.reference_structures:
             # Read the reference CIF files and convert them into ase atoms
             ase_atoms_list = []
-            for cif_file in self.reference_files:
-                if not cif_file.endswith('.cif'):
+            for reference_structure in self.reference_structures:
+                cif_file = reference_structure.cif_file
+                if not cif_file or not cif_file.endswith('.cif'):
                     logger.warn(
                         f'Cannot parse structure file: {cif_file}. '
                         'Should be a "*.cif" file.'
@@ -381,6 +398,7 @@ class AutoXRDModel(Entity, Schema):
                 add_system(system, topology)
 
             archive.results.material.topology = list(topology.values())
+            # TODO connect `reference_structure`to the phase structure visualization
 
 
 class AutoXRDModelReference(SectionReference):
