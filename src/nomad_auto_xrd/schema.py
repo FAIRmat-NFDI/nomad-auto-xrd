@@ -261,9 +261,9 @@ class ReferenceStructure(ArchiveSection):
         type=str,
         description='Path to the CIF file of the reference structure.',
     )
-    reference_structure = Quantity(
+    system = Quantity(
         type=System,
-        description='Parsed structure of the phase based on the CIF file.',
+        description='`System` section generated based on the CIF file of the phase.',
     )
 
 
@@ -368,6 +368,7 @@ class AutoXRDModel(Entity, Schema):
             # storing structural and chemical information that is suitable for both
             # experiments and simulations.
             topology = {}
+            labels = []
             for ase_atoms in ase_atoms_list:
                 symmetry = SymmetryNew()
                 symmetry_analyzer = SymmetryAnalyzer(ase_atoms, symmetry_tol=1)
@@ -378,9 +379,13 @@ class AutoXRDModel(Entity, Schema):
                 )
                 symmetry.crystal_system = symmetry_analyzer.get_crystal_system()
                 symmetry.point_group = symmetry_analyzer.get_point_group()
+                label = (
+                    f'{ase_atoms.get_chemical_formula()}-{symmetry.space_group_number}'
+                )
+                labels.append(label)
                 system = System(
                     atoms=nomad_atoms_from_ase_atoms(ase_atoms),
-                    label=f'{ase_atoms.get_chemical_formula()}-{symmetry.space_group_number}',
+                    label=label,
                     description='Reference structure used to train the auto-XRD model.',
                     structural_type='bulk',
                     dimensionality='3D',
@@ -390,7 +395,14 @@ class AutoXRDModel(Entity, Schema):
                 add_system(system, topology)
 
             archive.results.material.topology = list(topology.values())
-            # TODO connect `reference_structure`to the phase structure visualization
+            topology_m_proxies = dict()
+            for i, system in enumerate(archive.results.material.topology):
+                topology_m_proxies[system.label] = f'#/results/material/topology/{i}'
+
+            # connect `data.reference_structures[i].system` and
+            # `results.material.topology[j]` using the label
+            for i, label in enumerate(labels):
+                self.reference_structures[i].system = topology_m_proxies[label]
 
 
 class AutoXRDModelReference(SectionReference):

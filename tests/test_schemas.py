@@ -46,6 +46,8 @@ def test_auto_xrd_model(caplog):
     normalize_all(entry_archive)
     assert entry_archive.data is not None
     assert isinstance(entry_archive.data, AutoXRDModel)
+    assert entry_archive.results.material.topology[0].label == 'Cu6P2S8-31'
+    assert entry_archive.data.reference_structures[0].system.label == 'Cu6P2S8-31'
 
 
 @pytest.mark.parametrize(

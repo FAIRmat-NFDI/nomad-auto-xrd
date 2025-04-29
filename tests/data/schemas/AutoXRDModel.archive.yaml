@@ -1,3 +1,5 @@
 data:
   m_def: nomad_auto_xrd.schema.AutoXRDModel
+  reference_structures:
+    - cif_file: 'Cu3PS4_31.cif'
 
