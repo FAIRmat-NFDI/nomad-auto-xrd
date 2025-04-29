@@ -557,27 +557,14 @@ class IdentifiedPhase(ArchiveSection):
         description='The name of the identified phase in the XRD data.',
     )
     reference_structure = Quantity(
-        type=System,
+        type=ReferenceStructure,
         description='The reference structure of the identified phase in the training '
         'data.',
-        a_eln=ELNAnnotation(
-            component='ReferenceEditQuantity',
-        ),
     )
     confidence = Quantity(
         type=float,
         description='The confidence that the phase is present, ranging from 0 to 100.',
     )
-
-    def normalize(self, archive, logger):
-        """
-        Copy over the label of the reference structure to the name of the identified
-        phase.
-        """
-        super().normalize(archive, logger)
-        if self.reference_structure and self.reference_structure.label:
-            # Get the structure label from the reference structure
-            self.name = self.reference_structure.label
 
 
 class AutoXRDAnalysisResult(ArchiveSection):

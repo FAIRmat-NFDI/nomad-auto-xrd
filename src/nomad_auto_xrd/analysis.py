@@ -33,6 +33,22 @@ if TYPE_CHECKING:
     from structlog.stdlib import BoundLogger
 
 
+def get_reference(upload_id: str, entry_id: str, archive_path: str = None) -> str:
+    """
+    Returns the proxy value for referencing an entry.
+
+    Args:
+        upload_id (str): Upload ID of the upload in which the entry resides.
+        entry_id (str): Entry ID of the entry.
+
+    Returns:
+        str: Proxy value of the form '../uploads/{upload_id}/archive/{entry_id}#/data'
+    """
+    if not archive_path:
+        return f'../uploads/{upload_id}/archive/{entry_id}#/data'
+    return f'../uploads/{upload_id}/archive/{entry_id}#/{archive_path}'
+
+
 def convert_to_serializable(obj):
     """Convert non-serializable objects like numpy arrays to serializable formats."""
     if isinstance(obj, np.ndarray):
@@ -573,16 +589,27 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
     else:
         return results
 
+    # Create a dictionary to store the m_proxies of the sections with
+    # reference structures
+    references_m_proxies = dict()
+    for i, reference in enumerate(model.reference_structures):
+        references_m_proxies[reference.name] = get_reference(
+            model.m_parent.metadata.upload_id,
+            model.m_parent.metadata.entry_id,
+            f'data/reference_structures/{i}',
+        )
+
     for result_iter, (phases, confidences) in enumerate(
         zip(results['merged_results'].phases, results['merged_results'].confidences)
     ):
         for phase, confidence in zip(phases, confidences):
-            analysis.results[result_iter].identified_phases.append(
-                IdentifiedPhase(
-                    name=phase,
-                    confidence=confidence,
-                )
+            identified_phase = IdentifiedPhase(
+                name=phase,
+                confidence=confidence,
             )
+            if phase in references_m_proxies:
+                identified_phase.reference_structure = references_m_proxies[phase]
+            analysis.results[result_iter].identified_phases.append(identified_phase)
 
     return results
 
