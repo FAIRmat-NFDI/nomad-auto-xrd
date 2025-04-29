@@ -470,14 +470,15 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
         # Create symlinks to the reference CIF files
         references_dir = os.path.join(temp_dir, 'References')
         os.makedirs(references_dir, exist_ok=True)
-        for reference in model.reference_files:
-            if os.path.exists(reference):
+        for reference in model.reference_structures:
+            cif_file = reference.cif_file
+            if os.path.exists(cif_file):
                 os.symlink(
-                    os.path.abspath(reference),
-                    os.path.join(references_dir, os.path.basename(reference)),
+                    os.path.abspath(cif_file),
+                    os.path.join(references_dir, os.path.basename(cif_file)),
                 )
             else:
-                print(f'Reference file {reference} does not exist. Skipping.')
+                print(f'Reference file {cif_file} does not exist. Skipping.')
                 continue
         # Create symlinks to the model files
         xrd_model_path = ''
