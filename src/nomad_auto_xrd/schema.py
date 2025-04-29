@@ -577,7 +577,7 @@ class AutoXRDAnalysisResult(ArchiveSection):
         description='The name of the analysis result.',
     )
     xrd_measurement = SubSection(
-        section_def=AutoXRDMeasurementReference,
+        section_def=SectionReference,
         description='The XRD pattern used for analysis.',
     )
     identified_phases = SubSection(
