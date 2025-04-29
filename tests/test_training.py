@@ -65,4 +65,6 @@ def test_train(caplog):
 
         assert os.path.exists(os.path.join(tmpdirname, model.data.xrd_model))
         assert os.path.exists(os.path.join(tmpdirname, model.data.pdf_model))
-        assert os.path.exists(os.path.join(tmpdirname, model.data.reference_files[0]))
+        assert os.path.exists(
+            os.path.join(tmpdirname, model.data.reference_structures[0].cif_file)
+        )

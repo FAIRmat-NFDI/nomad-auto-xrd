@@ -21,6 +21,7 @@ import pytest
 from nomad.client import normalize_all, parse
 
 from nomad_auto_xrd.analysis import analyse
+from nomad_auto_xrd.schema import ReferenceStructure
 
 # Check environment variable
 run_pipeline_tests = os.environ.get('RUN_PIPELINE_TESTS', 'false').lower() == 'true'
@@ -61,6 +62,12 @@ def test_analysis(parsed_measurement_archives, caplog, clean_up):
         if path.endswith('.cif')
     ]
     model = parse(os.path.join(data_dir, 'AutoXRDModel.archive.yaml'))[0]
+    for reference_file in reference_files:
+        reference_structure = ReferenceStructure(
+            name=os.path.basename(reference_file).split('.cif')[0],
+            cif_file=reference_file,
+        )
+        model.data.reference_structures.append(reference_structure)
     model.data.reference_files = reference_files
     model.data.xrd_model = os.path.join(data_dir, 'Models', 'XRD_Model.h5')
     model.data.pdf_model = os.path.join(data_dir, 'Models', 'PDF_Model.h5')
