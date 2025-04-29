@@ -299,10 +299,6 @@ class AutoXRDModel(Entity, Schema):
         description='Path to the directory containing the simulated data and trained '
         'models.',
         default='auto_xrd_training',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.StringEditQuantity,
-            default='auto_xrd_training',
-        ),
     )
     xrd_model = Quantity(
         type=str,
