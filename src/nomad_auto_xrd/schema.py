@@ -410,6 +410,11 @@ class AutoXRDMeasurementReference(SectionReference):
         ),
     )
 
+    def normalize(self, archive: 'ArchiveSection', logger: 'BoundLogger'):
+        super().normalize(archive, logger)
+        if self.reference and self.reference.name:
+            self.name = self.reference.name
+
 
 class AnalysisSettings(ArchiveSection):
     """
@@ -570,6 +575,10 @@ class AutoXRDAnalysisResult(ArchiveSection):
     Section for the results of the auto XRD analysis.
     """
 
+    name = Quantity(
+        type=str,
+        description='The name of the analysis result.',
+    )
     xrd_measurement = SubSection(
         section_def=AutoXRDMeasurementReference,
         description='The XRD pattern used for analysis.',
@@ -579,6 +588,11 @@ class AutoXRDAnalysisResult(ArchiveSection):
         repeats=True,
         description='The identified phases in the XRD data.',
     )
+
+    def normalize(self, archive, logger):
+        super().normalize(archive, logger)
+        if self.xrd_measurement and self.xrd_measurement.name:
+            self.name = self.xrd_measurement.name
 
 
 class AutoXRDTraining(JupyterAnalysis):
