@@ -278,6 +278,21 @@ class AutoXRDModel(Entity, Schema):
         for different phase compositions and structures. The simulated XRD patterns are
         then used to train a machine learning model to predict the phase composition
         and structure from the XRD data.""",
+        a_eln=ELNAnnotation(
+            properties=SectionProperties(
+                order=[
+                    'working_directory',
+                    'xrd_model',
+                    'wandb_run_url_xrd',
+                    'includes_pdf',
+                    'pdf_model',
+                    'wandb_run_url_pdf',
+                    'simulation_settings',
+                    'training_settings',
+                    'reference_structures',
+                ],
+            ),
+        ),
     )
     working_directory = Quantity(
         type=str,
@@ -292,43 +307,24 @@ class AutoXRDModel(Entity, Schema):
     xrd_model = Quantity(
         type=str,
         description='Path to the trained XRD model file.',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.FileEditQuantity,
-        ),
-        a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
     )
     pdf_model = Quantity(
         type=str,
         description='Path to the trained XRD model file.',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.FileEditQuantity,
-        ),
-        a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
     )
     wandb_run_url_xrd = Quantity(
         type=str,
-        shape=['*'],
         description='URL to the "Weights and Biases" run for training XRD model.',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.URLEditQuantity,
-        ),
     )
     wandb_run_url_pdf = Quantity(
         type=str,
-        shape=['*'],
         description='URL to the "Weights and Biases" run for training PDF model.',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.URLEditQuantity,
-        ),
     )
     includes_pdf = Quantity(
         type=bool,
         description='Flag to indicate if an additional model was trained using the '
         'virtual pairwise distribution functions or PDFs computed through a Fourier '
         'transform of the simulated XRD patterns.',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.BoolEditQuantity,
-        ),
     )
     simulation_settings = SubSection(
         section_def=SimulationSettings,
