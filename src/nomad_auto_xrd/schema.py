@@ -245,6 +245,28 @@ class TrainingSettings(ArchiveSection):
     )
 
 
+class ReferenceStructure(ArchiveSection):
+    """
+    A schema for the reference structures.
+    """
+
+    name = Quantity(
+        type=str,
+        description="""
+        A label for the reference structure that is also generated from model
+        inference.
+        """,
+    )
+    cif_file = Quantity(
+        type=str,
+        description='Path to the CIF file of the reference structure.',
+    )
+    system = Quantity(
+        type=System,
+        description='`System` section generated based on the CIF file of the phase.',
+    )
+
+
 class AutoXRDModel(Entity, Schema):
     """
     Section for describing an auto XRD model.
@@ -256,67 +278,49 @@ class AutoXRDModel(Entity, Schema):
         for different phase compositions and structures. The simulated XRD patterns are
         then used to train a machine learning model to predict the phase composition
         and structure from the XRD data.""",
+        a_eln=ELNAnnotation(
+            properties=SectionProperties(
+                order=[
+                    'working_directory',
+                    'xrd_model',
+                    'wandb_run_url_xrd',
+                    'includes_pdf',
+                    'pdf_model',
+                    'wandb_run_url_pdf',
+                    'simulation_settings',
+                    'training_settings',
+                    'reference_structures',
+                ],
+            ),
+        ),
     )
     working_directory = Quantity(
         type=str,
         description='Path to the directory containing the simulated data and trained '
         'models.',
         default='auto_xrd_training',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.StringEditQuantity,
-            default='auto_xrd_training',
-        ),
-    )
-    reference_files = Quantity(
-        type=str,
-        shape=['*'],
-        description='Path to the filtered reference structure files (.cif) used to '
-        'train the model.',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.FileEditQuantity,
-        ),
-        a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
     )
     xrd_model = Quantity(
         type=str,
         description='Path to the trained XRD model file.',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.FileEditQuantity,
-        ),
-        a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
     )
     pdf_model = Quantity(
         type=str,
         description='Path to the trained XRD model file.',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.FileEditQuantity,
-        ),
-        a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
     )
     wandb_run_url_xrd = Quantity(
         type=str,
-        shape=['*'],
         description='URL to the "Weights and Biases" run for training XRD model.',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.URLEditQuantity,
-        ),
     )
     wandb_run_url_pdf = Quantity(
         type=str,
-        shape=['*'],
         description='URL to the "Weights and Biases" run for training PDF model.',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.URLEditQuantity,
-        ),
     )
     includes_pdf = Quantity(
         type=bool,
         description='Flag to indicate if an additional model was trained using the '
         'virtual pairwise distribution functions or PDFs computed through a Fourier '
         'transform of the simulated XRD patterns.',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.BoolEditQuantity,
-        ),
     )
     simulation_settings = SubSection(
         section_def=SimulationSettings,
@@ -326,14 +330,19 @@ class AutoXRDModel(Entity, Schema):
         section_def=TrainingSettings,
         description='Settings for training the model.',
     )
+    reference_structures = SubSection(
+        section_def=ReferenceStructure,
+        repeats=True,
+    )
 
     def normalize(self, archive: 'ArchiveSection', logger: 'BoundLogger'):
         super().normalize(archive, logger)
-        if self.reference_files is not None:
+        if self.reference_structures:
             # Read the reference CIF files and convert them into ase atoms
             ase_atoms_list = []
-            for cif_file in self.reference_files:
-                if not cif_file.endswith('.cif'):
+            for reference_structure in self.reference_structures:
+                cif_file = reference_structure.cif_file
+                if not cif_file or not cif_file.endswith('.cif'):
                     logger.warn(
                         f'Cannot parse structure file: {cif_file}. '
                         'Should be a "*.cif" file.'
@@ -359,6 +368,7 @@ class AutoXRDModel(Entity, Schema):
             # storing structural and chemical information that is suitable for both
             # experiments and simulations.
             topology = {}
+            labels = []
             for ase_atoms in ase_atoms_list:
                 symmetry = SymmetryNew()
                 symmetry_analyzer = SymmetryAnalyzer(ase_atoms, symmetry_tol=1)
@@ -369,9 +379,13 @@ class AutoXRDModel(Entity, Schema):
                 )
                 symmetry.crystal_system = symmetry_analyzer.get_crystal_system()
                 symmetry.point_group = symmetry_analyzer.get_point_group()
+                label = (
+                    f'{ase_atoms.get_chemical_formula()}-{symmetry.space_group_number}'
+                )
+                labels.append(label)
                 system = System(
                     atoms=nomad_atoms_from_ase_atoms(ase_atoms),
-                    label=f'{ase_atoms.get_chemical_formula()}-{symmetry.space_group_number}',
+                    label=label,
                     description='Reference structure used to train the auto-XRD model.',
                     structural_type='bulk',
                     dimensionality='3D',
@@ -381,6 +395,14 @@ class AutoXRDModel(Entity, Schema):
                 add_system(system, topology)
 
             archive.results.material.topology = list(topology.values())
+            topology_m_proxies = dict()
+            for i, system in enumerate(archive.results.material.topology):
+                topology_m_proxies[system.label] = f'#/results/material/topology/{i}'
+
+            # connect `data.reference_structures[i].system` and
+            # `results.material.topology[j]` using the label
+            for i, label in enumerate(labels):
+                self.reference_structures[i].system = topology_m_proxies[label]
 
 
 class AutoXRDModelReference(SectionReference):
@@ -409,6 +431,11 @@ class AutoXRDMeasurementReference(SectionReference):
             component='ReferenceEditQuantity',
         ),
     )
+
+    def normalize(self, archive: 'ArchiveSection', logger: 'BoundLogger'):
+        super().normalize(archive, logger)
+        if self.reference and self.reference.name:
+            self.name = self.reference.name
 
 
 class AnalysisSettings(ArchiveSection):
@@ -542,27 +569,14 @@ class IdentifiedPhase(ArchiveSection):
         description='The name of the identified phase in the XRD data.',
     )
     reference_structure = Quantity(
-        type=System,
+        type=ReferenceStructure,
         description='The reference structure of the identified phase in the training '
         'data.',
-        a_eln=ELNAnnotation(
-            component='ReferenceEditQuantity',
-        ),
     )
     confidence = Quantity(
         type=float,
         description='The confidence that the phase is present, ranging from 0 to 100.',
     )
-
-    def normalize(self, archive, logger):
-        """
-        Copy over the label of the reference structure to the name of the identified
-        phase.
-        """
-        super().normalize(archive, logger)
-        if self.reference_structure and self.reference_structure.label:
-            # Get the structure label from the reference structure
-            self.name = self.reference_structure.label
 
 
 class AutoXRDAnalysisResult(ArchiveSection):
@@ -570,8 +584,12 @@ class AutoXRDAnalysisResult(ArchiveSection):
     Section for the results of the auto XRD analysis.
     """
 
+    name = Quantity(
+        type=str,
+        description='The name of the analysis result.',
+    )
     xrd_measurement = SubSection(
-        section_def=AutoXRDMeasurementReference,
+        section_def=SectionReference,
         description='The XRD pattern used for analysis.',
     )
     identified_phases = SubSection(
@@ -579,6 +597,11 @@ class AutoXRDAnalysisResult(ArchiveSection):
         repeats=True,
         description='The identified phases in the XRD data.',
     )
+
+    def normalize(self, archive, logger):
+        super().normalize(archive, logger)
+        if self.xrd_measurement and self.xrd_measurement.name:
+            self.name = self.xrd_measurement.name
 
 
 class AutoXRDTraining(JupyterAnalysis):
@@ -983,10 +1006,6 @@ class AutoXRDAnalysis(JupyterAnalysis):
             quantity and follow the provided instructions to execute the analysis. </p>
             """
         super().normalize(archive, logger)
-        # TODO add references for the identified phases, or
-        # use the cif files to populate the topology of results
-        # for the identified phases and make references to them
-        # in the identified phases section
 
 
 m_package.__init_metainfo__()

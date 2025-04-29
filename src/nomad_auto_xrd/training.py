@@ -31,7 +31,7 @@ from nomad.datamodel import EntryArchive
 from tensorflow.keras.callbacks import Callback  # type: ignore
 
 # Import necessary modules from autoXRD
-from nomad_auto_xrd.schema import AutoXRDModel
+from nomad_auto_xrd.schema import AutoXRDModel, ReferenceStructure
 
 if TYPE_CHECKING:
     from nomad_auto_xrd.schema import TrainingSettings
@@ -428,7 +428,6 @@ def train(model_entry: AutoXRDModel):
         if os.path.exists(models_dir):
             shutil.rmtree(models_dir)
         os.makedirs(models_dir, exist_ok=True)
-        model_entry.models = []
 
         # Build the model
         model = build_model(train_x.shape[1:], num_phases, is_pdf=False)
@@ -491,9 +490,15 @@ def train(model_entry: AutoXRDModel):
         test_model(model_pdf, test_x_pdf, test_y_pdf)
 
         # Save the reference structures
-        model_entry.reference_files = get_cif_files_from_folder(
+        model_entry.reference_structures = []
+        for reference_cif_file in get_cif_files_from_folder(
             os.path.join(working_dir, reference_structures_dir)
-        )
+        ):
+            reference_structure = ReferenceStructure(
+                name=os.path.basename(reference_cif_file).split('.cif')[0],
+                cif_file=reference_cif_file,
+            )
+            model_entry.reference_structures.append(reference_structure)
     except Exception as e:
         print(f'Error during training: {e}')
     finally:
