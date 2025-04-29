@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from autoXRD import spectrum_analysis, visualizer
+from nomad.metainfo import MProxy
 from nomad_measurements.xrd.schema import ELNXRayDiffraction
 
 from nomad_auto_xrd.schema import AutoXRDAnalysis, AutoXRDModel, IdentifiedPhase
@@ -427,8 +428,10 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
             print('Referenced entry not found. Skipping the XRD entry.')
             continue
         xrd = xrd_reference.reference
+        if isinstance(xrd, MProxy):
+            xrd.m_proxy_resolve()
         if not isinstance(xrd, ELNXRayDiffraction):
-            print('Referenced entry is not an XRD entry. Skipping the XRD entry.')
+            print(f'Referenced entry "{xrd}" is not an XRD entry. Skipping it.')
             continue
         try:
             pattern = xrd.m_parent.results.properties.structural.diffraction_pattern[0]
