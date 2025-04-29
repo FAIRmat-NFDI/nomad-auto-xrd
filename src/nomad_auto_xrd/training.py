@@ -428,7 +428,6 @@ def train(model_entry: AutoXRDModel):
         if os.path.exists(models_dir):
             shutil.rmtree(models_dir)
         os.makedirs(models_dir, exist_ok=True)
-        model_entry.models = []
 
         # Build the model
         model = build_model(train_x.shape[1:], num_phases, is_pdf=False)

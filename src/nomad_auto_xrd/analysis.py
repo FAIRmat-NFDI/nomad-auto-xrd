@@ -421,6 +421,7 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
     # get the xrd data from the analysis inputs
     xrd_data = []
     entry_iter = 0
+    analysis.results = []
     for xrd_reference in analysis.inputs:
         data_dict = dict()
         if not xrd_reference.reference:
