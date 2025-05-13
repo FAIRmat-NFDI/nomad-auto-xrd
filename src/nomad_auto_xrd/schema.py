@@ -642,6 +642,15 @@ class AutoXRDTraining(JupyterAnalysis):
             label='Generate Notebook',
         ),
     )
+    structure_files = Quantity(
+        type=str,
+        shape=['*'],
+        description='Path to structure file (CIF) containing crystal structure.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.FileEditQuantity,
+        ),
+        a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
+    )
     outputs = SubSection(
         section_def=AutoXRDModelReference,
         repeats=True,
@@ -710,9 +719,8 @@ class AutoXRDTraining(JupyterAnalysis):
         source = [
             '## Training the Model\n',
             '\n',
-            'Next, we connect the structure files (CIF files) of the structures to\n',
-            'be used as training data. Create a "Input_structures" folder and upload\n',
-            'the CIF files there. Then, run the following code block.\n',
+            'Next, we connect the CIF files of the structures available in the\n',
+            '`analysis` entry to be used as training data for the model.\n',
         ]
         cells.append(
             nbformat.v4.new_markdown_cell(
@@ -726,8 +734,8 @@ class AutoXRDTraining(JupyterAnalysis):
             '\n',
             '# Specify the path to the input structures\n',
             'model.simulation_settings.structure_files = [\n',
-            "    os.path.join('Input_structures', file_name)\n",
-            "    for file_name in os.listdir('Input_structures')\n",
+            '    file_name\n',
+            '    for file_name in analysis.structure_files\n',
             "    if file_name.endswith('.cif')\n",
             ']\n',
         ]
@@ -842,9 +850,18 @@ class AutoXRDTraining(JupyterAnalysis):
             for automatic phase identification from XRD data. The trained model can be
             indexed with `AutoXRDModel` entry which saves related metadata. </p> <p>
 
-            From the <strong><em>notebook</em></strong> quantity, open the the
-            Jupyter notebook and follow the steps mentioned in there to perform the
-            training.</p>
+            To train the model, follow these steps:</p>
+            <ol>
+                <li>
+                Upload the CIF files of the structures to be used for training in the
+                <strong><em>structure_files</em></strong> quantity.
+                </li>
+                <li>
+                From the <strong><em>notebook</em></strong> quantity, open the the
+                Jupyter notebook and follow the steps mentioned in there to perform the
+                training.
+                </li>
+            </ol>
             """
         super().normalize(archive, logger)
 
@@ -1000,10 +1017,11 @@ class AutoXRDAnalysis(JupyterAnalysis):
                 Use the <strong><em>analysis.inputs</em></strong> section to add the XRD
                 measurement entries for which the analysis is to be performed.
                 </li>
+                <li>
+                Open the Jupyter notebook from the <strong><em>notebook</em></strong>
+                quantity and follow the provided instructions to execute the analysis.
+                </li>
             </ol>
-            <p>
-            Open the Jupyter notebook from the <strong><em>notebook</em></strong>
-            quantity and follow the provided instructions to execute the analysis. </p>
             """
         super().normalize(archive, logger)
 
