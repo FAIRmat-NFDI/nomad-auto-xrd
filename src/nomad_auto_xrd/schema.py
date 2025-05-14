@@ -35,6 +35,7 @@ from nomad.datamodel.metainfo.annotations import (
 from nomad.datamodel.metainfo.basesections import Entity, SectionReference
 from nomad.datamodel.results import Material, SymmetryNew, System
 from nomad.metainfo import (
+    MProxy,
     Quantity,
     SchemaPackage,
     Section,
@@ -1024,6 +1025,43 @@ class AutoXRDAnalysis(JupyterAnalysis):
             </ol>
             """
         super().normalize(archive, logger)
+
+        # validate the data in the referenced XRD entries
+        if self.analysis_settings:
+            for xrd_reference in self.inputs:
+                if not xrd_reference.reference:
+                    continue
+                xrd = xrd_reference.reference
+                if isinstance(xrd, MProxy):
+                    xrd.m_proxy_resolve()
+                if not isinstance(xrd, ELNXRayDiffraction):
+                    continue
+                try:
+                    pattern = (
+                        xrd.m_parent.results.properties.structural.diffraction_pattern[
+                            0
+                        ]
+                    )
+                    two_theta = pattern.two_theta_angles
+                    intensity = pattern.intensity
+                except AttributeError as e:
+                    logger.error(f'Error accessing XRD entry "{xrd.name}". {e}')
+                    continue
+                if two_theta is None or intensity is None:
+                    logger.error(
+                        f'XRD entry {xrd.name} does not contain valid two theta '
+                        'angles or intensity data.'
+                    )
+                    continue
+                elif (
+                    min(two_theta) > self.analysis_settings.min_angle
+                    and max(two_theta) < self.analysis_settings.max_angle
+                ):
+                    logger.error(
+                        f'Two theta range of XRD entry "{xrd.name}" should be a super '
+                        'set of two theta range specified in the analysis settings.'
+                    )
+                    continue
 
 
 m_package.__init_metainfo__()
