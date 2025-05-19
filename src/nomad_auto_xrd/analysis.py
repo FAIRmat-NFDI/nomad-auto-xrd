@@ -523,7 +523,6 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
             # Create a directory 'temp' that is being used by the spectrum_analysis
             # module
             os.makedirs('temp', exist_ok=True)
-
             results = dict()
             if xrd_model_path:
                 results['xrd'] = AnalysisResult(
@@ -572,25 +571,61 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
                         is_pdf=True,
                     )
                 )
+            if results.get('xrd') and results.get('pdf'):
+                # merge results
+                results['merged_results'] = AnalysisResult.from_dict(
+                    spectrum_analysis.merge_results(
+                        {
+                            'XRD': results['xrd'].to_dict(),
+                            'PDF': results['pdf'].to_dict(),
+                        },
+                        analysis.analysis_settings.min_confidence,
+                        analysis.analysis_settings.max_phases,
+                    )
+                )
+            elif results.get('xrd'):
+                results['merged_results'] = results['xrd']
+            else:
+                return results
         except Exception as e:
             print(f'Error during analysis: {e}')
         finally:
+            # Plot the results
+            plots_dir = os.path.join(os.path.abspath(original_dir), 'Plots')
+            os.makedirs(plots_dir, exist_ok=True)
+            for i, filename in enumerate(results['merged_results'].filenames):
+                # Plot the results
+                visualizer.main(
+                    'Spectra',
+                    filename,
+                    [
+                        os.path.join(phase + '.cif')
+                        for phase in results['merged_results'].phases[i]
+                    ],
+                    results['merged_results'].scale_factors[i],
+                    results['merged_results'].reduced_spectra[i],
+                    analysis.analysis_settings.min_angle.magnitude,
+                    analysis.analysis_settings.max_angle.magnitude,
+                    analysis.analysis_settings.wavelength.to('angstrom').magnitude,
+                    save=True,
+                    show_reduced=analysis.analysis_settings.show_reduced,
+                    inc_pdf=analysis.analysis_settings.include_pdf,
+                    plot_both=False,
+                    raw=analysis.analysis_settings.raw,
+                    rietveld=False,
+                )
+                # Move the plot from tmp directory to the plots directory
+                tmp_plot = os.path.join(temp_dir, os.path.basename(filename) + '.png')
+                if os.path.exists(tmp_plot):
+                    os.rename(
+                        tmp_plot,
+                        os.path.join(
+                            plots_dir,
+                            os.path.basename(filename) + '.png',
+                        ),
+                    )
             # Restore the original working directory
             os.chdir(original_dir)
-
-    if results.get('xrd') and results.get('pdf'):
-        # merge results
-        results['merged_results'] = AnalysisResult.from_dict(
-            spectrum_analysis.merge_results(
-                {'XRD': results['xrd'].to_dict(), 'PDF': results['pdf'].to_dict()},
-                analysis.analysis_settings.min_confidence,
-                analysis.analysis_settings.max_phases,
-            )
-        )
-    elif results.get('xrd'):
-        results['merged_results'] = results['xrd']
-    else:
-        return results
 
     # Create a dictionary to store the m_proxies of the sections with
     # reference structures
