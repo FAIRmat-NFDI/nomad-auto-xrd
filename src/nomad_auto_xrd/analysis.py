@@ -451,6 +451,7 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
             print(f'Referenced entry "{xrd}" is not an XRD entry. Skipping it.')
             continue
         try:
+            filename = xrd.data_file
             pattern = xrd.m_parent.results.properties.structural.diffraction_pattern[0]
             two_theta = pattern.two_theta_angles
             intensity = pattern.intensity
@@ -461,6 +462,7 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
             print('XRD data is missing. Skipping the XRD entry.')
             continue
 
+        data_dict['filename'] = filename
         data_dict['two_theta'] = two_theta.to('degree').magnitude
         data_dict['intensity'] = intensity
         data_dict['reference_path'] = None
@@ -479,8 +481,11 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
         tmp_spectra_dir = os.path.join(temp_dir, 'Spectra')
         os.makedirs(tmp_spectra_dir, exist_ok=True)
         for i, xrd_reference in enumerate(xrd_data):
+            filename = xrd_reference['filename']
             with open(
-                os.path.join(tmp_spectra_dir, f'spectrum_{i}.xy'), 'w', encoding='utf-8'
+                os.path.join(tmp_spectra_dir, f'{filename.rsplit(".", 1)[0]}.xy'),
+                'w',
+                encoding='utf-8',
             ) as f:
                 for angle, intensity in zip(
                     xrd_reference['two_theta'], xrd_reference['intensity']
@@ -615,14 +620,11 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
                     rietveld=False,
                 )
                 # Move the plot from tmp directory to the plots directory
-                tmp_plot = os.path.join(temp_dir, os.path.basename(filename) + '.png')
+                tmp_plot = os.path.join(temp_dir, filename.rsplit('.', 1)[0] + '.png')
                 if os.path.exists(tmp_plot):
                     os.rename(
                         tmp_plot,
-                        os.path.join(
-                            plots_dir,
-                            os.path.basename(filename) + '.png',
-                        ),
+                        os.path.join(plots_dir, filename.rsplit('.', 1)[0] + '.png'),
                     )
             # Restore the original working directory
             os.chdir(original_dir)
