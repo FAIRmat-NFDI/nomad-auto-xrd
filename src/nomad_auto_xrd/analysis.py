@@ -476,25 +476,25 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
 
     with tempfile.TemporaryDirectory() as temp_dir:
         # Generate .xy files for the XRD data
-        spectra_dir = os.path.join(temp_dir, 'Spectra')
-        os.makedirs(spectra_dir, exist_ok=True)
+        tmp_spectra_dir = os.path.join(temp_dir, 'Spectra')
+        os.makedirs(tmp_spectra_dir, exist_ok=True)
         for i, xrd_reference in enumerate(xrd_data):
             with open(
-                os.path.join(spectra_dir, f'spectrum_{i}.xy'), 'w', encoding='utf-8'
+                os.path.join(tmp_spectra_dir, f'spectrum_{i}.xy'), 'w', encoding='utf-8'
             ) as f:
                 for angle, intensity in zip(
                     xrd_reference['two_theta'], xrd_reference['intensity']
                 ):
                     f.write(f'{angle} {intensity}\n')
         # Create symlinks to the reference CIF files
-        references_dir = os.path.join(temp_dir, 'References')
-        os.makedirs(references_dir, exist_ok=True)
+        tmp_references_dir = os.path.join(temp_dir, 'References')
+        os.makedirs(tmp_references_dir, exist_ok=True)
         for reference in model.reference_structures:
             cif_file = reference.cif_file
             if os.path.exists(cif_file):
                 os.symlink(
                     os.path.abspath(cif_file),
-                    os.path.join(references_dir, os.path.basename(cif_file)),
+                    os.path.join(tmp_references_dir, os.path.basename(cif_file)),
                 )
             else:
                 print(f'Reference file {cif_file} does not exist. Skipping.')
