@@ -1058,11 +1058,14 @@ class AutoXRDAnalysis(JupyterAnalysis):
                     continue
                 elif (
                     min(two_theta) > self.analysis_settings.min_angle
-                    and max(two_theta) < self.analysis_settings.max_angle
+                    or max(two_theta) < self.analysis_settings.max_angle
                 ):
                     logger.error(
-                        f'Two theta range of XRD entry "{xrd.name}" should be a super '
-                        'set of two theta range specified in the analysis settings.'
+                        f'Two theta range of XRD entry "{xrd.name}" [{min(two_theta)}, '
+                        f'{max(two_theta)}] should be a super set of two theta range '
+                        'specified in the analysis settings '
+                        f'[{self.analysis_settings.min_angle}, '
+                        f'{self.analysis_settings.max_angle}].'
                     )
                     continue
 
