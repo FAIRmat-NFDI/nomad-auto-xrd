@@ -30,6 +30,7 @@ from nomad.datamodel.metainfo.annotations import (
     BrowserAnnotation,
     ELNAnnotation,
     ELNComponentEnum,
+    Filter,
     SectionProperties,
 )
 from nomad.datamodel.metainfo.basesections import Entity, SectionReference
@@ -621,11 +622,18 @@ class AutoXRDTraining(JupyterAnalysis):
                     'location',
                     'description',
                     'method',
-                    'query_for_inputs',
+                    'structure_files',
                     'notebook',
                     'trigger_generate_notebook',
-                    'trigger_reset_inputs',
                 ],
+                visible=Filter(
+                    exclude=[
+                        'inputs',
+                        'query_for_inputs',
+                        'steps',
+                        'trigger_reset_inputs',
+                    ],
+                ),
             ),
         ),
     )
@@ -634,13 +642,6 @@ class AutoXRDTraining(JupyterAnalysis):
         a_eln=ELNAnnotation(
             component='RichTextEditQuantity',
             props=dict(height=500),
-        ),
-    )
-    trigger_generate_notebook = Quantity(
-        default=True,
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.ActionEditQuantity,
-            label='Generate Notebook',
         ),
     )
     structure_files = Quantity(
@@ -888,7 +889,16 @@ class AutoXRDAnalysis(JupyterAnalysis):
                     'notebook',
                     'trigger_generate_notebook',
                     'trigger_reset_inputs',
+                    'analysis_settings',
+                    'inputs',
+                    'results',
                 ],
+                visible=Filter(
+                    exclude=[
+                        'steps',
+                        'outputs',
+                    ],
+                ),
             ),
         ),
     )
@@ -898,13 +908,6 @@ class AutoXRDAnalysis(JupyterAnalysis):
         a_eln=ELNAnnotation(
             component='RichTextEditQuantity',
             props=dict(height=500),
-        ),
-    )
-    trigger_generate_notebook = Quantity(
-        default=True,
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.ActionEditQuantity,
-            label='Generate Notebook',
         ),
     )
     analysis_settings = SubSection(
