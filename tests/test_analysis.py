@@ -87,8 +87,10 @@ def test_analysis(parsed_measurement_archives, caplog, clean_up):
     original_dir = os.getcwd()
     with tempfile.TemporaryDirectory() as temp_dir:
         os.chdir(temp_dir)
-        analyse(analysis.data)
-        os.chdir(original_dir)
+        try:
+            analyse(analysis.data)
+        finally:
+            os.chdir(original_dir)
 
     assert analysis.data.results[0].identified_phases[0].name == 'Cu3P_165'
     assert analysis.data.results[1].identified_phases[0].name == 'CuPS3_136'
