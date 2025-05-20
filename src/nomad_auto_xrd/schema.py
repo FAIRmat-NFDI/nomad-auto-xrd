@@ -661,6 +661,13 @@ class AutoXRDTraining(JupyterAnalysis):
         ),
         a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
     )
+    trigger_generate_notebook = Quantity(
+        default=True,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.ActionEditQuantity,
+            label='Generate Notebook',
+        ),
+    )
     outputs = SubSection(
         section_def=AutoXRDModelReference,
         repeats=True,
@@ -916,6 +923,13 @@ class AutoXRDAnalysis(JupyterAnalysis):
         a_eln=ELNAnnotation(
             component='RichTextEditQuantity',
             props=dict(height=500),
+        ),
+    )
+    trigger_generate_notebook = Quantity(
+        default=True,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.ActionEditQuantity,
+            label='Generate Notebook',
         ),
     )
     analysis_settings = SubSection(
