@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Optional
 import numpy as np
 from autoXRD import spectrum_analysis, visualizer
 from nomad.metainfo import MProxy
-from nomad_measurements.xrd.schema import ELNXRayDiffraction
+from nomad_measurements.xrd.schema import XRayDiffraction
 
 from nomad_auto_xrd.schema import AutoXRDAnalysis, AutoXRDModel, IdentifiedPhase
 
@@ -447,10 +447,11 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
         xrd = xrd_reference.reference
         if isinstance(xrd, MProxy):
             xrd.m_proxy_resolve()
-        if not isinstance(xrd, ELNXRayDiffraction):
+        if not isinstance(xrd, XRayDiffraction):
             print(f'Referenced entry "{xrd}" is not an XRD entry. Skipping it.')
             continue
         try:
+            filename = xrd.data_file
             pattern = xrd.m_parent.results.properties.structural.diffraction_pattern[0]
             two_theta = pattern.two_theta_angles
             intensity = pattern.intensity
@@ -461,6 +462,7 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
             print('XRD data is missing. Skipping the XRD entry.')
             continue
 
+        data_dict['filename'] = filename
         data_dict['two_theta'] = two_theta.to('degree').magnitude
         data_dict['intensity'] = intensity
         data_dict['reference_path'] = None
@@ -476,25 +478,28 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
 
     with tempfile.TemporaryDirectory() as temp_dir:
         # Generate .xy files for the XRD data
-        spectra_dir = os.path.join(temp_dir, 'Spectra')
-        os.makedirs(spectra_dir, exist_ok=True)
+        tmp_spectra_dir = os.path.join(temp_dir, 'Spectra')
+        os.makedirs(tmp_spectra_dir, exist_ok=True)
         for i, xrd_reference in enumerate(xrd_data):
+            filename = xrd_reference['filename']
             with open(
-                os.path.join(spectra_dir, f'spectrum_{i}.xy'), 'w', encoding='utf-8'
+                os.path.join(tmp_spectra_dir, f'{filename.rsplit(".", 1)[0]}.xy'),
+                'w',
+                encoding='utf-8',
             ) as f:
                 for angle, intensity in zip(
                     xrd_reference['two_theta'], xrd_reference['intensity']
                 ):
                     f.write(f'{angle} {intensity}\n')
         # Create symlinks to the reference CIF files
-        references_dir = os.path.join(temp_dir, 'References')
-        os.makedirs(references_dir, exist_ok=True)
+        tmp_references_dir = os.path.join(temp_dir, 'References')
+        os.makedirs(tmp_references_dir, exist_ok=True)
         for reference in model.reference_structures:
             cif_file = reference.cif_file
             if os.path.exists(cif_file):
                 os.symlink(
                     os.path.abspath(cif_file),
-                    os.path.join(references_dir, os.path.basename(cif_file)),
+                    os.path.join(tmp_references_dir, os.path.basename(cif_file)),
                 )
             else:
                 print(f'Reference file {cif_file} does not exist. Skipping.')
@@ -523,7 +528,6 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
             # Create a directory 'temp' that is being used by the spectrum_analysis
             # module
             os.makedirs('temp', exist_ok=True)
-
             results = dict()
             if xrd_model_path:
                 results['xrd'] = AnalysisResult(
@@ -572,25 +576,61 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
                         is_pdf=True,
                     )
                 )
+            if results.get('xrd') and results.get('pdf'):
+                # merge results
+                results['merged_results'] = AnalysisResult.from_dict(
+                    spectrum_analysis.merge_results(
+                        {
+                            'XRD': results['xrd'].to_dict(),
+                            'PDF': results['pdf'].to_dict(),
+                        },
+                        analysis.analysis_settings.min_confidence,
+                        analysis.analysis_settings.max_phases,
+                    )
+                )
+            elif results.get('xrd'):
+                results['merged_results'] = results['xrd']
+            else:
+                return results
+            # Plot the indentified phases
+            plots_dir = os.path.join(os.path.abspath(original_dir), 'Plots')
+            os.makedirs(plots_dir, exist_ok=True)
+            for i, filename in enumerate(results['merged_results'].filenames):
+                visualizer.main(
+                    'Spectra',
+                    filename,
+                    [
+                        os.path.join(phase + '.cif')
+                        for phase in results['merged_results'].phases[i]
+                    ],
+                    results['merged_results'].scale_factors[i],
+                    results['merged_results'].reduced_spectra[i],
+                    analysis.analysis_settings.min_angle.magnitude,
+                    analysis.analysis_settings.max_angle.magnitude,
+                    analysis.analysis_settings.wavelength.to('angstrom').magnitude,
+                    save=True,
+                    show_reduced=analysis.analysis_settings.show_reduced,
+                    inc_pdf=analysis.analysis_settings.include_pdf,
+                    plot_both=False,
+                    raw=analysis.analysis_settings.raw,
+                    rietveld=False,
+                )
+                # Move the plot from tmp directory to the plots directory
+                tmp_plot_path = os.path.join(
+                    temp_dir, filename.rsplit('.', 1)[0] + '.png'
+                )
+                plot_path = os.path.join(plots_dir, filename.rsplit('.', 1)[0] + '.png')
+                if os.path.exists(tmp_plot_path):
+                    os.rename(
+                        tmp_plot_path,
+                        plot_path,
+                    )
+                analysis.results[i].identified_phases_plot = plot_path
         except Exception as e:
             print(f'Error during analysis: {e}')
         finally:
             # Restore the original working directory
             os.chdir(original_dir)
-
-    if results.get('xrd') and results.get('pdf'):
-        # merge results
-        results['merged_results'] = AnalysisResult.from_dict(
-            spectrum_analysis.merge_results(
-                {'XRD': results['xrd'].to_dict(), 'PDF': results['pdf'].to_dict()},
-                analysis.analysis_settings.min_confidence,
-                analysis.analysis_settings.max_phases,
-            )
-        )
-    elif results.get('xrd'):
-        results['merged_results'] = results['xrd']
-    else:
-        return results
 
     # Create a dictionary to store the m_proxies of the sections with
     # reference structures

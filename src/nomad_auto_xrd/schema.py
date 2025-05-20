@@ -30,6 +30,7 @@ from nomad.datamodel.metainfo.annotations import (
     BrowserAnnotation,
     ELNAnnotation,
     ELNComponentEnum,
+    Filter,
     SectionProperties,
 )
 from nomad.datamodel.metainfo.basesections import Entity, SectionReference
@@ -43,7 +44,7 @@ from nomad.metainfo import (
 from nomad.normalizing.common import nomad_atoms_from_ase_atoms
 from nomad.normalizing.topology import add_system, add_system_info
 from nomad_analysis.jupyter.schema import JupyterAnalysis
-from nomad_measurements.xrd.schema import ELNXRayDiffraction
+from nomad_measurements.xrd.schema import XRayDiffraction
 
 if TYPE_CHECKING:
     from structlog.stdlib import (
@@ -421,11 +422,11 @@ class AutoXRDModelReference(SectionReference):
 
 class AutoXRDMeasurementReference(SectionReference):
     """
-    A reference to an `ELNXRayDiffraction` entry.
+    A reference to an `XRayDiffraction` entry.
     """
 
     reference = Quantity(
-        type=ELNXRayDiffraction,
+        type=XRayDiffraction,
         description='A reference to an `Measurement` entry.',
         a_eln=ELNAnnotation(
             component='ReferenceEditQuantity',
@@ -588,6 +589,14 @@ class AutoXRDAnalysisResult(ArchiveSection):
         type=str,
         description='The name of the analysis result.',
     )
+    identified_phases_plot = Quantity(
+        type=str,
+        description='Path to the plot showing the identified phases.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.FileEditQuantity,
+        ),
+        a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
+    )
     xrd_measurement = SubSection(
         section_def=SectionReference,
         description='The XRD pattern used for analysis.',
@@ -620,11 +629,18 @@ class AutoXRDTraining(JupyterAnalysis):
                     'location',
                     'description',
                     'method',
-                    'query_for_inputs',
+                    'structure_files',
                     'notebook',
                     'trigger_generate_notebook',
-                    'trigger_reset_inputs',
                 ],
+                visible=Filter(
+                    exclude=[
+                        'inputs',
+                        'query_for_inputs',
+                        'steps',
+                        'trigger_reset_inputs',
+                    ],
+                ),
             ),
         ),
     )
@@ -634,6 +650,15 @@ class AutoXRDTraining(JupyterAnalysis):
             component='RichTextEditQuantity',
             props=dict(height=500),
         ),
+    )
+    structure_files = Quantity(
+        type=str,
+        shape=['*'],
+        description='Path to structure file (CIF) containing crystal structure.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.FileEditQuantity,
+        ),
+        a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
     )
     trigger_generate_notebook = Quantity(
         default=True,
@@ -710,9 +735,8 @@ class AutoXRDTraining(JupyterAnalysis):
         source = [
             '## Training the Model\n',
             '\n',
-            'Next, we connect the structure files (CIF files) of the structures to\n',
-            'be used as training data. Create a "Input_structures" folder and upload\n',
-            'the CIF files there. Then, run the following code block.\n',
+            'Next, we connect the CIF files of the structures available in the\n',
+            '`analysis` entry to be used as training data for the model.\n',
         ]
         cells.append(
             nbformat.v4.new_markdown_cell(
@@ -726,8 +750,8 @@ class AutoXRDTraining(JupyterAnalysis):
             '\n',
             '# Specify the path to the input structures\n',
             'model.simulation_settings.structure_files = [\n',
-            "    os.path.join('Input_structures', file_name)\n",
-            "    for file_name in os.listdir('Input_structures')\n",
+            '    file_name\n',
+            '    for file_name in analysis.structure_files\n',
             "    if file_name.endswith('.cif')\n",
             ']\n',
         ]
@@ -842,9 +866,18 @@ class AutoXRDTraining(JupyterAnalysis):
             for automatic phase identification from XRD data. The trained model can be
             indexed with `AutoXRDModel` entry which saves related metadata. </p> <p>
 
-            From the <strong><em>notebook</em></strong> quantity, open the the
-            Jupyter notebook and follow the steps mentioned in there to perform the
-            training.</p>
+            To train the model, follow these steps:</p>
+            <ol>
+                <li>
+                Upload the CIF files of the structures to be used for training in the
+                <strong><em>structure_files</em></strong> quantity.
+                </li>
+                <li>
+                From the <strong><em>notebook</em></strong> quantity, open the the
+                Jupyter notebook and follow the steps mentioned in there to perform the
+                training.
+                </li>
+            </ol>
             """
         super().normalize(archive, logger)
 
@@ -870,7 +903,16 @@ class AutoXRDAnalysis(JupyterAnalysis):
                     'notebook',
                     'trigger_generate_notebook',
                     'trigger_reset_inputs',
+                    'analysis_settings',
+                    'inputs',
+                    'results',
                 ],
+                visible=Filter(
+                    exclude=[
+                        'steps',
+                        'outputs',
+                    ],
+                ),
             ),
         ),
     )
@@ -896,7 +938,7 @@ class AutoXRDAnalysis(JupyterAnalysis):
     inputs = SubSection(
         section_def=AutoXRDMeasurementReference,
         repeats=True,
-        description='A reference to an `ELNXRayDiffraction` entry.',
+        description='A reference to an `XRayDiffraction` entry.',
     )
     results = SubSection(
         section_def=AutoXRDAnalysisResult,
@@ -1000,12 +1042,54 @@ class AutoXRDAnalysis(JupyterAnalysis):
                 Use the <strong><em>analysis.inputs</em></strong> section to add the XRD
                 measurement entries for which the analysis is to be performed.
                 </li>
+                <li>
+                Open the Jupyter notebook from the <strong><em>notebook</em></strong>
+                quantity and follow the provided instructions to execute the analysis.
+                </li>
             </ol>
-            <p>
-            Open the Jupyter notebook from the <strong><em>notebook</em></strong>
-            quantity and follow the provided instructions to execute the analysis. </p>
             """
         super().normalize(archive, logger)
+
+        # validate the data in the referenced XRD entries
+        if self.analysis_settings:
+            for xrd_reference in self.inputs:
+                if not xrd_reference.reference:
+                    continue
+                xrd = xrd_reference.reference
+                if not isinstance(xrd, XRayDiffraction):
+                    logger.error(
+                        f'XRD entry "{xrd.name}" is not of type `XRayDiffraction`.'
+                    )
+                    continue
+                try:
+                    pattern = (
+                        xrd.m_parent.results.properties.structural.diffraction_pattern[
+                            0
+                        ]
+                    )
+                    two_theta = pattern.two_theta_angles
+                    intensity = pattern.intensity
+                except AttributeError as e:
+                    logger.error(f'Error accessing XRD entry "{xrd.name}". {e}')
+                    continue
+                if two_theta is None or intensity is None:
+                    logger.error(
+                        f'XRD entry {xrd.name} does not contain valid two theta '
+                        'angles or intensity data.'
+                    )
+                    continue
+                elif (
+                    min(two_theta) > self.analysis_settings.min_angle
+                    or max(two_theta) < self.analysis_settings.max_angle
+                ):
+                    logger.error(
+                        f'Two theta range of XRD entry "{xrd.name}" [{min(two_theta)}, '
+                        f'{max(two_theta)}] should be a super set of two theta range '
+                        'specified in the analysis settings '
+                        f'[{self.analysis_settings.min_angle}, '
+                        f'{self.analysis_settings.max_angle}].'
+                    )
+                    continue
 
 
 m_package.__init_metainfo__()

@@ -16,6 +16,7 @@
 # limitations under the License.
 #
 import os
+import tempfile
 
 import pytest
 from nomad.client import normalize_all, parse
@@ -83,10 +84,16 @@ def test_analysis(parsed_measurement_archives, caplog, clean_up):
     normalize_all(analysis)
 
     # run the analysis
-    analyse(analysis.data)
+    original_dir = os.getcwd()
+    with tempfile.TemporaryDirectory() as temp_dir:
+        os.chdir(temp_dir)
+        try:
+            analyse(analysis.data)
+        finally:
+            os.chdir(original_dir)
 
-    assert analysis.data.results[0].identified_phases[0].name == 'CuPS3_136'
-    assert analysis.data.results[1].identified_phases[0].name == 'Cu3P_165'
+    assert analysis.data.results[0].identified_phases[0].name == 'Cu3P_165'
+    assert analysis.data.results[1].identified_phases[0].name == 'CuPS3_136'
 
     # clean up the created files
     clean_up.track(os.path.join(data_dir, analysis.data.notebook))
