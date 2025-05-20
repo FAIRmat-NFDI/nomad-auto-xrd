@@ -590,6 +590,14 @@ class AutoXRDAnalysisResult(ArchiveSection):
         type=str,
         description='The name of the analysis result.',
     )
+    identified_phases_plot = Quantity(
+        type=str,
+        description='Path to the plot showing the identified phases.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.FileEditQuantity,
+        ),
+        a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
+    )
     xrd_measurement = SubSection(
         section_def=SectionReference,
         description='The XRD pattern used for analysis.',

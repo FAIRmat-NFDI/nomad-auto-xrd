@@ -592,14 +592,10 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
                 results['merged_results'] = results['xrd']
             else:
                 return results
-        except Exception as e:
-            print(f'Error during analysis: {e}')
-        finally:
-            # Plot the results
+            # Plot the indentified phases
             plots_dir = os.path.join(os.path.abspath(original_dir), 'Plots')
             os.makedirs(plots_dir, exist_ok=True)
             for i, filename in enumerate(results['merged_results'].filenames):
-                # Plot the results
                 visualizer.main(
                     'Spectra',
                     filename,
@@ -620,12 +616,19 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
                     rietveld=False,
                 )
                 # Move the plot from tmp directory to the plots directory
-                tmp_plot = os.path.join(temp_dir, filename.rsplit('.', 1)[0] + '.png')
-                if os.path.exists(tmp_plot):
+                tmp_plot_path = os.path.join(
+                    temp_dir, filename.rsplit('.', 1)[0] + '.png'
+                )
+                plot_path = os.path.join(plots_dir, filename.rsplit('.', 1)[0] + '.png')
+                if os.path.exists(tmp_plot_path):
                     os.rename(
-                        tmp_plot,
-                        os.path.join(plots_dir, filename.rsplit('.', 1)[0] + '.png'),
+                        tmp_plot_path,
+                        plot_path,
                     )
+                analysis.results[i].identified_phases_plot = plot_path
+        except Exception as e:
+            print(f'Error during analysis: {e}')
+        finally:
             # Restore the original working directory
             os.chdir(original_dir)
 
