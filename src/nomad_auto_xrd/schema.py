@@ -36,7 +36,6 @@ from nomad.datamodel.metainfo.annotations import (
 from nomad.datamodel.metainfo.basesections import Entity, SectionReference
 from nomad.datamodel.results import Material, SymmetryNew, System
 from nomad.metainfo import (
-    MProxy,
     Quantity,
     SchemaPackage,
     Section,
@@ -1057,9 +1056,10 @@ class AutoXRDAnalysis(JupyterAnalysis):
                 if not xrd_reference.reference:
                     continue
                 xrd = xrd_reference.reference
-                if isinstance(xrd, MProxy):
-                    xrd.m_proxy_resolve()
                 if not isinstance(xrd, XRayDiffraction):
+                    logger.error(
+                        f'XRD entry "{xrd.name}" is not of type `XRayDiffraction`.'
+                    )
                     continue
                 try:
                     pattern = (
