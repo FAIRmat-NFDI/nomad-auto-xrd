@@ -45,7 +45,7 @@ from nomad.metainfo import (
 from nomad.normalizing.common import nomad_atoms_from_ase_atoms
 from nomad.normalizing.topology import add_system, add_system_info
 from nomad_analysis.jupyter.schema import JupyterAnalysis
-from nomad_measurements.xrd.schema import ELNXRayDiffraction
+from nomad_measurements.xrd.schema import XRayDiffraction
 
 if TYPE_CHECKING:
     from structlog.stdlib import (
@@ -423,11 +423,11 @@ class AutoXRDModelReference(SectionReference):
 
 class AutoXRDMeasurementReference(SectionReference):
     """
-    A reference to an `ELNXRayDiffraction` entry.
+    A reference to an `XRayDiffraction` entry.
     """
 
     reference = Quantity(
-        type=ELNXRayDiffraction,
+        type=XRayDiffraction,
         description='A reference to an `Measurement` entry.',
         a_eln=ELNAnnotation(
             component='ReferenceEditQuantity',
@@ -917,7 +917,7 @@ class AutoXRDAnalysis(JupyterAnalysis):
     inputs = SubSection(
         section_def=AutoXRDMeasurementReference,
         repeats=True,
-        description='A reference to an `ELNXRayDiffraction` entry.',
+        description='A reference to an `XRayDiffraction` entry.',
     )
     results = SubSection(
         section_def=AutoXRDAnalysisResult,
@@ -1037,7 +1037,7 @@ class AutoXRDAnalysis(JupyterAnalysis):
                 xrd = xrd_reference.reference
                 if isinstance(xrd, MProxy):
                     xrd.m_proxy_resolve()
-                if not isinstance(xrd, ELNXRayDiffraction):
+                if not isinstance(xrd, XRayDiffraction):
                     continue
                 try:
                     pattern = (
