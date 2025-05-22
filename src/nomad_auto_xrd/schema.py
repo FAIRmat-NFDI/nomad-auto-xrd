@@ -419,6 +419,11 @@ class AutoXRDModelReference(SectionReference):
         ),
     )
 
+    def normalize(self, archive: 'ArchiveSection', logger: 'BoundLogger'):
+        super().normalize(archive, logger)
+        if self.reference and self.reference.name:
+            self.name = self.reference.name
+
 
 class AutoXRDMeasurementReference(SectionReference):
     """
