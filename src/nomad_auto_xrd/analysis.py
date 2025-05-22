@@ -17,6 +17,7 @@
 #
 import json
 import os
+import shutil
 import tempfile
 import time
 from dataclasses import dataclass
@@ -593,7 +594,7 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
             else:
                 return results
             # Plot the indentified phases
-            plots_dir = os.path.join(os.path.abspath(original_dir), 'Plots')
+            plots_dir = os.path.join(original_dir, 'Plots')
             os.makedirs(plots_dir, exist_ok=True)
             for i, filename in enumerate(results['merged_results'].filenames):
                 visualizer.main(
@@ -621,11 +622,10 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
                 )
                 plot_path = os.path.join(plots_dir, filename.rsplit('.', 1)[0] + '.png')
                 if os.path.exists(tmp_plot_path):
-                    os.rename(
-                        tmp_plot_path,
-                        plot_path,
-                    )
-                analysis.results[i].identified_phases_plot = plot_path
+                    shutil.copy2(tmp_plot_path, plot_path)
+                analysis.results[i].identified_phases_plot = os.path.join(
+                    'Plots', filename.rsplit('.', 1)[0] + '.png'
+                )
         except Exception as e:
             print(f'Error during analysis: {e}')
         finally:
