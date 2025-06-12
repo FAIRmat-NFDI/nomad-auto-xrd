@@ -258,10 +258,17 @@ class ReferenceStructure(ArchiveSection):
         A label for the reference structure that is also generated from model
         inference.
         """,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.StringEditQuantity,
+        ),
     )
     cif_file = Quantity(
         type=str,
         description='Path to the CIF file of the reference structure.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.FileEditQuantity,
+        ),
+        a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
     )
     system = Quantity(
         type=System,
@@ -301,28 +308,46 @@ class AutoXRDModel(Entity, Schema):
         description='Path to the directory containing the simulated data and trained '
         'models.',
         default='auto_xrd_training',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.StringEditQuantity,
+        ),
     )
     xrd_model = Quantity(
         type=str,
         description='Path to the trained XRD model file.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.FileEditQuantity,
+        ),
+        a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
     )
     pdf_model = Quantity(
         type=str,
         description='Path to the trained XRD model file.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.FileEditQuantity,
+        ),
+        a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
     )
     wandb_run_url_xrd = Quantity(
         type=str,
         description='URL to the "Weights and Biases" run for training XRD model.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.URLEditQuantity),
     )
     wandb_run_url_pdf = Quantity(
         type=str,
         description='URL to the "Weights and Biases" run for training PDF model.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.URLEditQuantity),
     )
     includes_pdf = Quantity(
         type=bool,
         description='Flag to indicate if an additional model was trained using the '
         'virtual pairwise distribution functions or PDFs computed through a Fourier '
         'transform of the simulated XRD patterns.',
+        default=True,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.BoolEditQuantity,
+            default=True,
+        ),
     )
     simulation_settings = SubSection(
         section_def=SimulationSettings,
@@ -604,7 +629,7 @@ class AutoXRDAnalysisResult(ArchiveSection):
         a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
     )
     xrd_measurement = SubSection(
-        section_def=SectionReference,
+        section_def=XRayDiffraction,
         description='The XRD pattern used for analysis.',
     )
     identified_phases = SubSection(
