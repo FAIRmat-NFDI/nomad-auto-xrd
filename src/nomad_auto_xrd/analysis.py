@@ -30,6 +30,8 @@ from nomad.datamodel.metainfo.basesections import SectionReference
 from nomad.metainfo import MProxy
 from nomad_measurements.xrd.schema import XRayDiffraction
 
+from nomad_auto_xrd.models import AnalysisInput, AnalysisResult
+from nomad_auto_xrd.preprocessors import single_pattern_preprocessor
 from nomad_auto_xrd.schema import (
     AutoXRDAnalysis,
     AutoXRDMeasurementReference,
@@ -114,54 +116,6 @@ class AnalysisSettings:
     show_individual: bool = False
     min_angle: float | None = None
     max_angle: float | None = None
-
-
-@dataclass
-class AnalysisResult:
-    filenames: list
-    phases: list
-    confidences: list
-    backup_phases: list
-    scale_factors: list
-    reduced_spectra: list
-    phases_m_proxies: list | None = None
-    xrd_entry_m_proxies: list | None = None
-    plot_paths: list | None = None
-
-    def to_dict(self):
-        return {
-            'filenames': self.filenames,
-            'phases': self.phases,
-            'confs': self.confidences,
-            'backup_phases': self.backup_phases,
-            'scale_factors': self.scale_factors,
-            'reduced_spectra': self.reduced_spectra,
-            'phases_m_proxies': (
-                self.phases_m_proxies if self.phases_m_proxies is not None else []
-            ),
-            'xrd_entry_m_proxies': (
-                self.xrd_entry_m_proxies if self.xrd_entry_m_proxies is not None else []
-            ),
-            'plot_paths': self.plot_paths if self.plot_paths is not None else [],
-        }
-
-    @classmethod
-    def from_dict(self, data):
-        return AnalysisResult(
-            filenames=list(data['filenames']),
-            phases=list(data['phases']),
-            confidences=list(data['confs']),
-            backup_phases=list(data['backup_phases']),
-            scale_factors=list(data['scale_factors']),
-            reduced_spectra=list(data['reduced_spectra']),
-            phases_m_proxies=list(data['phases_m_proxies'])
-            if 'phases_m_proxies' in data
-            else None,
-            xrd_entry_m_proxies=list(data['xrd_entry_m_proxies'])
-            if 'xrd_entry_m_proxies' in data
-            else None,
-            plot_paths=list(data['plot_paths']) if 'plot_paths' in data else None,
-        )
 
 
 def analyze_pattern(  # noqa: PLR0912, PLR0915
@@ -445,16 +399,6 @@ def run_analysis_existing_spectra(
     )  # Replace 'logger=None' with an actual logger instance if available
 
 
-@dataclass
-class AnalysisInput:
-    """A data class to hold the XRD data input for analysis."""
-
-    filename: str
-    two_theta: list[float]
-    intensity: list[float]
-    entry_m_proxy: str
-
-
 class XRDAutoAnalyser:
     """
     A class to handle XRD analysis using the XRD-AutoAnalyser.
@@ -483,7 +427,7 @@ class XRDAutoAnalyser:
             raise NameError(
                 f'The working directory "{self.working_directory}" does not exist.'
             )
-        self.data_preprocessor = data_preprocessor or self._default_preprocessor
+        self.data_preprocessor = data_preprocessor or single_pattern_preprocessor
 
     def _filter_inputs(
         self,
@@ -522,55 +466,6 @@ class XRDAutoAnalyser:
                 continue
             xrd_entries.append(section)
         return xrd_entries
-
-    def _default_preprocessor(
-        self, xrd_entries: list[XRayDiffraction], logger: 'BoundLogger' = None
-    ) -> None:
-        """
-        Extract relevant data from `XRayDiffraction` entries for generation of .xy
-        files. This method is suitable for `XRayDiffraction` entries that have not more
-        than one diffraction pattern per entry.
-
-        Args:
-            xrd_entries (list[XRayDiffraction]): List of XRD entries to preprocess.
-            logger (BoundLogger | None): Optional logger for logging warnings.
-
-        Returns:
-            list[AnalysisInput]: List of processed data ready for analysis.
-        """
-        prepared_data = []
-        for xrd in xrd_entries:
-            if not isinstance(xrd, XRayDiffraction):
-                continue
-            try:
-                filename = xrd.data_file
-                pattern = (
-                    xrd.m_parent.results.properties.structural.diffraction_pattern[0]
-                )
-                two_theta = pattern.two_theta_angles
-                intensity = pattern.intensity
-            except AttributeError as e:
-                (logger.warning if logger else print)(
-                    f'Encountered AttributeError: {e}. Skipping the XRD entry',
-                )
-                continue
-            if two_theta is None or intensity is None:
-                (logger.warning if logger else print)(
-                    'XRD data is missing. Skipping the XRD entry.'
-                )
-                continue
-            prepared_data.append(
-                AnalysisInput(
-                    filename=filename,
-                    two_theta=two_theta.to('degree').magnitude.tolist(),
-                    intensity=intensity.tolist(),
-                    entry_m_proxy=get_reference(
-                        xrd.m_parent.metadata.upload_id,
-                        xrd.m_parent.metadata.entry_id,
-                    ),
-                )
-            )
-        return prepared_data
 
     def _generate_xy_files(self, processed_data_list: list[AnalysisInput]) -> None:
         """
