@@ -629,7 +629,7 @@ class AutoXRDAnalysisResult(ArchiveSection):
         a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
     )
     xrd_measurement = SubSection(
-        section_def=XRayDiffraction,
+        section_def=SectionReference,
         description='The XRD pattern used for analysis.',
     )
     identified_phases = SubSection(

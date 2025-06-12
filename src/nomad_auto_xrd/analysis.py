@@ -26,9 +26,15 @@ from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from autoXRD import spectrum_analysis, visualizer
+from nomad.metainfo import MProxy
 from nomad_measurements.xrd.schema import XRayDiffraction
 
-from nomad_auto_xrd.schema import AutoXRDAnalysis, AutoXRDModel, IdentifiedPhase
+from nomad_auto_xrd.schema import (
+    AutoXRDAnalysis,
+    AutoXRDMeasurementReference,
+    AutoXRDModel,
+    IdentifiedPhase,
+)
 
 if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive
@@ -541,13 +547,13 @@ class XRDAutoAnalyser:
         for processed_data in processed_data_list:
             with open(
                 os.path.join(
-                    spectra_dir, f'{processed_data["filename"].rsplit(".", 1)[0]}.xy'
+                    spectra_dir, f'{processed_data.filename.rsplit(".", 1)[0]}.xy'
                 ),
                 'w',
                 encoding='utf-8',
             ) as f:
                 for angle, intensity in zip(
-                    processed_data['two_theta'], processed_data['intensity']
+                    processed_data.two_theta, processed_data.intensity
                 ):
                     f.write(f'{angle} {intensity}\n')
 
@@ -627,7 +633,25 @@ class XRDAutoAnalyser:
                 'merged_results' will contain the merged results of both analyses.
                 else, it will contain the results of XRD analysis only.
         """
-        processed_data_list = self.data_preprocessor(analysis_entry.inputs, logger)
+        xrd_entries = []
+        for idx, xrd_reference in enumerate(analysis_entry.inputs):
+            if not xrd_reference.reference:
+                (logger.warning if logger else print)(
+                    f'Skipping the analysis input at index "{idx}" '
+                    'as not entry is referenced.'
+                )
+                continue
+            xrd = xrd_reference.reference
+            if isinstance(xrd, MProxy):
+                xrd.m_proxy_resolve()
+            if not isinstance(xrd, XRayDiffraction):
+                (logger.warning if logger else print)(
+                    f'Skipping the analysis input at index "{idx}" '
+                    'as it is not an XRayDiffraction entry.'
+                )
+                continue
+            xrd_entries.append(xrd)
+        processed_data_list = self.data_preprocessor(xrd_entries, logger)
         self._generate_xy_files(processed_data_list)
         xrd_model_path, pdf_model_path, reference_structure_m_proxies = (
             self._model_setup(analysis_entry.analysis_settings.auto_xrd_model, logger)
@@ -738,7 +762,6 @@ class XRDAutoAnalyser:
                 results['merged_results'].plot_paths.append(
                     os.path.join(
                         self.working_directory,
-                        'Spectra',
                         filename.rsplit('.', 1)[0] + '.png',
                     )
                 )
@@ -782,7 +805,9 @@ def populate_analysis_entry(
         )
     ):
         analysis_entry.m_setdefault(f'results/{result_iter}')
-        analysis_entry.results[result_iter].xrd_measurement = xrd_entry_m_proxy
+        analysis_entry.results[
+            result_iter
+        ].xrd_measurement = AutoXRDMeasurementReference(reference=xrd_entry_m_proxy)
         analysis_entry.results[result_iter].identified_phases_plot = plot_path
         for phase, confidence, phase_m_proxy in zip(
             phases, confidences, phases_m_proxies
