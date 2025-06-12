@@ -20,35 +20,31 @@ import os
 import shutil
 import tempfile
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from autoXRD import spectrum_analysis, visualizer
+from nomad.datamodel.metainfo.basesections import SectionReference
 from nomad.metainfo import MProxy
+from nomad_analysis.utils import get_reference
 from nomad_measurements.xrd.schema import XRayDiffraction
 
-from nomad_auto_xrd.schema import AutoXRDAnalysis, AutoXRDModel, IdentifiedPhase
+from nomad_auto_xrd.models import AnalysisInput, AnalysisResult
+from nomad_auto_xrd.preprocessors import (
+    multiple_patterns_preprocessor,
+    single_pattern_preprocessor,
+)
+from nomad_auto_xrd.schema import (
+    AutoXRDAnalysis,
+    AutoXRDModel,
+    IdentifiedPhase,
+)
 
 if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive
     from structlog.stdlib import BoundLogger
-
-
-def get_reference(upload_id: str, entry_id: str, archive_path: str = None) -> str:
-    """
-    Returns the proxy value for referencing an entry.
-
-    Args:
-        upload_id (str): Upload ID of the upload in which the entry resides.
-        entry_id (str): Entry ID of the entry.
-
-    Returns:
-        str: Proxy value of the form '../uploads/{upload_id}/archive/{entry_id}#/data'
-    """
-    if not archive_path:
-        return f'../uploads/{upload_id}/archive/{entry_id}#/data'
-    return f'../uploads/{upload_id}/archive/{entry_id}#/{archive_path}'
 
 
 def convert_to_serializable(obj):
@@ -107,37 +103,6 @@ class AnalysisSettings:
     show_individual: bool = False
     min_angle: float | None = None
     max_angle: float | None = None
-
-
-@dataclass
-class AnalysisResult:
-    filenames: list
-    phases: list
-    confidences: list
-    backup_phases: list
-    scale_factors: list
-    reduced_spectra: list
-
-    def to_dict(self):
-        return {
-            'filenames': self.filenames,
-            'phases': self.phases,
-            'confs': self.confidences,
-            'backup_phases': self.backup_phases,
-            'scale_factors': self.scale_factors,
-            'reduced_spectra': self.reduced_spectra,
-        }
-
-    @classmethod
-    def from_dict(self, data):
-        return AnalysisResult(
-            filenames=list(data['filenames']),
-            phases=list(data['phases']),
-            confidences=list(data['confs']),
-            backup_phases=list(data['backup_phases']),
-            scale_factors=list(data['scale_factors']),
-            reduced_spectra=list(data['reduced_spectra']),
-        )
 
 
 def analyze_pattern(  # noqa: PLR0912, PLR0915
@@ -421,181 +386,264 @@ def run_analysis_existing_spectra(
     )  # Replace 'logger=None' with an actual logger instance if available
 
 
-def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR0912, PLR0915
+class XRDAutoAnalyser:
     """
-    Runs the Auto XRD analysis for the given Auto XRD analysis entry. This function
-    orchestrates the analysis process, including loading the model, extracting patterns,
-    and running the analysis to identify the phases. Populates
-    `analysis.results[0].identified_phases` with the identified phases and their
-    confidences.
-
-    Args:
-        analysis (AutoXRDAnalysis): NOMAD analysis section containing the XRD
-            data and model information.
-
-    Returns:
-        list[AnalysisResult]: List of analysis results attained from XRD-AutoAnalyser
+    A class to handle XRD analysis using the XRD-AutoAnalyser.
+    This class provides methods to prepare data, setup model, run analysis, and
+    visualize results.
     """
-    # get the xrd data from the analysis inputs
-    xrd_data = []
-    entry_iter = 0
-    analysis.results = []
-    for xrd_reference in analysis.inputs:
-        data_dict = dict()
-        if not xrd_reference.reference:
-            print('Referenced entry not found. Skipping the XRD entry.')
-            continue
-        xrd = xrd_reference.reference
-        if isinstance(xrd, MProxy):
-            xrd.m_proxy_resolve()
-        if not isinstance(xrd, XRayDiffraction):
-            print(f'Referenced entry "{xrd}" is not an XRD entry. Skipping it.')
-            continue
-        try:
-            filename = xrd.data_file
-            pattern = xrd.m_parent.results.properties.structural.diffraction_pattern[0]
-            two_theta = pattern.two_theta_angles
-            intensity = pattern.intensity
-        except AttributeError as e:
-            print(f'AttributeError: {e}. Skipping the XRD entry.')
-            continue
-        if two_theta is None or intensity is None:
-            print('XRD data is missing. Skipping the XRD entry.')
-            continue
 
-        data_dict['filename'] = filename
-        data_dict['two_theta'] = two_theta.to('degree').magnitude
-        data_dict['intensity'] = intensity
-        data_dict['reference_path'] = None
+    def __init__(
+        self,
+        working_directory: str,
+        data_preprocessor: Callable[
+            [list[XRayDiffraction], 'BoundLogger | None'], list[AnalysisInput]
+        ]
+        | None = None,
+    ):
+        """
+        Initializes the XRDAutoAnalyser.
 
-        xrd_data.append(data_dict)
-        analysis.m_setdefault(f'results/{entry_iter}')
-        analysis.results[entry_iter].xrd_measurement = xrd_reference
-        entry_iter += 1
+        Args:
+            working_directory (str): The directory where the analysis will be performed.
+            data_preprocessor (Callable | None): A function to preprocess the XRD data
+                entries. If None, the default preprocessor will be used.
+        """
+        self.working_directory = working_directory
+        if not os.path.exists(self.working_directory):
+            raise NameError(
+                f'The working directory "{self.working_directory}" does not exist.'
+            )
+        self.data_preprocessor = data_preprocessor or single_pattern_preprocessor
 
-    # TODO: Handle downloading of reference CIFs and models from a different upload
+    def _filter_inputs(
+        self,
+        input_references: list['SectionReference'],
+        logger: 'BoundLogger | None' = None,
+    ) -> list[XRayDiffraction]:
+        """
+        Filters the input references to return only those that are valid XRayDiffraction
+        entries. It skips any input that does not reference an entry or is not of type
+        XRayDiffraction.
 
-    model: AutoXRDModel = analysis.analysis_settings.auto_xrd_model
+        Args:
+            input_references (list[SectionReference]): List of input references to
+                filter.
+            logger (BoundLogger | None): Optional logger for logging warnings.
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        # Generate .xy files for the XRD data
-        tmp_spectra_dir = os.path.join(temp_dir, 'Spectra')
-        os.makedirs(tmp_spectra_dir, exist_ok=True)
-        for i, xrd_reference in enumerate(xrd_data):
-            filename = xrd_reference['filename']
+        Returns:
+            list[XRayDiffraction]: List of valid XRayDiffraction entries.
+        """
+        xrd_entries = []
+        for idx, input_reference in enumerate(input_references):
+            if not input_reference.reference:
+                (logger.warning if logger else print)(
+                    f'Skipping the analysis input at index "{idx}" '
+                    'as not entry is referenced.'
+                )
+                continue
+            section = input_reference.reference
+            if isinstance(section, MProxy):
+                section.m_proxy_resolve()
+            if not isinstance(section, XRayDiffraction):
+                (logger.warning if logger else print)(
+                    f'Skipping the analysis input at index "{idx}" '
+                    'as it is not an XRayDiffraction entry.'
+                )
+                continue
+            xrd_entries.append(section)
+        return xrd_entries
+
+    def _generate_xy_files(self, processed_data_list: list[AnalysisInput]) -> None:
+        """
+        Generates .xy files from the processed data and saves them in the working
+        directory under 'Spectra'.
+
+        Args:
+            processed_data_list (list[AnalysisInput]): List of processed data
+                containing filename, two_theta, and intensity.
+        """
+        spectra_dir = os.path.join(self.working_directory, 'Spectra')
+        os.makedirs(spectra_dir, exist_ok=True)
+        for processed_data in processed_data_list:
             with open(
-                os.path.join(tmp_spectra_dir, f'{filename.rsplit(".", 1)[0]}.xy'),
+                os.path.join(
+                    spectra_dir, f'{processed_data.filename.rsplit(".", 1)[0]}.xy'
+                ),
                 'w',
                 encoding='utf-8',
             ) as f:
                 for angle, intensity in zip(
-                    xrd_reference['two_theta'], xrd_reference['intensity']
+                    processed_data.two_theta, processed_data.intensity
                 ):
                     f.write(f'{angle} {intensity}\n')
-        # Create symlinks to the reference CIF files
-        tmp_references_dir = os.path.join(temp_dir, 'References')
-        os.makedirs(tmp_references_dir, exist_ok=True)
-        for reference in model.reference_structures:
-            cif_file = reference.cif_file
+
+    def _model_setup(
+        self,
+        model: AutoXRDModel,
+        logger: 'BoundLogger | None' = None,
+    ) -> tuple[str, None | str, dict[str, str]]:
+        """
+        Sets up the model for the analysis by creating symlinks to the reference CIF
+        files and model files.
+
+        Args:
+            model (AutoXRDModel): The AutoXRDModel containing the model and reference
+                structures.
+
+        Returns:
+            tuple[None | str, None | str, dict[str, str]]: A tuple containing the paths
+                to the XRD model file, PDF model file, and a dictionary of m_proxies for
+                the reference structures.
+        """
+        xrd_model_path = None
+        pdf_model_path = None
+
+        # Create a dictionary to store the m_proxies of the sections with
+        # reference structures
+        reference_structure_m_proxies = dict()
+        reference_structures_dir = os.path.join(self.working_directory, 'References')
+        os.makedirs(reference_structures_dir, exist_ok=True)
+        for i, reference_structure in enumerate(model.reference_structures):
+            cif_file = reference_structure.cif_file
             if os.path.exists(cif_file):
                 os.symlink(
                     os.path.abspath(cif_file),
-                    os.path.join(tmp_references_dir, os.path.basename(cif_file)),
+                    os.path.join(reference_structures_dir, os.path.basename(cif_file)),
+                )
+                reference_structure_m_proxies[reference_structure.name] = get_reference(
+                    model.m_parent.metadata.upload_id,
+                    model.m_parent.metadata.entry_id,
+                    f'data/reference_structures/{i}',
                 )
             else:
-                print(f'Reference file {cif_file} does not exist. Skipping.')
-                continue
-        # Create symlinks to the model files
-        xrd_model_path = ''
-        pdf_model_path = ''
-        tmp_models_path = os.path.join(temp_dir, 'Models')
-        os.makedirs(tmp_models_path, exist_ok=True)
+                (logger.warning if logger else print)(
+                    f'Reference file {cif_file} does not exist.'
+                )
+
+        models_dir = os.path.join(self.working_directory, 'Models')
+        os.makedirs(models_dir, exist_ok=True)
         if model.xrd_model and os.path.exists(model.xrd_model):
-            xrd_model_path = os.path.join(
-                tmp_models_path, os.path.basename(model.xrd_model)
-            )
+            xrd_model_path = os.path.join(models_dir, os.path.basename(model.xrd_model))
             os.symlink(os.path.abspath(model.xrd_model), xrd_model_path)
+        else:
+            raise FileNotFoundError(f'XRD model file {model.xrd_model} does not exist.')
+
         if model.pdf_model and os.path.exists(model.pdf_model):
-            pdf_model_path = os.path.join(
-                tmp_models_path, os.path.basename(model.pdf_model)
-            )
+            pdf_model_path = os.path.join(models_dir, os.path.basename(model.pdf_model))
             os.symlink(os.path.abspath(model.pdf_model), pdf_model_path)
 
-        # Save the original working directory and change to the temporary directory
-        original_dir = os.getcwd()
-        os.chdir(temp_dir)
+        return xrd_model_path, pdf_model_path, reference_structure_m_proxies
 
+    def run_analysis(
+        self, analysis_entry: 'AutoXRDAnalysis', logger: 'BoundLogger | None' = None
+    ) -> dict[str, AnalysisResult]:
+        """
+        Runs the XRD analysis for the given Auto XRD analysis entry.
+        This function orchestrates the analysis process, including loading the model,
+        extracting patterns, and running the analysis to identify the phases.
+
+        Args:
+            analysis_entry (AutoXRDAnalysis): NOMAD analysis entry containing the XRD
+                data and model information.
+
+        Returns:
+            dict[str, AnalysisResult]: Dictionary containing the analysis results for
+                XRD and PDF, if applicable. The keys are 'xrd', 'pdf', and
+                'merged_results'. If both XRD and PDF analyses are performed,
+                'merged_results' will contain the merged results of both analyses.
+                else, it will contain the results of XRD analysis only.
+        """
+
+        processed_data_list = self.data_preprocessor(
+            self._filter_inputs(analysis_entry.inputs), logger
+        )
+        self._generate_xy_files(processed_data_list)
+        xrd_model_path, pdf_model_path, reference_structure_m_proxies = (
+            self._model_setup(analysis_entry.analysis_settings.auto_xrd_model, logger)
+        )
+
+        results = dict()
+        original_dir = os.getcwd()
+        os.chdir(self.working_directory)
         try:
-            # Create a directory 'temp' that is being used by the spectrum_analysis
-            # module
-            os.makedirs('temp', exist_ok=True)
-            results = dict()
-            if xrd_model_path:
-                results['xrd'] = AnalysisResult(
-                    *spectrum_analysis.main(
-                        spectra_directory='Spectra',
-                        reference_directory='References',
-                        max_phases=analysis.analysis_settings.max_phases,
-                        cutoff_intensity=analysis.analysis_settings.cutoff_intensity,
-                        min_conf=analysis.analysis_settings.min_confidence,
-                        wavelength=analysis.analysis_settings.wavelength.to(
-                            'angstrom'
-                        ).magnitude,
-                        min_angle=analysis.analysis_settings.min_angle.to(
-                            'degree'
-                        ).magnitude,
-                        max_angle=analysis.analysis_settings.max_angle.to(
-                            'degree'
-                        ).magnitude,
-                        parallel=analysis.analysis_settings.parallel,
-                        model_path=os.path.join(
-                            'Models', os.path.basename(xrd_model_path)
-                        ),
-                    )
+            os.makedirs('temp', exist_ok=True)  # required for `spectrum_analysis`
+            results['xrd'] = AnalysisResult(
+                *spectrum_analysis.main(
+                    spectra_directory='Spectra',
+                    reference_directory='References',
+                    max_phases=analysis_entry.analysis_settings.max_phases,
+                    cutoff_intensity=analysis_entry.analysis_settings.cutoff_intensity,
+                    min_conf=analysis_entry.analysis_settings.min_confidence,
+                    wavelength=analysis_entry.analysis_settings.wavelength.to(
+                        'angstrom'
+                    ).magnitude,
+                    min_angle=analysis_entry.analysis_settings.min_angle.to(
+                        'degree'
+                    ).magnitude,
+                    max_angle=analysis_entry.analysis_settings.max_angle.to(
+                        'degree'
+                    ).magnitude,
+                    parallel=analysis_entry.analysis_settings.parallel,
+                    model_path=os.path.join('Models', os.path.basename(xrd_model_path)),
                 )
+            )
             if pdf_model_path:
                 results['pdf'] = AnalysisResult(
                     *spectrum_analysis.main(
                         spectra_directory='Spectra',
                         reference_directory='References',
-                        max_phases=analysis.analysis_settings.max_phases,
-                        cutoff_intensity=analysis.analysis_settings.cutoff_intensity,
-                        min_conf=analysis.analysis_settings.min_confidence,
-                        wavelength=analysis.analysis_settings.wavelength.to(
+                        max_phases=analysis_entry.analysis_settings.max_phases,
+                        cutoff_intensity=analysis_entry.analysis_settings.cutoff_intensity,
+                        min_conf=analysis_entry.analysis_settings.min_confidence,
+                        wavelength=analysis_entry.analysis_settings.wavelength.to(
                             'angstrom'
                         ).magnitude,
-                        min_angle=analysis.analysis_settings.min_angle.to(
+                        min_angle=analysis_entry.analysis_settings.min_angle.to(
                             'degree'
                         ).magnitude,
-                        max_angle=analysis.analysis_settings.max_angle.to(
+                        max_angle=analysis_entry.analysis_settings.max_angle.to(
                             'degree'
                         ).magnitude,
-                        parallel=analysis.analysis_settings.parallel,
+                        parallel=analysis_entry.analysis_settings.parallel,
                         model_path=os.path.join(
                             'Models', os.path.basename(pdf_model_path)
                         ),
                         is_pdf=True,
                     )
                 )
-            if results.get('xrd') and results.get('pdf'):
-                # merge results
                 results['merged_results'] = AnalysisResult.from_dict(
                     spectrum_analysis.merge_results(
                         {
                             'XRD': results['xrd'].to_dict(),
                             'PDF': results['pdf'].to_dict(),
                         },
-                        analysis.analysis_settings.min_confidence,
-                        analysis.analysis_settings.max_phases,
+                        analysis_entry.analysis_settings.min_confidence,
+                        analysis_entry.analysis_settings.max_phases,
                     )
                 )
-            elif results.get('xrd'):
-                results['merged_results'] = results['xrd']
             else:
-                return results
-            # Plot the indentified phases
-            plots_dir = os.path.join(original_dir, 'Plots')
-            os.makedirs(plots_dir, exist_ok=True)
+                results['merged_results'] = results['xrd']
+
+            # add m_proxy values of identified phases to the results
+            results['merged_results'].phases_m_proxies = []
+            for phases in results['merged_results'].phases:
+                phases_m_proxies = []
+                for phase in phases:
+                    if phase in reference_structure_m_proxies:
+                        phases_m_proxies.append(reference_structure_m_proxies[phase])
+                    else:
+                        phases_m_proxies.append(None)
+                results['merged_results'].phases_m_proxies.append(phases_m_proxies)
+
+            # add entry_m_proxy to the results
+            results['merged_results'].xrd_measurement_m_proxies = [
+                processed_data.measurement_m_proxy
+                for processed_data in processed_data_list
+            ]
+
+            # plot the indentified phases and add plot paths to the results
+            results['merged_results'].plot_paths = []
             for i, filename in enumerate(results['merged_results'].filenames):
                 visualizer.main(
                     'Spectra',
@@ -606,53 +654,148 @@ def analyse(analysis: 'AutoXRDAnalysis') -> list[AnalysisResult]:  # noqa: PLR09
                     ],
                     results['merged_results'].scale_factors[i],
                     results['merged_results'].reduced_spectra[i],
-                    analysis.analysis_settings.min_angle.magnitude,
-                    analysis.analysis_settings.max_angle.magnitude,
-                    analysis.analysis_settings.wavelength.to('angstrom').magnitude,
+                    analysis_entry.analysis_settings.min_angle.magnitude,
+                    analysis_entry.analysis_settings.max_angle.magnitude,
+                    analysis_entry.analysis_settings.wavelength.to(
+                        'angstrom'
+                    ).magnitude,
                     save=True,
-                    show_reduced=analysis.analysis_settings.show_reduced,
-                    inc_pdf=analysis.analysis_settings.include_pdf,
+                    show_reduced=analysis_entry.analysis_settings.show_reduced,
+                    inc_pdf=analysis_entry.analysis_settings.include_pdf,
                     plot_both=False,
-                    raw=analysis.analysis_settings.raw,
+                    raw=analysis_entry.analysis_settings.raw,
                     rietveld=False,
                 )
-                # Move the plot from tmp directory to the plots directory
-                tmp_plot_path = os.path.join(
-                    temp_dir, filename.rsplit('.', 1)[0] + '.png'
+                results['merged_results'].plot_paths.append(
+                    os.path.join(
+                        self.working_directory,
+                        filename.rsplit('.', 1)[0] + '.png',
+                    )
                 )
-                plot_path = os.path.join(plots_dir, filename.rsplit('.', 1)[0] + '.png')
-                if os.path.exists(tmp_plot_path):
-                    shutil.copy2(tmp_plot_path, plot_path)
-                analysis.results[i].identified_phases_plot = os.path.join(
-                    'Plots', filename.rsplit('.', 1)[0] + '.png'
-                )
+
         except Exception as e:
-            print(f'Error during analysis: {e}')
+            message = f'Error during analysis: {e}'
+            if logger:
+                logger.error(message)
+            else:
+                print(message)
         finally:
-            # Restore the original working directory
             os.chdir(original_dir)
 
-    # Create a dictionary to store the m_proxies of the sections with
-    # reference structures
-    references_m_proxies = dict()
-    for i, reference in enumerate(model.reference_structures):
-        references_m_proxies[reference.name] = get_reference(
-            model.m_parent.metadata.upload_id,
-            model.m_parent.metadata.entry_id,
-            f'data/reference_structures/{i}',
-        )
+        return results
 
-    for result_iter, (phases, confidences) in enumerate(
-        zip(results['merged_results'].phases, results['merged_results'].confidences)
+
+def populate_analysis_entry(
+    analysis_entry: 'AutoXRDAnalysis',
+    results: AnalysisResult,
+) -> None:
+    """
+    Unpacks results and populates the `analysis_entry.results`.
+
+    Args:
+        analysis_entry (AutoXRDAnalysis): The AutoXRDAnalysis section to populate.
+        results (AnalysisResult): The results from the analysis.
+    """
+    for result_iter, (
+        xrd_measurement_m_proxy,
+        plot_path,
+        phases,
+        confidences,
+        phases_m_proxies,
+    ) in enumerate(
+        zip(
+            results.xrd_measurement_m_proxies,
+            results.plot_paths,
+            results.phases,
+            results.confidences,
+            results.phases_m_proxies,
+        )
     ):
-        for phase, confidence in zip(phases, confidences):
-            identified_phase = IdentifiedPhase(
-                name=phase,
-                confidence=confidence,
+        analysis_entry.m_setdefault(f'results/{result_iter}')
+        analysis_entry.results[result_iter].xrd_measurement = SectionReference(
+            reference=xrd_measurement_m_proxy
+        )
+        analysis_entry.results[result_iter].identified_phases_plot = plot_path
+        for phase, confidence, phase_m_proxy in zip(
+            phases, confidences, phases_m_proxies
+        ):
+            analysis_entry.results[result_iter].identified_phases.append(
+                IdentifiedPhase(
+                    name=phase,
+                    confidence=confidence,
+                    reference_structure=phase_m_proxy,
+                )
             )
-            if phase in references_m_proxies:
-                identified_phase.reference_structure = references_m_proxies[phase]
-            analysis.results[result_iter].identified_phases.append(identified_phase)
+
+
+def analyse(analysis_entry: 'AutoXRDAnalysis') -> dict[str, AnalysisResult]:
+    """
+    Runs the XRDAutoAnalyser in a temporary directory for the given Auto XRD analysis
+    entry, moves the plots to the 'Plots' directory, and populates the
+    `analysis_entry.results` with the analysis results.
+
+    Args:
+        analysis (AutoXRDAnalysis): NOMAD analysis section containing the XRD
+            data and model information.
+
+    Returns:
+        dict[str, AnalysisResult]: Dictionary containing the analysis results for
+            XRD and PDF, if applicable. The keys are 'xrd', 'pdf', and
+            'merged_results'. If both XRD and PDF analyses are performed,
+            'merged_results' will contain the merged results of both analyses.
+            else, it will contain the results of XRD analysis only.
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        analyser = XRDAutoAnalyser(temp_dir)
+        results = analyser.run_analysis(analysis_entry)
+
+        # Move the plot out of `temp_dir`
+        plots_dir = os.path.join('Plots')
+        os.makedirs(plots_dir, exist_ok=True)
+        for result_iter, plot_path in enumerate(results['merged_results'].plot_paths):
+            new_plot_path = os.path.join(plots_dir, os.path.basename(plot_path))
+            if os.path.exists(plot_path):
+                shutil.copy2(plot_path, new_plot_path)
+                results['merged_results'].plot_paths[result_iter] = new_plot_path
+
+    populate_analysis_entry(analysis_entry, results['merged_results'])
+
+    return results
+
+
+def analyse_combinatorial(
+    analysis_entry: 'AutoXRDAnalysis',
+) -> dict[str, AnalysisResult]:
+    """
+    Runs the XRDAutoAnalyser in a temporary directory for the given Auto XRD analysis
+    entry, moves the plots to the 'Plots' directory, and populates the
+    `analysis_entry.results` with the analysis results.
+
+    Args:
+        analysis (AutoXRDAnalysis): NOMAD analysis section containing the XRD
+            data and model information.
+
+    Returns:
+        dict[str, AnalysisResult]: Dictionary containing the analysis results for
+            XRD and PDF, if applicable. The keys are 'xrd', 'pdf', and
+            'merged_results'. If both XRD and PDF analyses are performed,
+            'merged_results' will contain the merged results of both analyses.
+            else, it will contain the results of XRD analysis only.
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        analyser = XRDAutoAnalyser(temp_dir, multiple_patterns_preprocessor)
+        results = analyser.run_analysis(analysis_entry)
+
+        # Move the plot out of `temp_dir`
+        plots_dir = os.path.join('Plots')
+        os.makedirs(plots_dir, exist_ok=True)
+        for result_iter, plot_path in enumerate(results['merged_results'].plot_paths):
+            new_plot_path = os.path.join(plots_dir, os.path.basename(plot_path))
+            if os.path.exists(plot_path):
+                shutil.copy2(plot_path, new_plot_path)
+                results['merged_results'].plot_paths[result_iter] = new_plot_path
+
+    populate_analysis_entry(analysis_entry, results['merged_results'])
 
     return results
 
