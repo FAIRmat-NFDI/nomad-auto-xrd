@@ -119,6 +119,7 @@ class AnalysisResult:
     reduced_spectra: list
     phases_m_proxies: list | None = None
     xrd_entry_m_proxies: list | None = None
+    plot_paths: list | None = None
 
     def to_dict(self):
         return {
@@ -134,6 +135,7 @@ class AnalysisResult:
             'xrd_entry_m_proxies': (
                 self.xrd_entry_m_proxies if self.xrd_entry_m_proxies is not None else []
             ),
+            'plot_paths': self.plot_paths if self.plot_paths is not None else [],
         }
 
     @classmethod
@@ -151,6 +153,7 @@ class AnalysisResult:
             xrd_entry_m_proxies=list(data['xrd_entry_m_proxies'])
             if 'xrd_entry_m_proxies' in data
             else None,
+            plot_paths=list(data['plot_paths']) if 'plot_paths' in data else None,
         )
 
 
@@ -456,7 +459,7 @@ class XRDAutoAnalyser:
         self,
         working_directory: str,
         data_preprocessor: Callable[
-            [list[XRayDiffraction], 'BoundLogger' | None], list[AnalysisInput]
+            [list[XRayDiffraction], 'BoundLogger | None'], list[AnalysisInput]
         ]
         | None = None,
     ):
@@ -551,7 +554,7 @@ class XRDAutoAnalyser:
     def _model_setup(
         self,
         model: AutoXRDModel,
-        logger: 'BoundLogger' | None = None,
+        logger: 'BoundLogger | None' = None,
     ) -> tuple[str, None | str, dict[str, str]]:
         """
         Sets up the model for the analysis by creating symlinks to the reference CIF
@@ -606,7 +609,7 @@ class XRDAutoAnalyser:
         return xrd_model_path, pdf_model_path, reference_structure_m_proxies
 
     def run_analysis(
-        self, analysis_entry: 'AutoXRDAnalysis', logger: 'BoundLogger' | None = None
+        self, analysis_entry: 'AutoXRDAnalysis', logger: 'BoundLogger | None' = None
     ) -> dict[str, AnalysisResult]:
         """
         Runs the XRD analysis for the given Auto XRD analysis entry.
@@ -708,9 +711,8 @@ class XRDAutoAnalyser:
                 processed_data.entry_m_proxy for processed_data in processed_data_list
             ]
 
-            # plot the indentified phases
-            plots_dir = os.path.join(original_dir, 'Plots')
-            os.makedirs(plots_dir, exist_ok=True)
+            # plot the indentified phases and add plot paths to the results
+            results['merged_results'].plot_paths = []
             for i, filename in enumerate(results['merged_results'].filenames):
                 visualizer.main(
                     'Spectra',
@@ -733,6 +735,14 @@ class XRDAutoAnalyser:
                     raw=analysis_entry.analysis_settings.raw,
                     rietveld=False,
                 )
+                results['merged_results'].plot_paths.append(
+                    os.path.join(
+                        self.working_directory,
+                        'Spectra',
+                        filename.rsplit('.', 1)[0] + '.png',
+                    )
+                )
+
         except Exception as e:
             message = f'Error during analysis: {e}'
             if logger:
@@ -745,10 +755,52 @@ class XRDAutoAnalyser:
         return results
 
 
+def populate_analysis_entry(
+    analysis_entry: 'AutoXRDAnalysis',
+    results: AnalysisResult,
+) -> None:
+    """
+    Unpacks results and populates the `analysis_entry.results`.
+
+    Args:
+        analysis_entry (AutoXRDAnalysis): The AutoXRDAnalysis section to populate.
+        results (AnalysisResult): The results from the analysis.
+    """
+    for result_iter, (
+        xrd_entry_m_proxy,
+        plot_path,
+        phases,
+        confidences,
+        phases_m_proxies,
+    ) in enumerate(
+        zip(
+            results.xrd_entry_m_proxies,
+            results.plot_paths,
+            results.phases,
+            results.confidences,
+            results.phases_m_proxies,
+        )
+    ):
+        analysis_entry.m_setdefault(f'results/{result_iter}')
+        analysis_entry.results[result_iter].xrd_measurement = xrd_entry_m_proxy
+        analysis_entry.results[result_iter].identified_phases_plot = plot_path
+        for phase, confidence, phase_m_proxy in zip(
+            phases, confidences, phases_m_proxies
+        ):
+            analysis_entry.results[result_iter].identified_phases.append(
+                IdentifiedPhase(
+                    name=phase,
+                    confidence=confidence,
+                    reference_structure=phase_m_proxy,
+                )
+            )
+
+
 def analyse(analysis_entry: 'AutoXRDAnalysis') -> dict[str, AnalysisResult]:
     """
-    Runs the Auto XRD analysis for the given Auto XRD analysis entry and populates
-    `analysis.results` with the identified phases and their confidences.
+    Runs the XRDAutoAnalyser in a temporary directory for the given Auto XRD analysis
+    entry, moves the plots to the 'Plots' directory, and populates the
+    `analysis_entry.results` with the analysis results.
 
     Args:
         analysis (AutoXRDAnalysis): NOMAD analysis section containing the XRD
@@ -765,44 +817,17 @@ def analyse(analysis_entry: 'AutoXRDAnalysis') -> dict[str, AnalysisResult]:
         analyser = XRDAutoAnalyser(temp_dir)
         results = analyser.run_analysis(analysis_entry)
 
-        # unpack results and populate `analysis_entry.results`
-        for result_iter, (
-            filename,
-            xrd_entry_m_proxy,
-            phases,
-            confidences,
-            phases_m_proxies,
-        ) in enumerate(
-            zip(
-                results['merged_results'].filenames,
-                results['merged_results'].xrd_entry_m_proxies,
-                results['merged_results'].phases,
-                results['merged_results'].confidences,
-                results['merged_results'].phases_m_proxies,
-            )
-        ):
-            analysis_entry.m_setdefault(f'results/{result_iter}')
-            analysis_entry.results[result_iter].xrd_measurement = xrd_entry_m_proxy
+        # Move the plot out of `temp_dir`
+        plots_dir = os.path.join('Plots')
+        os.makedirs(plots_dir, exist_ok=True)
+        for result_iter, plot_path in enumerate(results['merged_results'].plot_paths):
+            new_plot_path = os.path.join(plots_dir, os.path.basename(plot_path))
+            if os.path.exists(plot_path):
+                shutil.copy2(plot_path, new_plot_path)
+                results['merged_results'].plot_paths[result_iter] = new_plot_path
 
-            # Move the plot out of temp_dir
-            plots_dir = os.path.join('Plots')
-            tmp_plot_path = os.path.join(temp_dir, filename.rsplit('.', 1)[0] + '.png')
-            plot_path = os.path.join(plots_dir, filename.rsplit('.', 1)[0] + '.png')
-            if os.path.exists(tmp_plot_path):
-                shutil.copy2(tmp_plot_path, plot_path)
+    populate_analysis_entry(analysis_entry, results['merged_results'])
 
-            analysis_entry.results[result_iter].identified_phases_plot = plot_path
-
-            for phase, confidence, phase_m_proxy in zip(
-                phases, confidences, phases_m_proxies
-            ):
-                analysis_entry.results[result_iter].identified_phases.append(
-                    IdentifiedPhase(
-                        name=phase,
-                        confidence=confidence,
-                        reference_structure=phase_m_proxy,
-                    )
-                )
     return results
 
 
