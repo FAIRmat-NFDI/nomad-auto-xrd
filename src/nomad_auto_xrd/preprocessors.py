@@ -27,24 +27,22 @@ if TYPE_CHECKING:
 
 
 def single_pattern_preprocessor(
-    xrd_entries: list[XRayDiffraction], logger: 'BoundLogger' = None
-) -> None:
+    xrd_sections: list[XRayDiffraction], logger: 'BoundLogger' = None
+) -> list[AnalysisInput]:
     """
-    Extract relevant data from `XRayDiffraction` entries for generation of .xy
-    files. This preprocessor is suitable for `XRayDiffraction` entries that have not
+    Extract relevant data from `XRayDiffraction` sections into `AnalysisInput` objects.
+    This preprocessor is suitable for `XRayDiffraction` sections that have not
     more than one diffraction pattern per entry with a single data file.
 
     Args:
-        xrd_entries (list[XRayDiffraction]): List of XRD entries to preprocess.
+        xrd_sections (list[XRayDiffraction]): List of XRD sections to preprocess.
         logger (BoundLogger | None): Optional logger for logging warnings.
 
     Returns:
         list[AnalysisInput]: List of processed data ready for analysis.
     """
     prepared_data = []
-    for xrd in xrd_entries:
-        if not isinstance(xrd, XRayDiffraction):
-            continue
+    for xrd in xrd_sections:
         try:
             filename = xrd.data_file
             pattern = xrd.m_parent.results.properties.structural.diffraction_pattern[0]
@@ -71,4 +69,56 @@ def single_pattern_preprocessor(
                 ),
             )
         )
+    return prepared_data
+
+
+def multiple_patterns_preprocessor(
+    xrd_sections: list[XRayDiffraction], logger: 'BoundLogger' = None
+) -> None:
+    """
+    Extract relevant data from `XRayDiffraction` section into `AnalysisInput` objects.
+    This preprocessor is suitable for `XRayDiffraction` sections that have multiple
+    diffraction patterns per entry with multiple data files.
+
+    Args:
+        xrd_sections (list[XRayDiffraction]): List of XRD sections to preprocess.
+        logger (BoundLogger | None): Optional logger for logging warnings.
+
+    Returns:
+        list[AnalysisInput]: List of processed data ready for analysis.
+    """
+    prepared_data = []
+    for xrd in xrd_sections:
+        try:
+            filenames = xrd.data_files
+            patterns = xrd.m_parent.results.properties.structural.diffraction_pattern
+        except AttributeError as e:
+            (logger.warning if logger else print)(
+                f'Encountered AttributeError: {e}. Skipping the XRD entry',
+            )
+            continue
+        if not patterns:
+            (logger.warning if logger else print)(
+                'XRD data is missing. Skipping the XRD entry.'
+            )
+            continue
+        for filename, pattern in zip(filenames, patterns):
+            two_theta = pattern.two_theta_angles
+            intensity = pattern.intensity
+            if two_theta is None or intensity is None:
+                (logger.warning if logger else print)(
+                    'XRD data is missing. Skipping the XRD entry.'
+                )
+                continue
+            prepared_data.append(
+                AnalysisInput(
+                    filename=filename,
+                    two_theta=two_theta.to('degree').magnitude.tolist(),
+                    intensity=intensity.tolist(),
+                    entry_m_proxy=get_reference(
+                        xrd.m_parent.metadata.upload_id,
+                        xrd.m_parent.metadata.entry_id,
+                    ),
+                )
+            )
     return prepared_data
