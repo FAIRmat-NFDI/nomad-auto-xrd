@@ -63,9 +63,10 @@ def single_pattern_preprocessor(
                 filename=filename,
                 two_theta=two_theta.to('degree').magnitude.tolist(),
                 intensity=intensity.tolist(),
-                entry_m_proxy=get_reference(
+                measurement_m_proxy=get_reference(
                     xrd.m_parent.metadata.upload_id,
                     xrd.m_parent.metadata.entry_id,
+                    'data/results/0',
                 ),
             )
         )
@@ -102,7 +103,7 @@ def multiple_patterns_preprocessor(
                 'XRD data is missing. Skipping the XRD entry.'
             )
             continue
-        for filename, pattern in zip(filenames, patterns):
+        for idx, (filename, pattern) in enumerate(zip(filenames, patterns)):
             two_theta = pattern.two_theta_angles
             intensity = pattern.intensity
             if two_theta is None or intensity is None:
@@ -115,9 +116,10 @@ def multiple_patterns_preprocessor(
                     filename=filename,
                     two_theta=two_theta.to('degree').magnitude.tolist(),
                     intensity=intensity.tolist(),
-                    entry_m_proxy=get_reference(
+                    measurement_m_proxy=get_reference(
                         xrd.m_parent.metadata.upload_id,
                         xrd.m_parent.metadata.entry_id,
+                        f'data/results/{idx}',
                     ),
                 )
             )

@@ -26,15 +26,15 @@ class AnalysisInput:
 
     Attributes:
         filename (str): The name of the raw data file.
-        entry_m_proxy (str): The m_proxy values for the NOMAD entries, used for phase
-            identification.
+        measurement_m_proxy (str): The m_proxy values inside the `data.results` section
+            of the measurement entries used for phase identification.
         two_theta (list[float]): The two theta angles from the XRD pattern.
         intensity (list[float]): The intensity values corresponding to the two theta
             angles.
     """
 
     filename: str
-    entry_m_proxy: str
+    measurement_m_proxy: str
     two_theta: list[float]
     intensity: list[float]
 
@@ -57,7 +57,8 @@ class AnalysisResult:
         reduced_spectra (list[list]): Reduced spectra after analysis.
         phases_m_proxies (list[list] | None): M-proxies for the identified phases, if
             available.
-        xrd_entry_m_proxies (list | None): M-proxies for the XRD entries, if available.
+        xrd_measurement_m_proxies (list | None): M-proxies for the `data.results`
+            section of XRD entries, if available.
         plot_paths (list | None): Paths to the generated plots, if any.
     """
 
@@ -68,7 +69,7 @@ class AnalysisResult:
     scale_factors: list[list]
     reduced_spectra: list[list]
     phases_m_proxies: list[list] | None = None
-    xrd_entry_m_proxies: list | None = None
+    xrd_measurement_m_proxies: list | None = None
     plot_paths: list | None = None
 
     def to_dict(self):
@@ -82,8 +83,10 @@ class AnalysisResult:
             'phases_m_proxies': (
                 self.phases_m_proxies if self.phases_m_proxies is not None else []
             ),
-            'xrd_entry_m_proxies': (
-                self.xrd_entry_m_proxies if self.xrd_entry_m_proxies is not None else []
+            'xrd_measurement_m_proxies': (
+                self.xrd_measurement_m_proxies
+                if self.xrd_measurement_m_proxies is not None
+                else []
             ),
             'plot_paths': self.plot_paths if self.plot_paths is not None else [],
         }
@@ -100,8 +103,8 @@ class AnalysisResult:
             phases_m_proxies=list(data['phases_m_proxies'])
             if 'phases_m_proxies' in data
             else None,
-            xrd_entry_m_proxies=list(data['xrd_entry_m_proxies'])
-            if 'xrd_entry_m_proxies' in data
+            xrd_measurement_m_proxies=list(data['xrd_measurement_m_proxies'])
+            if 'xrd_measurement_m_proxies' in data
             else None,
             plot_paths=list(data['plot_paths']) if 'plot_paths' in data else None,
         )

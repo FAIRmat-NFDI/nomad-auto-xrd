@@ -32,10 +32,12 @@ from nomad_analysis.utils import get_reference
 from nomad_measurements.xrd.schema import XRayDiffraction
 
 from nomad_auto_xrd.models import AnalysisInput, AnalysisResult
-from nomad_auto_xrd.preprocessors import single_pattern_preprocessor
+from nomad_auto_xrd.preprocessors import (
+    multiple_patterns_preprocessor,
+    single_pattern_preprocessor,
+)
 from nomad_auto_xrd.schema import (
     AutoXRDAnalysis,
-    AutoXRDMeasurementReference,
     AutoXRDModel,
     IdentifiedPhase,
 )
@@ -635,8 +637,9 @@ class XRDAutoAnalyser:
                 results['merged_results'].phases_m_proxies.append(phases_m_proxies)
 
             # add entry_m_proxy to the results
-            results['merged_results'].xrd_entry_m_proxies = [
-                processed_data.entry_m_proxy for processed_data in processed_data_list
+            results['merged_results'].xrd_measurement_m_proxies = [
+                processed_data.measurement_m_proxy
+                for processed_data in processed_data_list
             ]
 
             # plot the indentified phases and add plot paths to the results
@@ -694,14 +697,14 @@ def populate_analysis_entry(
         results (AnalysisResult): The results from the analysis.
     """
     for result_iter, (
-        xrd_entry_m_proxy,
+        xrd_measurement_m_proxy,
         plot_path,
         phases,
         confidences,
         phases_m_proxies,
     ) in enumerate(
         zip(
-            results.xrd_entry_m_proxies,
+            results.xrd_measurement_m_proxies,
             results.plot_paths,
             results.phases,
             results.confidences,
@@ -709,9 +712,9 @@ def populate_analysis_entry(
         )
     ):
         analysis_entry.m_setdefault(f'results/{result_iter}')
-        analysis_entry.results[
-            result_iter
-        ].xrd_measurement = AutoXRDMeasurementReference(reference=xrd_entry_m_proxy)
+        analysis_entry.results[result_iter].xrd_measurement = SectionReference(
+            reference=xrd_measurement_m_proxy
+        )
         analysis_entry.results[result_iter].identified_phases_plot = plot_path
         for phase, confidence, phase_m_proxy in zip(
             phases, confidences, phases_m_proxies
