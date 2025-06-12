@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from autoXRD import spectrum_analysis, visualizer
+from nomad.datamodel.metainfo.basesections import SectionReference
 from nomad.metainfo import MProxy
 from nomad_measurements.xrd.schema import XRayDiffraction
 
@@ -484,6 +485,44 @@ class XRDAutoAnalyser:
             )
         self.data_preprocessor = data_preprocessor or self._default_preprocessor
 
+    def _filter_inputs(
+        self,
+        input_references: list['SectionReference'],
+        logger: 'BoundLogger | None' = None,
+    ) -> list[XRayDiffraction]:
+        """
+        Filters the input references to return only those that are valid XRayDiffraction
+        entries. It skips any input that does not reference an entry or is not of type
+        XRayDiffraction.
+
+        Args:
+            input_references (list[SectionReference]): List of input references to
+                filter.
+            logger (BoundLogger | None): Optional logger for logging warnings.
+
+        Returns:
+            list[XRayDiffraction]: List of valid XRayDiffraction entries.
+        """
+        xrd_entries = []
+        for idx, input_reference in enumerate(input_references):
+            if not input_reference.reference:
+                (logger.warning if logger else print)(
+                    f'Skipping the analysis input at index "{idx}" '
+                    'as not entry is referenced.'
+                )
+                continue
+            section = input_reference.reference
+            if isinstance(section, MProxy):
+                section.m_proxy_resolve()
+            if not isinstance(section, XRayDiffraction):
+                (logger.warning if logger else print)(
+                    f'Skipping the analysis input at index "{idx}" '
+                    'as it is not an XRayDiffraction entry.'
+                )
+                continue
+            xrd_entries.append(section)
+        return xrd_entries
+
     def _default_preprocessor(
         self, xrd_entries: list[XRayDiffraction], logger: 'BoundLogger' = None
     ) -> None:
@@ -633,25 +672,10 @@ class XRDAutoAnalyser:
                 'merged_results' will contain the merged results of both analyses.
                 else, it will contain the results of XRD analysis only.
         """
-        xrd_entries = []
-        for idx, xrd_reference in enumerate(analysis_entry.inputs):
-            if not xrd_reference.reference:
-                (logger.warning if logger else print)(
-                    f'Skipping the analysis input at index "{idx}" '
-                    'as not entry is referenced.'
-                )
-                continue
-            xrd = xrd_reference.reference
-            if isinstance(xrd, MProxy):
-                xrd.m_proxy_resolve()
-            if not isinstance(xrd, XRayDiffraction):
-                (logger.warning if logger else print)(
-                    f'Skipping the analysis input at index "{idx}" '
-                    'as it is not an XRayDiffraction entry.'
-                )
-                continue
-            xrd_entries.append(xrd)
-        processed_data_list = self.data_preprocessor(xrd_entries, logger)
+
+        processed_data_list = self.data_preprocessor(
+            self._filter_inputs(analysis_entry.inputs), logger
+        )
         self._generate_xy_files(processed_data_list)
         xrd_model_path, pdf_model_path, reference_structure_m_proxies = (
             self._model_setup(analysis_entry.analysis_settings.auto_xrd_model, logger)
