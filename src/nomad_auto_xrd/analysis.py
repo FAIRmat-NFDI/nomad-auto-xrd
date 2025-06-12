@@ -760,6 +760,43 @@ def analyse(analysis_entry: 'AutoXRDAnalysis') -> dict[str, AnalysisResult]:
     return results
 
 
+def analyse_combinatorial(
+    analysis_entry: 'AutoXRDAnalysis',
+) -> dict[str, AnalysisResult]:
+    """
+    Runs the XRDAutoAnalyser in a temporary directory for the given Auto XRD analysis
+    entry, moves the plots to the 'Plots' directory, and populates the
+    `analysis_entry.results` with the analysis results.
+
+    Args:
+        analysis (AutoXRDAnalysis): NOMAD analysis section containing the XRD
+            data and model information.
+
+    Returns:
+        dict[str, AnalysisResult]: Dictionary containing the analysis results for
+            XRD and PDF, if applicable. The keys are 'xrd', 'pdf', and
+            'merged_results'. If both XRD and PDF analyses are performed,
+            'merged_results' will contain the merged results of both analyses.
+            else, it will contain the results of XRD analysis only.
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        analyser = XRDAutoAnalyser(temp_dir, multiple_patterns_preprocessor)
+        results = analyser.run_analysis(analysis_entry)
+
+        # Move the plot out of `temp_dir`
+        plots_dir = os.path.join('Plots')
+        os.makedirs(plots_dir, exist_ok=True)
+        for result_iter, plot_path in enumerate(results['merged_results'].plot_paths):
+            new_plot_path = os.path.join(plots_dir, os.path.basename(plot_path))
+            if os.path.exists(plot_path):
+                shutil.copy2(plot_path, new_plot_path)
+                results['merged_results'].plot_paths[result_iter] = new_plot_path
+
+    populate_analysis_entry(analysis_entry, results['merged_results'])
+
+    return results
+
+
 # Example usage
 if __name__ == '__main__':
     settings = AnalysisSettings(
