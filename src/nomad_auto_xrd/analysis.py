@@ -28,6 +28,7 @@ import numpy as np
 from autoXRD import spectrum_analysis, visualizer
 from nomad.datamodel.metainfo.basesections import SectionReference
 from nomad.metainfo import MProxy
+from nomad_analysis.utils import get_reference
 from nomad_measurements.xrd.schema import XRayDiffraction
 
 from nomad_auto_xrd.models import AnalysisInput, AnalysisResult
@@ -42,22 +43,6 @@ from nomad_auto_xrd.schema import (
 if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive
     from structlog.stdlib import BoundLogger
-
-
-def get_reference(upload_id: str, entry_id: str, archive_path: str = None) -> str:
-    """
-    Returns the proxy value for referencing an entry.
-
-    Args:
-        upload_id (str): Upload ID of the upload in which the entry resides.
-        entry_id (str): Entry ID of the entry.
-
-    Returns:
-        str: Proxy value of the form '../uploads/{upload_id}/archive/{entry_id}#/data'
-    """
-    if not archive_path:
-        return f'../uploads/{upload_id}/archive/{entry_id}#/data'
-    return f'../uploads/{upload_id}/archive/{entry_id}#/{archive_path}'
 
 
 def convert_to_serializable(obj):
