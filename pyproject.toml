@@ -44,6 +44,7 @@ analytics = [
     "python-magic-bin; sys_platform == 'win32'",
     "autoXRD @ git+https://github.com/Pepe-Marquez/XRD-AutoAnalyzer.git",
     "wandb",
+    "pymatgen",
 ]
 dev = [
     "nomad-auto-xrd[analytics]",
