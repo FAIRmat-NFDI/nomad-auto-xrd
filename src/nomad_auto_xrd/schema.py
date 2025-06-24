@@ -768,6 +768,7 @@ class AutoXRDTraining(JupyterAnalysis):
             '\n',
             'Next, we connect the CIF files of the structures available in the\n',
             '`analysis` entry to be used as training data for the model.\n',
+            'Here, we ensure that the added CIFs are parsable by `pymatgen`.\n',
         ]
         cells.append(
             nbformat.v4.new_markdown_cell(
@@ -778,13 +779,17 @@ class AutoXRDTraining(JupyterAnalysis):
 
         source = [
             'import os\n',
+            'from pymatgen.io.cif import CifParser\n',
             '\n',
             '# Specify the path to the input structures\n',
-            'model.simulation_settings.structure_files = [\n',
-            '    file_name\n',
-            '    for file_name in analysis.structure_files\n',
-            "    if file_name.endswith('.cif')\n",
-            ']\n',
+            'model.simulation_settings.structure_files = []\n',
+            'for cif in analysis.structure_files:\n',
+            '    parser = CifParser(cif)\n',
+            '    try:\n',
+            '        parser.get_structures()\n',
+            '        model.simulation_settings.structure_files.append(cif)\n',
+            '    except Exception as e:\n',
+            '        print(f\'Error in {cif}: "{e}". Not using it for training.\')\n',
         ]
         cells.append(
             nbformat.v4.new_code_cell(

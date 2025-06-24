@@ -44,6 +44,7 @@ analytics = [
     "python-magic-bin; sys_platform == 'win32'",
     "autoXRD @ git+https://github.com/Pepe-Marquez/XRD-AutoAnalyzer.git",
     "wandb",
+    "pymatgen",
 ]
 dev = [
     "nomad-auto-xrd[analytics]",
@@ -100,6 +101,7 @@ select = [
 
 ignore = [
     "F403", # 'from module import *' used; unable to detect undefined names
+    "PLC0415", # `import` should be at the top-level of a file
 ]
 
 fixable = ["ALL"]
