@@ -660,6 +660,9 @@ class XRDAutoAnalyser:
                 # remove the .xy files after analysis
                 self._remove_xy_file(analysis_input.filename)
 
+                # clear tensorflow session to free up memory
+                tf.keras.backend.clear_session()
+
                 mem_mb = get_total_memory_mb()
                 pbar.set_postfix(mem=f'{mem_mb:.1f} MB')
 
