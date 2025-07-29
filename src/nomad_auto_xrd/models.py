@@ -108,3 +108,29 @@ class AnalysisResult:
             else None,
             plot_paths=list(data['plot_paths']) if 'plot_paths' in data else None,
         )
+
+    def merge(self, other):
+        """
+        Merges another AnalysisResult into this one.
+        """
+        self.filenames.extend(other.filenames)
+        self.phases.extend(other.phases)
+        self.confidences.extend(other.confidences)
+        self.backup_phases.extend(other.backup_phases)
+        self.scale_factors.extend(other.scale_factors)
+        self.reduced_spectra.extend(other.reduced_spectra)
+
+        if other.phases_m_proxies:
+            if not self.phases_m_proxies:
+                self.phases_m_proxies = []
+            self.phases_m_proxies.extend(other.phases_m_proxies)
+
+        if other.xrd_measurement_m_proxies:
+            if not self.xrd_measurement_m_proxies:
+                self.xrd_measurement_m_proxies = []
+            self.xrd_measurement_m_proxies.extend(other.xrd_measurement_m_proxies)
+
+        if other.plot_paths:
+            if not self.plot_paths:
+                self.plot_paths = []
+            self.plot_paths.extend(other.plot_paths)

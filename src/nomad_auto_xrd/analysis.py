@@ -20,16 +20,20 @@ import os
 import shutil
 import tempfile
 import time
+from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
 import numpy as np
+import psutil
+import tensorflow as tf
 from autoXRD import spectrum_analysis, visualizer
 from nomad.datamodel.metainfo.basesections import SectionReference
 from nomad.metainfo import MProxy
 from nomad_analysis.utils import get_reference
 from nomad_measurements.xrd.schema import XRayDiffraction
+from tqdm import tqdm
 
 from nomad_auto_xrd.models import AnalysisInput, AnalysisResult
 from nomad_auto_xrd.preprocessors import (
@@ -45,6 +49,19 @@ from nomad_auto_xrd.schema import (
 if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive
     from structlog.stdlib import BoundLogger
+
+
+def get_total_memory_mb():
+    """Get the total memory usage of the current process and its children."""
+    process = psutil.Process(os.getpid())
+    mem = process.memory_info().rss
+    # Add memory of all child processes
+    for child in process.children(recursive=True):
+        try:
+            mem += child.memory_info().rss
+        except psutil.NoSuchProcess:
+            pass
+    return mem / 1024 / 1024  # Convert to MB
 
 
 def convert_to_serializable(obj):
@@ -454,29 +471,42 @@ class XRDAutoAnalyser:
             xrd_entries.append(section)
         return xrd_entries
 
-    def _generate_xy_files(self, processed_data_list: list[AnalysisInput]) -> None:
+    def _generate_xy_file(self, analysis_input: AnalysisInput) -> None:
         """
-        Generates .xy files from the processed data and saves them in the working
+        Generates .xy file from the processed data and saves them in the working
         directory under 'Spectra'.
 
         Args:
-            processed_data_list (list[AnalysisInput]): List of processed data
-                containing filename, two_theta, and intensity.
+            analysis_input (AnalysisInput): Processed data containing filename,
+                two_theta, and intensity values.
         """
         spectra_dir = os.path.join(self.working_directory, 'Spectra')
         os.makedirs(spectra_dir, exist_ok=True)
-        for processed_data in processed_data_list:
-            with open(
-                os.path.join(
-                    spectra_dir, f'{processed_data.filename.rsplit(".", 1)[0]}.xy'
-                ),
-                'w',
-                encoding='utf-8',
-            ) as f:
-                for angle, intensity in zip(
-                    processed_data.two_theta, processed_data.intensity
-                ):
-                    f.write(f'{angle} {intensity}\n')
+        with open(
+            os.path.join(
+                spectra_dir, f'{analysis_input.filename.rsplit(".", 1)[0]}.xy'
+            ),
+            'w',
+            encoding='utf-8',
+        ) as f:
+            for angle, intensity in zip(
+                analysis_input.two_theta, analysis_input.intensity
+            ):
+                f.write(f'{angle} {intensity}\n')
+
+    def _remove_xy_file(self, filename: str) -> None:
+        """
+        Removes the .xy file corresponding to the given filename from the 'Spectra'
+        directory in the working directory.
+
+        Args:
+            filename (str): The name of the XRD rawfile whose .xy file should be
+                removed.
+        """
+        spectra_dir = os.path.join(self.working_directory, 'Spectra')
+        file_path = os.path.join(spectra_dir, f'{filename.rsplit(".", 1)[0]}.xy')
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
     def _model_setup(
         self,
@@ -542,6 +572,8 @@ class XRDAutoAnalyser:
         Runs the XRD analysis for the given Auto XRD analysis entry.
         This function orchestrates the analysis process, including loading the model,
         extracting patterns, and running the analysis to identify the phases.
+        If mutiple patterns are provided, it will run the analysis one by one for each
+        pattern and later merge the results.
 
         Args:
             analysis_entry (AutoXRDAnalysis): NOMAD analysis entry containing the XRD
@@ -555,41 +587,22 @@ class XRDAutoAnalyser:
                 else, it will contain the results of XRD analysis only.
         """
 
-        processed_data_list = self.data_preprocessor(
+        analysis_inputs = self.data_preprocessor(
             self._filter_inputs(analysis_entry.inputs), logger
         )
-        self._generate_xy_files(processed_data_list)
         xrd_model_path, pdf_model_path, reference_structure_m_proxies = (
             self._model_setup(analysis_entry.analysis_settings.auto_xrd_model, logger)
         )
 
-        results = dict()
+        results = defaultdict(lambda: None)
         original_dir = os.getcwd()
         os.chdir(self.working_directory)
         try:
-            os.makedirs('temp', exist_ok=True)  # required for `spectrum_analysis`
-            results['xrd'] = AnalysisResult(
-                *spectrum_analysis.main(
-                    spectra_directory='Spectra',
-                    reference_directory='References',
-                    max_phases=analysis_entry.analysis_settings.max_phases,
-                    cutoff_intensity=analysis_entry.analysis_settings.cutoff_intensity,
-                    min_conf=analysis_entry.analysis_settings.min_confidence,
-                    wavelength=analysis_entry.analysis_settings.wavelength.to(
-                        'angstrom'
-                    ).magnitude,
-                    min_angle=analysis_entry.analysis_settings.min_angle.to(
-                        'degree'
-                    ).magnitude,
-                    max_angle=analysis_entry.analysis_settings.max_angle.to(
-                        'degree'
-                    ).magnitude,
-                    parallel=analysis_entry.analysis_settings.parallel,
-                    model_path=os.path.join('Models', os.path.basename(xrd_model_path)),
-                )
-            )
-            if pdf_model_path:
-                results['pdf'] = AnalysisResult(
+            pbar = tqdm(analysis_inputs, desc='Running analysis')
+            for analysis_input in pbar:
+                self._generate_xy_file(analysis_input)
+                os.makedirs('temp', exist_ok=True)  # required for `spectrum_analysis`
+                xrd_result = AnalysisResult(
                     *spectrum_analysis.main(
                         spectra_directory='Spectra',
                         reference_directory='References',
@@ -607,11 +620,50 @@ class XRDAutoAnalyser:
                         ).magnitude,
                         parallel=analysis_entry.analysis_settings.parallel,
                         model_path=os.path.join(
-                            'Models', os.path.basename(pdf_model_path)
+                            'Models', os.path.basename(xrd_model_path)
                         ),
-                        is_pdf=True,
                     )
                 )
+                if not results['xrd']:
+                    results['xrd'] = xrd_result
+                else:
+                    results['xrd'].merge(xrd_result)
+                if pdf_model_path:
+                    pdf_result = AnalysisResult(
+                        *spectrum_analysis.main(
+                            spectra_directory='Spectra',
+                            reference_directory='References',
+                            max_phases=analysis_entry.analysis_settings.max_phases,
+                            cutoff_intensity=analysis_entry.analysis_settings.cutoff_intensity,
+                            min_conf=analysis_entry.analysis_settings.min_confidence,
+                            wavelength=analysis_entry.analysis_settings.wavelength.to(
+                                'angstrom'
+                            ).magnitude,
+                            min_angle=analysis_entry.analysis_settings.min_angle.to(
+                                'degree'
+                            ).magnitude,
+                            max_angle=analysis_entry.analysis_settings.max_angle.to(
+                                'degree'
+                            ).magnitude,
+                            parallel=analysis_entry.analysis_settings.parallel,
+                            model_path=os.path.join(
+                                'Models', os.path.basename(pdf_model_path)
+                            ),
+                            is_pdf=True,
+                        )
+                    )
+                    if not results['pdf']:
+                        results['pdf'] = pdf_result
+                    else:
+                        results['pdf'].merge(pdf_result)
+
+                # remove the .xy files after analysis
+                self._remove_xy_file(analysis_input.filename)
+
+                mem_mb = get_total_memory_mb()
+                pbar.set_postfix(mem=f'{mem_mb:.1f} MB')
+
+            if pdf_model_path:
                 results['merged_results'] = AnalysisResult.from_dict(
                     spectrum_analysis.merge_results(
                         {
@@ -638,9 +690,12 @@ class XRDAutoAnalyser:
 
             # add entry_m_proxy to the results
             results['merged_results'].xrd_measurement_m_proxies = [
-                processed_data.measurement_m_proxy
-                for processed_data in processed_data_list
+                analysis_input.measurement_m_proxy for analysis_input in analysis_inputs
             ]
+
+            # add the .xy files to the Spectra directory for plotting
+            for analysis_input in analysis_inputs:
+                self._generate_xy_file(analysis_input)
 
             # plot the indentified phases and add plot paths to the results
             results['merged_results'].plot_paths = []
