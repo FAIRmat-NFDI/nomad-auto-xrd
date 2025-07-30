@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import os
 from typing import TYPE_CHECKING
 
 from nomad_analysis.utils import get_reference
@@ -60,7 +61,7 @@ def single_pattern_preprocessor(
             continue
         prepared_data.append(
             AnalysisInput(
-                filename=filename,
+                filename=os.path.basename(filename),
                 two_theta=two_theta.to('degree').magnitude.tolist(),
                 intensity=intensity.tolist(),
                 measurement_m_proxy=get_reference(
@@ -113,7 +114,7 @@ def multiple_patterns_preprocessor(
                 continue
             prepared_data.append(
                 AnalysisInput(
-                    filename=filename,
+                    filename=os.path.basename(filename),
                     two_theta=two_theta.to('degree').magnitude.tolist(),
                     intensity=intensity.tolist(),
                     measurement_m_proxy=get_reference(
