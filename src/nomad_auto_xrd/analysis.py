@@ -505,8 +505,8 @@ class XRDAutoAnalyser:
         """
         spectra_dir = os.path.join(self.working_directory, 'Spectra')
         file_path = os.path.join(spectra_dir, f'{filename.rsplit(".", 1)[0]}.xy')
-        if os.path.exists(file_path):
-            os.remove(file_path)
+
+        os.remove(file_path)
 
     def _model_setup(
         self,
@@ -565,7 +565,7 @@ class XRDAutoAnalyser:
 
         return xrd_model_path, pdf_model_path, reference_structure_m_proxies
 
-    def run_analysis(
+    def run_analysis(  # noqa: PLR0912
         self, analysis_entry: 'AutoXRDAnalysis', logger: 'BoundLogger | None' = None
     ) -> dict[str, AnalysisResult]:
         """
