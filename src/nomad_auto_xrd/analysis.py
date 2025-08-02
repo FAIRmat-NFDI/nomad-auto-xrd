@@ -20,7 +20,6 @@ import os
 import shutil
 import tempfile
 import time
-from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
