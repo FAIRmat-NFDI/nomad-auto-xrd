@@ -594,12 +594,22 @@ class XRDAutoAnalyser:
             self._model_setup(analysis_entry.analysis_settings.auto_xrd_model, logger)
         )
 
-        results = defaultdict(lambda: None)
+        all_results = AnalysisResult(
+            filenames=[],
+            phases=[],
+            confidences=[],
+            backup_phases=[],
+            scale_factors=[],
+            reduced_spectra=[],
+            phases_m_proxies=[],
+            xrd_measurement_m_proxies=[],
+            plot_paths=[],
+        )
         original_dir = os.getcwd()
         os.chdir(self.working_directory)
-        try:
-            pbar = tqdm(analysis_inputs, desc='Running analysis')
-            for analysis_input in pbar:
+        pbar = tqdm(analysis_inputs, desc='Running analysis')
+        for analysis_input in pbar:
+            try:
                 self._generate_xy_file(analysis_input)
                 os.makedirs('temp', exist_ok=True)  # required for `spectrum_analysis`
                 xrd_result = AnalysisResult(
@@ -624,10 +634,6 @@ class XRDAutoAnalyser:
                         ),
                     )
                 )
-                if not results['xrd']:
-                    results['xrd'] = xrd_result
-                else:
-                    results['xrd'].merge(xrd_result)
                 if pdf_model_path:
                     pdf_result = AnalysisResult(
                         *spectrum_analysis.main(
@@ -652,66 +658,44 @@ class XRDAutoAnalyser:
                             is_pdf=True,
                         )
                     )
-                    if not results['pdf']:
-                        results['pdf'] = pdf_result
-                    else:
-                        results['pdf'].merge(pdf_result)
-
-                # remove the .xy files after analysis
-                self._remove_xy_file(analysis_input.filename)
-
-                # clear tensorflow session to free up memory
-                tf.keras.backend.clear_session()
-
-                mem_mb = get_total_memory_mb()
-                pbar.set_postfix(mem=f'{mem_mb:.1f} MB')
-
-            if pdf_model_path:
-                results['merged_results'] = AnalysisResult.from_dict(
-                    spectrum_analysis.merge_results(
-                        {
-                            'XRD': results['xrd'].to_dict(),
-                            'PDF': results['pdf'].to_dict(),
-                        },
-                        analysis_entry.analysis_settings.min_confidence,
-                        analysis_entry.analysis_settings.max_phases,
+                    merged_results = AnalysisResult.from_dict(
+                        spectrum_analysis.merge_results(
+                            {
+                                'XRD': xrd_result.to_dict(),
+                                'PDF': pdf_result.to_dict(),
+                            },
+                            analysis_entry.analysis_settings.min_confidence,
+                            analysis_entry.analysis_settings.max_phases,
+                        )
                     )
-                )
-            else:
-                results['merged_results'] = results['xrd']
+                else:
+                    merged_results = xrd_result
 
-            # add m_proxy values of identified phases to the results
-            results['merged_results'].phases_m_proxies = []
-            for phases in results['merged_results'].phases:
+                # add m_proxy values of identified phases to the results
                 phases_m_proxies = []
-                for phase in phases:
+                for phase in merged_results.phases[0]:
                     if phase in reference_structure_m_proxies:
                         phases_m_proxies.append(reference_structure_m_proxies[phase])
                     else:
                         phases_m_proxies.append(None)
-                results['merged_results'].phases_m_proxies.append(phases_m_proxies)
+                merged_results.phases_m_proxies = [phases_m_proxies]
 
-            # add entry_m_proxy to the results
-            results['merged_results'].xrd_measurement_m_proxies = [
-                analysis_input.measurement_m_proxy for analysis_input in analysis_inputs
-            ]
+                # add measurement_m_proxy to the results
 
-            # add the .xy files to the Spectra directory for plotting
-            for analysis_input in analysis_inputs:
-                self._generate_xy_file(analysis_input)
+                merged_results.xrd_measurement_m_proxies = [
+                    analysis_input.measurement_m_proxy
+                ]
 
-            # plot the indentified phases and add plot paths to the results
-            results['merged_results'].plot_paths = []
-            for i, filename in enumerate(results['merged_results'].filenames):
+                # plot the identified phases and add plot paths to the results
                 visualizer.main(
                     'Spectra',
-                    filename,
+                    merged_results.filenames[0],
                     [
                         os.path.join(phase + '.cif')
-                        for phase in results['merged_results'].phases[i]
+                        for phase in merged_results.phases[0]
                     ],
-                    results['merged_results'].scale_factors[i],
-                    results['merged_results'].reduced_spectra[i],
+                    merged_results.scale_factors[0],
+                    merged_results.reduced_spectra[0],
                     analysis_entry.analysis_settings.min_angle.magnitude,
                     analysis_entry.analysis_settings.max_angle.magnitude,
                     analysis_entry.analysis_settings.wavelength.to(
@@ -724,23 +708,33 @@ class XRDAutoAnalyser:
                     raw=analysis_entry.analysis_settings.raw,
                     rietveld=False,
                 )
-                results['merged_results'].plot_paths.append(
+                merged_results.plot_paths = [
                     os.path.join(
                         self.working_directory,
-                        filename.rsplit('.', 1)[0] + '.png',
+                        analysis_input.filename.rsplit('.', 1)[0] + '.png',
                     )
-                )
+                ]
 
-        except Exception as e:
-            message = f'Error during analysis: {e}'
-            if logger:
-                logger.error(message)
-            else:
-                print(message)
-        finally:
-            os.chdir(original_dir)
+                all_results.merge(merged_results)
 
-        return results
+            except Exception as e:
+                message = f'Error during analysis of {analysis_input.filename}: {e}'
+                if logger:
+                    logger.error(message)
+                else:
+                    print(message)
+                continue
+            finally:
+                # remove the .xy files after analysis
+                # clear tensorflow session to free up memory
+                # log memory usage
+                self._remove_xy_file(analysis_input.filename)
+                tf.keras.backend.clear_session()
+                pbar.set_postfix(mem=f'{get_total_memory_mb():.1f} MB')
+
+        os.chdir(original_dir)
+
+        return all_results
 
 
 def populate_analysis_entry(
@@ -810,13 +804,13 @@ def analyse(analysis_entry: 'AutoXRDAnalysis') -> dict[str, AnalysisResult]:
         # Move the plot out of `temp_dir`
         plots_dir = os.path.join('Plots')
         os.makedirs(plots_dir, exist_ok=True)
-        for result_iter, plot_path in enumerate(results['merged_results'].plot_paths):
+        for result_iter, plot_path in enumerate(results.plot_paths):
             new_plot_path = os.path.join(plots_dir, os.path.basename(plot_path))
             if os.path.exists(plot_path):
                 shutil.copy2(plot_path, new_plot_path)
-                results['merged_results'].plot_paths[result_iter] = new_plot_path
+                results.plot_paths[result_iter] = new_plot_path
 
-    populate_analysis_entry(analysis_entry, results['merged_results'])
+    populate_analysis_entry(analysis_entry, results)
 
     return results
 
@@ -847,13 +841,13 @@ def analyse_combinatorial(
         # Move the plot out of `temp_dir`
         plots_dir = os.path.join('Plots')
         os.makedirs(plots_dir, exist_ok=True)
-        for result_iter, plot_path in enumerate(results['merged_results'].plot_paths):
+        for result_iter, plot_path in enumerate(results.plot_paths):
             new_plot_path = os.path.join(plots_dir, os.path.basename(plot_path))
             if os.path.exists(plot_path):
                 shutil.copy2(plot_path, new_plot_path)
-                results['merged_results'].plot_paths[result_iter] = new_plot_path
+                results.plot_paths[result_iter] = new_plot_path
 
-    populate_analysis_entry(analysis_entry, results['merged_results'])
+    populate_analysis_entry(analysis_entry, results)
 
     return results
 
