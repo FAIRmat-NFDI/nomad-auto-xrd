@@ -34,8 +34,6 @@ dependencies = [
     "nomad-measurements",
     "nomad-schema-plugin-run>=1.0.1",
     "nomad-schema-plugin-simulation-workflow>=1.0.9",
-    "psutil>=7.0.0",
-    "tqdm>=4.67.1",
 ]
 
 [project.urls]
@@ -47,6 +45,10 @@ analytics = [
     "autoXRD @ git+https://github.com/Pepe-Marquez/XRD-AutoAnalyzer.git",
     "wandb",
     "pymatgen",
+    "tensorflow>=2.16",
+    "psutil>=7.0.0",
+    "tqdm>=4.67.1",
+
 ]
 dev = [
     "nomad-auto-xrd[analytics]",
