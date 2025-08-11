@@ -42,7 +42,7 @@ Repository = "https://github.com/FAIRmat-NFDI/nomad-auto-xrd"
 [project.optional-dependencies]
 analytics = [
     "python-magic-bin; sys_platform == 'win32'",
-    "autoXRD @ git+https://github.com/Pepe-Marquez/XRD-AutoAnalyzer.git",
+    "autoXRD @ git+https://github.com/njszym/XRD-AutoAnalyzer.git",
     "wandb",
     "pymatgen",
     "tensorflow>=2.16",
