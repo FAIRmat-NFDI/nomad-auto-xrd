@@ -44,6 +44,8 @@ from nomad.metainfo import (
 )
 from nomad.normalizing.common import nomad_atoms_from_ase_atoms
 from nomad.normalizing.topology import add_system, add_system_info
+from nomad.orchestrator.shared.constant import TaskQueue
+from nomad.orchestrator.utils import get_workflow_status, start_workflow
 from nomad_analysis.jupyter.schema import JupyterAnalysis
 from nomad_measurements.xrd.schema import XRayDiffraction
 
@@ -660,7 +662,6 @@ class AutoXRDTraining(JupyterAnalysis):
                     'location',
                     'description',
                     'method',
-                    'structure_files',
                     'notebook',
                     'trigger_generate_notebook',
                 ],
@@ -682,21 +683,47 @@ class AutoXRDTraining(JupyterAnalysis):
             props=dict(height=500),
         ),
     )
-    structure_files = Quantity(
+    workflow_id = Quantity(
         type=str,
-        shape=['*'],
-        description='Path to structure file (CIF) containing crystal structure.',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.FileEditQuantity,
-        ),
-        a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
+        description='The ID of the workflow used for training the auto XRD model.',
+    )
+    workflow_status = Quantity(
+        type=str,
+        description='The status of the workflow used for training the auto XRD model.',
     )
     trigger_generate_notebook = Quantity(
+        type=bool,
         default=True,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.ActionEditQuantity,
             label='Generate Notebook',
         ),
+    )
+    trigger_run_training = Quantity(
+        type=bool,
+        description='Triggers the training workflow for the auto XRD model.',
+        default=False,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.ActionEditQuantity,
+            label='Run Training Workflow',
+        ),
+    )
+    trigger_get_workflow_status = Quantity(
+        type=bool,
+        description='Retrieves the status of the training workflow.',
+        default=False,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.ActionEditQuantity,
+            label='Get Workflow Status',
+        ),
+    )
+    simulation_settings = SubSection(
+        section_def=SimulationSettings,
+        description='Settings for simulating XRD patterns.',
+    )
+    training_settings = SubSection(
+        section_def=TrainingSettings,
+        description='Settings for training the model.',
     )
     outputs = SubSection(
         section_def=AutoXRDModelReference,
@@ -704,6 +731,29 @@ class AutoXRDTraining(JupyterAnalysis):
         description='An `AutoXRDModel` trained to predict phases in a given composition'
         'space.',
     )
+
+    def run_training(self, archive, logger):
+        """
+        Triggers the training workflow for the auto XRD model using the specified
+        simulation and training settings.
+
+        The workflow trains a model, indexes it in NOMAD as a `AutoXRDModel` entry, and
+        adds the reference to the model entry in `outputs`.
+        """
+        raise NotImplementedError()
+        # TODO prepare the input for the workflow
+        input_data = dict()
+        try:
+            self.workflow_id = start_workflow(
+                'nomad_auto_xrd.actions.training.workflow.TrainModel',
+                data=input_data,
+                task_queue=TaskQueue.CPU,
+            )
+        except Exception as e:
+            logger.error(
+                'Failed to start the training workflow.',
+                error=str(e),
+            )
 
     def write_predefined_cells(self, archive, logger):
         """
@@ -915,6 +965,41 @@ class AutoXRDTraining(JupyterAnalysis):
                 </li>
             </ol>
             """
+
+        if self.trigger_run_training:
+            if self.workflow_status and self.workflow_status == 'RUNNING':
+                logger.error(
+                    'The training workflow is already running. Please wait for it to '
+                    'complete before running the training again.'
+                )
+            elif not self.simulation_settings:
+                logger.error(
+                    'Simulation settings are not set. Please set the simulation '
+                    'settings before running the training.'
+                )
+            elif not self.training_settings:
+                logger.error(
+                    'Training settings are not set. Please set the training '
+                    'settings before running the training.'
+                )
+            else:
+                self.run_training(archive, logger)
+            self.trigger_run_training = False
+
+        try:
+            if self.workflow_id and (
+                self.trigger_get_workflow_status
+                or not self.workflow_status
+                or self.workflow_status == 'RUNNING'
+            ):
+                status = get_workflow_status(self.workflow_id)
+                if status:
+                    self.workflow_status = status.name
+        except Exception as e:
+            logger.error(f'Error getting workflow status: {e}. ')
+        finally:
+            self.trigger_get_workflow_status = False
+
         super().normalize(archive, logger)
 
 
@@ -960,11 +1045,39 @@ class AutoXRDAnalysis(JupyterAnalysis):
             props=dict(height=500),
         ),
     )
+    workflow_id = Quantity(
+        type=str,
+        description='The ID of the workflow used for running the auto XRD analysis.',
+    )
+    workflow_status = Quantity(
+        type=str,
+        description='The status of the workflow used for running the auto XRD '
+        'analysis.',
+    )
     trigger_generate_notebook = Quantity(
+        type=bool,
         default=True,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.ActionEditQuantity,
             label='Generate Notebook',
+        ),
+    )
+    trigger_run_analysis = Quantity(
+        type=bool,
+        description='Triggers the analysis workflow for the auto XRD analysis.',
+        default=False,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.ActionEditQuantity,
+            label='Run Analysis Workflow',
+        ),
+    )
+    trigger_get_workflow_status = Quantity(
+        type=bool,
+        description='Retrieves the status of the analysis workflow.',
+        default=False,
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.ActionEditQuantity,
+            label='Get Workflow Status',
         ),
     )
     analysis_settings = SubSection(
@@ -981,6 +1094,29 @@ class AutoXRDAnalysis(JupyterAnalysis):
         repeats=True,
         description='Results of the auto XRD analysis.',
     )
+
+    def run_analysis(self, archive, logger):
+        """
+        Triggers the analysis workflow for the auto XRD analysis using the specified
+        analysis settings and inputs.
+
+        The workflow runs the analysis, populates the `results` section with the
+        identified phases, and updates the `workflow_status`.
+        """
+        raise NotImplementedError()
+        # TODO prepare the input for the workflow
+        input_data = dict()
+        try:
+            self.workflow_id = start_workflow(
+                'nomad_auto_xrd.actions.analysis.workflow.RunAnalysis',
+                data=input_data,
+                task_queue=TaskQueue.CPU,
+            )
+        except Exception as e:
+            logger.error(
+                'Failed to start the analysis workflow.',
+                error=str(e),
+            )
 
     def write_predefined_cells(self, archive, logger):
         cells = super().write_predefined_cells(archive, logger)
@@ -1087,6 +1223,7 @@ class AutoXRDAnalysis(JupyterAnalysis):
         super().normalize(archive, logger)
 
         # validate the data in the referenced XRD entries
+        validation = True
         if self.analysis_settings:
             for xrd_reference in self.inputs:
                 if not xrd_reference.reference:
@@ -1098,6 +1235,7 @@ class AutoXRDAnalysis(JupyterAnalysis):
                     logger.error(
                         f'XRD entry "{xrd.name}" is not of type `XRayDiffraction`.'
                     )
+                    validation = False
                     continue
                 try:
                     pattern = (
@@ -1109,12 +1247,14 @@ class AutoXRDAnalysis(JupyterAnalysis):
                     intensity = pattern.intensity
                 except AttributeError as e:
                     logger.error(f'Error accessing XRD entry "{xrd.name}". {e}')
+                    validation = False
                     continue
                 if two_theta is None or intensity is None:
                     logger.error(
                         f'XRD entry {xrd.name} does not contain valid two theta '
                         'angles or intensity data.'
                     )
+                    validation = False
                     continue
                 elif (
                     min(two_theta) > self.analysis_settings.min_angle
@@ -1127,7 +1267,49 @@ class AutoXRDAnalysis(JupyterAnalysis):
                         f'[{self.analysis_settings.min_angle}, '
                         f'{self.analysis_settings.max_angle}].'
                     )
+                    validation = False
                     continue
+
+        if self.trigger_run_analysis:
+            if self.workflow_status and self.workflow_status == 'RUNNING':
+                logger.error(
+                    'The analysis workflow is already running. Please wait for it to '
+                    'complete before running the analysis again.'
+                )
+            elif (
+                not self.analysis_settings or not self.analysis_settings.auto_xrd_model
+            ):
+                logger.error(
+                    'Auto XRD model is not set. Please set the auto XRD model in the '
+                    'analysis settings before running the analysis.'
+                )
+            elif not self.inputs:
+                logger.error(
+                    'No XRD measurements are provided for analysis. Please add '
+                    'XRD measurements in the inputs section.'
+                )
+            elif not validation:
+                logger.error(
+                    'Validation of the XRD entries failed. Please fix the errors '
+                    'before running the analysis.'
+                )
+            else:
+                self.run_analysis(archive, logger)
+            self.trigger_run_analysis = False
+
+        try:
+            if self.workflow_id and (
+                self.trigger_get_workflow_status
+                or not self.workflow_status
+                or self.workflow_status == 'RUNNING'
+            ):
+                status = get_workflow_status(self.workflow_id)
+                if status:
+                    self.workflow_status = status.name
+        except Exception as e:
+            logger.error(f'Error getting workflow status: {e}. ')
+        finally:
+            self.trigger_get_workflow_status = False
 
 
 m_package.__init_metainfo__()
