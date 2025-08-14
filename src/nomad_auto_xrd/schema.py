@@ -45,7 +45,7 @@ from nomad.metainfo import (
 from nomad.normalizing.common import nomad_atoms_from_ase_atoms
 from nomad.normalizing.topology import add_system, add_system_info
 from nomad.orchestrator.shared.constant import TaskQueue
-from nomad.orchestrator.utils import get_workflow_status, start_workflow
+from nomad.orchestrator.utils import get_action_status, start_action
 from nomad_analysis.jupyter.schema import JupyterAnalysis
 from nomad_measurements.xrd.schema import XRayDiffraction
 
@@ -704,20 +704,20 @@ class AutoXRDTraining(JupyterAnalysis):
     )
     trigger_run_training = Quantity(
         type=bool,
-        description='Triggers the training workflow for the auto XRD model.',
+        description='Triggers the training action for the auto XRD model.',
         default=False,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.ActionEditQuantity,
-            label='Run Training Workflow',
+            label='Run Training Action',
         ),
     )
-    trigger_get_workflow_status = Quantity(
+    trigger_get_action_status = Quantity(
         type=bool,
-        description='Retrieves the status of the training workflow.',
+        description='Retrieves the status of the training action.',
         default=False,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.ActionEditQuantity,
-            label='Get Workflow Status',
+            label='Get Training Action Status',
         ),
     )
     simulation_settings = SubSection(
@@ -737,10 +737,10 @@ class AutoXRDTraining(JupyterAnalysis):
 
     def run_training(self, archive, logger):
         """
-        Triggers the training workflow for the auto XRD model using the specified
+        Triggers the training action for the auto XRD model using the specified
         simulation and training settings.
 
-        The workflow trains a model, indexes it in NOMAD as a `AutoXRDModel` entry, and
+        The action trains a model, indexes it in NOMAD as a `AutoXRDModel` entry, and
         adds the reference to the model entry in `outputs`.
         """
         try:
@@ -777,7 +777,7 @@ class AutoXRDTraining(JupyterAnalysis):
                     wandb_entity=self.training_settings.wandb_entity,
                 ),
             )
-            self.workflow_id = start_workflow(
+            self.workflow_id = start_action(
                 'nomad_auto_xrd.actions.training.workflow.TrainingWorkflow',
                 data=input_data,
                 task_queue=TaskQueue.CPU,
@@ -1017,21 +1017,22 @@ class AutoXRDTraining(JupyterAnalysis):
                 )
             else:
                 self.run_training(archive, logger)
+                self.trigger_get_action_status = True
             self.trigger_run_training = False
 
         try:
             if self.workflow_id and (
-                self.trigger_get_workflow_status
+                self.trigger_get_action_status
                 or not self.workflow_status
                 or self.workflow_status == 'RUNNING'
             ):
-                status = get_workflow_status(self.workflow_id)
+                status = get_action_status(self.workflow_id)
                 if status:
                     self.workflow_status = status.name
         except Exception as e:
-            logger.error(f'Error getting workflow status: {e}. ')
+            logger.error(f'Error getting action status: {e}. ')
         finally:
-            self.trigger_get_workflow_status = False
+            self.trigger_get_action_status = False
 
         super().normalize(archive, logger)
 
@@ -1140,7 +1141,7 @@ class AutoXRDAnalysis(JupyterAnalysis):
         # TODO prepare the input for the workflow
         input_data = dict()
         try:
-            self.workflow_id = start_workflow(
+            self.workflow_id = start_action(
                 'nomad_auto_xrd.actions.analysis.workflow.RunAnalysis',
                 data=input_data,
                 task_queue=TaskQueue.CPU,
@@ -1336,7 +1337,7 @@ class AutoXRDAnalysis(JupyterAnalysis):
                 or not self.workflow_status
                 or self.workflow_status == 'RUNNING'
             ):
-                status = get_workflow_status(self.workflow_id)
+                status = get_action_status(self.workflow_id)
                 if status:
                     self.workflow_status = status.name
         except Exception as e:
