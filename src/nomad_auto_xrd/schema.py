@@ -295,6 +295,9 @@ class AutoXRDModel(Entity, Schema):
         a_eln=ELNAnnotation(
             properties=SectionProperties(
                 order=[
+                    'name',
+                    'datetime',
+                    'description',
                     'working_directory',
                     'xrd_model',
                     'wandb_run_url_xrd',
@@ -305,6 +308,12 @@ class AutoXRDModel(Entity, Schema):
                     'training_settings',
                     'reference_structures',
                 ],
+                visible=Filter(
+                    exclude=[
+                        'lab_id',
+                        'location',
+                    ],
+                ),
             ),
         ),
     )
