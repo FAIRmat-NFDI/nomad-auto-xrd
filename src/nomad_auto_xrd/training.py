@@ -15,37 +15,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import logging
 import os
 import shutil
 import tempfile
-import warnings
 from dataclasses import dataclass
 from random import shuffle
-from typing import TYPE_CHECKING
 
 import numpy as np
 import tensorflow as tf
-from autoXRD import solid_solns, spectrum_generation, tabulate_cifs  # noqa: E402
+import wandb
+from autoXRD import solid_solns, spectrum_generation, tabulate_cifs
 from nomad.datamodel import EntryArchive
-from tensorflow.keras.callbacks import Callback  # type: ignore
+from tensorflow.keras.callbacks import Callback
 
-# Import necessary modules from autoXRD
+from nomad_auto_xrd.ml_models import build_model
+from nomad_auto_xrd.models import (
+    SimulationSettingsInput,
+    TrainingSettingsInput,
+    TrainModelOutput,
+)
 from nomad_auto_xrd.schema import AutoXRDModel, ReferenceStructure
-
-if TYPE_CHECKING:
-    from nomad_auto_xrd.schema import TrainingSettings
-
-# Suppress specific warnings
-warnings.filterwarnings('ignore')
-try:
-    import wandb
-except ImportError:
-    wandb = None  # Wandb is optional
-
-# Optional NOMAD imports
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -88,23 +77,7 @@ class ModelConfig:
     save_nomad_metadata: bool = True
 
 
-# Custom Dropout layer used in the model
-class CustomDropout(tf.keras.layers.Layer):
-    def __init__(self, rate, **kwargs):
-        super().__init__(**kwargs)
-        self.rate = rate
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({'rate': self.rate})
-        return config
-
-    # Always apply dropout
-    def call(self, inputs, training=None):
-        return tf.nn.dropout(inputs, rate=self.rate)
-
-
-class DataSetUp(object):  # noqa: UP004
+class DataSetUp:
     """
     Class used to prepare data for training a convolutional neural network
     on a given set of X-ray diffraction spectra to perform phase identification.
@@ -177,71 +150,6 @@ class DataSetUp(object):  # noqa: UP004
         return np.array(train_x), np.array(train_y), np.array(test_x), np.array(test_y)
 
 
-def build_model(input_shape, n_phases, is_pdf, n_dense=[3100, 1200], dropout_rate=0.7):
-    """
-    Builds the CNN model based on whether it is for PDF or XRD analysis.
-    """
-    layers = []
-    if is_pdf:
-        # Architecture for PDF analysis
-        layers.extend(
-            [
-                tf.keras.layers.Conv1D(
-                    64, 60, activation='relu', padding='same', input_shape=input_shape
-                ),
-                tf.keras.layers.MaxPooling1D(3, strides=2, padding='same'),
-                tf.keras.layers.MaxPooling1D(3, strides=2, padding='same'),
-                tf.keras.layers.MaxPooling1D(2, strides=2, padding='same'),
-                tf.keras.layers.MaxPooling1D(1, strides=2, padding='same'),
-                tf.keras.layers.MaxPooling1D(1, strides=2, padding='same'),
-                tf.keras.layers.MaxPooling1D(1, strides=2, padding='same'),
-            ]
-        )
-    else:
-        # Architecture for XRD analysis
-        layers.extend(
-            [
-                tf.keras.layers.Conv1D(
-                    64, 35, activation='relu', padding='same', input_shape=input_shape
-                ),
-                tf.keras.layers.MaxPooling1D(3, strides=2, padding='same'),
-                tf.keras.layers.Conv1D(64, 30, activation='relu', padding='same'),
-                tf.keras.layers.MaxPooling1D(3, strides=2, padding='same'),
-                tf.keras.layers.Conv1D(64, 25, activation='relu', padding='same'),
-                tf.keras.layers.MaxPooling1D(2, strides=2, padding='same'),
-                tf.keras.layers.Conv1D(64, 20, activation='relu', padding='same'),
-                tf.keras.layers.MaxPooling1D(1, strides=2, padding='same'),
-                tf.keras.layers.Conv1D(64, 15, activation='relu', padding='same'),
-                tf.keras.layers.MaxPooling1D(1, strides=2, padding='same'),
-                tf.keras.layers.Conv1D(64, 10, activation='relu', padding='same'),
-                tf.keras.layers.MaxPooling1D(1, strides=2, padding='same'),
-            ]
-        )
-
-    # Common layers
-    layers.extend(
-        [
-            tf.keras.layers.Flatten(),
-            CustomDropout(dropout_rate),
-            tf.keras.layers.Dense(n_dense[0], activation='relu'),
-            tf.keras.layers.BatchNormalization(),
-            CustomDropout(dropout_rate),
-            tf.keras.layers.Dense(n_dense[1], activation='relu'),
-            tf.keras.layers.BatchNormalization(),
-            CustomDropout(dropout_rate),
-            tf.keras.layers.Dense(n_phases, activation='softmax'),
-        ]
-    )
-
-    model = tf.keras.Sequential(layers)
-    model.compile(
-        loss='categorical_crossentropy',
-        optimizer='adam',
-        metrics=['categorical_accuracy'],
-    )
-    return model
-
-
 def fit_model(
     train_x,
     train_y,
@@ -307,7 +215,7 @@ def test_model(model, test_x, test_y):
 # Custom W&B callback
 class WandbMetricsLogger(Callback):
     def on_epoch_end(self, epoch, logs=None):
-        if wandb and logs:
+        if logs:
             wandb.log(
                 {
                     'epoch': epoch,
