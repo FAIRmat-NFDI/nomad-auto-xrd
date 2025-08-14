@@ -20,6 +20,50 @@ from dataclasses import dataclass
 
 
 @dataclass
+class SimulationSettingsInput:
+    """Class to represent simulation settings for model training."""
+
+    structure_files: list[str]
+    max_texture: float
+    min_domain_size: float
+    max_domain_size: float
+    max_strain: float
+    num_patterns: int
+    min_angle: float
+    max_angle: float
+    max_shift: float
+    separate: bool
+    impur_amt: float
+    skip_filter: bool
+    include_elems: bool
+
+
+@dataclass
+class TrainingSettingsInput:
+    """Class to represent training settings for model training."""
+
+    num_epochs: int
+    batch_size: int
+    learning_rate: float
+    seed: int
+    test_fraction: float
+    enable_wandb: bool
+    wandb_project: str | None = None
+    wandb_entity: str | None = None
+
+
+@dataclass
+class TrainModelOutput:
+    """Class to represent output of model training."""
+
+    xrd_model_path: str | None = None
+    pdf_model_path: str | None = None
+    wandb_run_url_xrd: str | None = None
+    wandb_run_url_pdf: str | None = None
+    reference_structures: list[str] | None = None
+
+
+@dataclass
 class AnalysisInput:
     """
     A data class to hold the XRD data input for analysis.

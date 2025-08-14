@@ -49,6 +49,9 @@ from nomad.orchestrator.utils import get_workflow_status, start_workflow
 from nomad_analysis.jupyter.schema import JupyterAnalysis
 from nomad_measurements.xrd.schema import XRayDiffraction
 
+from nomad_auto_xrd.actions.training.models import UserInput
+from nomad_auto_xrd.models import SimulationSettingsInput, TrainingSettingsInput
+
 if TYPE_CHECKING:
     from structlog.stdlib import (
         BoundLogger,
@@ -740,12 +743,42 @@ class AutoXRDTraining(JupyterAnalysis):
         The workflow trains a model, indexes it in NOMAD as a `AutoXRDModel` entry, and
         adds the reference to the model entry in `outputs`.
         """
-        raise NotImplementedError()
-        # TODO prepare the input for the workflow
-        input_data = dict()
         try:
+            input_data = UserInput(
+                upload_id=archive.metadata.upload_id,
+                user_id=archive.metadata.authors[0].user_id,
+                simulation_settings=SimulationSettingsInput(
+                    structure_files=self.simulation_settings.structure_files,
+                    max_texture=float(self.simulation_settings.max_texture),
+                    min_domain_size=float(
+                        self.simulation_settings.min_domain_size.magnitude
+                    ),
+                    max_domain_size=float(
+                        self.simulation_settings.max_domain_size.magnitude
+                    ),
+                    max_strain=float(self.simulation_settings.max_strain),
+                    num_patterns=int(self.simulation_settings.num_patterns),
+                    min_angle=float(self.simulation_settings.min_angle.magnitude),
+                    max_angle=float(self.simulation_settings.max_angle.magnitude),
+                    max_shift=float(self.simulation_settings.max_shift.magnitude),
+                    separate=self.simulation_settings.separate,
+                    impur_amt=float(self.simulation_settings.impur_amt),
+                    skip_filter=self.simulation_settings.skip_filter,
+                    include_elems=self.simulation_settings.include_elems,
+                ),
+                training_settings=TrainingSettingsInput(
+                    num_epochs=int(self.training_settings.num_epochs),
+                    batch_size=int(self.training_settings.batch_size),
+                    learning_rate=float(self.training_settings.learning_rate),
+                    seed=int(self.training_settings.seed),
+                    test_fraction=float(self.training_settings.test_fraction),
+                    enable_wandb=self.training_settings.enable_wandb,
+                    wandb_project=self.training_settings.wandb_project,
+                    wandb_entity=self.training_settings.wandb_entity,
+                ),
+            )
             self.workflow_id = start_workflow(
-                'nomad_auto_xrd.actions.training.workflow.TrainModel',
+                'nomad_auto_xrd.actions.training.workflow.TrainingWorkflow',
                 data=input_data,
                 task_queue=TaskQueue.CPU,
             )
