@@ -52,10 +52,16 @@ class TrainingWorkflow:
             pdf_model_path=training_output.pdf_model_path,
             wandb_run_url_xrd=training_output.wandb_run_url_xrd,
             wandb_run_url_pdf=training_output.wandb_run_url_pdf,
+            reference_structure_paths=training_output.reference_structure_paths,
         )
         await workflow.execute_activity(
             create_trained_model_entry,
             create_entry_input,
             start_to_close_timeout=timedelta(seconds=300),
+            retry_policy=RetryPolicy(
+                initial_interval=timedelta(seconds=10),
+                maximum_attempts=3,
+                backoff_coefficient=2.0,
+            ),
         )
         return training_output

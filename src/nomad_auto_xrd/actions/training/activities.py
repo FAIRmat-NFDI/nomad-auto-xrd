@@ -1,10 +1,9 @@
-import json
 import os
+from dataclasses import asdict
 
 import tensorflow as tf
-from nomad.app.v1.routers.uploads import get_upload_with_read_access
-from nomad.datamodel import User
-from nomad.orchestrator.utils import get_upload_files
+from nomad.datamodel.context import ServerContext
+from nomad.orchestrator.utils import get_upload, get_upload_files
 from temporalio import activity
 
 from nomad_auto_xrd.actions.training.models import (
@@ -12,7 +11,7 @@ from nomad_auto_xrd.actions.training.models import (
     TrainModelInput,
 )
 from nomad_auto_xrd.models import TrainModelOutput
-from nomad_auto_xrd.schema import AutoXRDModel
+from nomad_auto_xrd.schema import AutoXRDModel, ReferenceStructure
 
 
 class TemporalHeartbeatCallback(tf.keras.callbacks.Callback):
@@ -78,19 +77,39 @@ async def create_trained_model_entry(data: CreateTrainedModelEntryInput) -> None
     Activity to create a trained model entry in the same upload.
     """
 
-    upload_files = get_upload_files(data.upload_id, data.user_id)
-    # upload = get_upload_with_read_access(
-    #     data.upload_id,
-    #     User(user_id=data.user_id),
-    #     include_others=True,
-    # )
+    model = AutoXRDModel(
+        working_directory=data.working_directory,
+        includes_pdf=data.includes_pdf,
+    )
+    model.m_setdefault('simulation_settings')
+    model.m_setdefault('training_settings')
+    model.training_settings = model.training_settings.m_from_dict(
+        asdict(data.training_settings)
+    )
 
-    # fname = os.path.join('inference_result.archive.json')
-    # with open(fname, 'w', encoding='utf-8') as f:
-    #     json.dump({'data': inference_result.m_to_dict(with_root_def=True)}, f, indent=4)
-    # upload.process_upload(
-    #     file_operations=[
-    #         dict(op='ADD', path=fname, target_dir=result.cif_dir, temporary=True)
-    #     ],
-    #     only_updated_files=True,
-    # )
+    model.simulation_settings = model.simulation_settings.m_from_dict(
+        asdict(data.simulation_settings)
+    )
+    model.simulation_settings.structure_files = [
+        os.path.join(data.working_directory, path)
+        for path in data.simulation_settings.structure_files
+    ]
+
+    model.xrd_model = data.xrd_model_path.split('/raw/', 1)[-1]
+    model.pdf_model = (
+        data.pdf_model_path.split('/raw/', 1)[-1] if data.pdf_model_path else None
+    )
+    model.wandb_run_url_xrd = data.wandb_run_url_xrd
+    model.wandb_run_url_pdf = data.wandb_run_url_pdf
+    model.reference_structures = [
+        ReferenceStructure(
+            name=os.path.basename(cif_path).split('.cif')[0],
+            cif_file=cif_path.split('/raw/', 1)[-1],
+        )
+        for cif_path in data.reference_structure_paths
+    ]
+
+    context = ServerContext(get_upload(data.upload_id, data.user_id))
+    archive_name = os.path.join(data.working_directory, 'auto_xrd_model.archive.json')
+    with context.update_entry(archive_name, process=True, write=True) as archive:
+        archive['data'] = model.m_to_dict(with_root_def=True)

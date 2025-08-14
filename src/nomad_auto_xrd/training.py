@@ -325,11 +325,11 @@ def train(
             simulation_settings.skip_filter,
             simulation_settings.include_elems,
         )
-        output.reference_structures = []
+        output.reference_structure_paths = []
         for reference_cif_file in get_cif_files_from_folder(
             os.path.join(working_dir, reference_structures_dir)
         ):
-            output.reference_structures.append(reference_cif_file)
+            output.reference_structure_paths.append(reference_cif_file)
         # Generate XRD patterns
         xrd_obj = spectrum_generation.SpectraGenerator(
             reference_dir=reference_structures_dir,
@@ -482,10 +482,10 @@ def train_nomad_model(model: AutoXRDModel):
     model.wandb_run_url_xrd = output.wandb_run_url_xrd
     model.wandb_run_url_pdf = output.wandb_run_url_pdf
     reference_structures = []
-    for cif_file in output.reference_structures:
+    for cif_path in output.reference_structure_paths:
         reference_structure = ReferenceStructure(
-            cif_file=cif_file,
-            structure_name=os.path.basename(cif_file).split('.cif')[0],
+            name=os.path.basename(cif_path).split('.cif')[0],
+            cif_file=cif_path,
         )
         reference_structures.append(reference_structure)
     model.reference_structures = reference_structures

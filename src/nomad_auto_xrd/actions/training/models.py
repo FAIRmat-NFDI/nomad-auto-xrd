@@ -30,3 +30,4 @@ class CreateTrainedModelEntryInput(TrainModelInput):
     pdf_model_path: str | None = None
     wandb_run_url_xrd: str | None = None
     wandb_run_url_pdf: str | None = None
+    reference_structure_paths: list[str] = None
