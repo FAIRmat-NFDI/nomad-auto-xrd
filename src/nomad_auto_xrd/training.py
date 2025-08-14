@@ -242,16 +242,25 @@ def build_model(input_shape, n_phases, is_pdf, n_dense=[3100, 1200], dropout_rat
     return model
 
 
-def train_model(train_x, train_y, model, settings: 'TrainingSettings'):
+def fit_model(
+    train_x,
+    train_y,
+    model,
+    settings: TrainingSettingsInput,
+    callbacks: list[Callback] = None,
+) -> str | None:
     """
-    Trains the model with optional W&B logging.
+    Fits the model with the given training data and labels, with optional W&B logging.
 
     Returns:
-        wandb_run_url: The wandb run URL if logging is enabled, else None.
+        wandb_run_url: The W&B run URL if logging is enabled, else None.
     """
     wandb_run_url = None  # Initialize to None
+
     # Prepare callbacks
-    callbacks = []
+    if not callbacks:
+        callbacks = []
+
     if settings.enable_wandb and wandb:
         run = wandb.init(
             project=settings.wandb_project,
@@ -267,7 +276,7 @@ def train_model(train_x, train_y, model, settings: 'TrainingSettings'):
     model.fit(
         train_x,
         train_y,
-        batch_size=32,
+        batch_size=settings.batch_size,
         epochs=settings.num_epochs,
         validation_split=0.2,
         shuffle=True,
@@ -310,14 +319,12 @@ class WandbMetricsLogger(Callback):
             )
 
 
-def generate_reference_structures(
-    structure_files,
-    skip_filter,
-    include_elems,
-):
+def generate_reference_structures(skip_filter: bool, include_elems: bool) -> str:
     """
-    Generates hypothetical solid solution structure files from provided CIF files and
-    saves them in the working directory under 'References/' path.
+    Generates hypothetical solid solution structure files from CIF files available in
+    the working directory and saves them in the working directory under 'References/'
+    path. Also filters the CIF files based on the specified criteria and saves the
+    filtered structures in the 'Filtered_CIFs/' directory.
 
     Args:
         structure_files (list): List of CIF files to be processed.
@@ -340,12 +347,12 @@ def generate_reference_structures(
         shutil.rmtree(filter_cifs_dir)
 
     # Check if the input structure files exist
-    if not structure_files:
-        raise ValueError('No CIF files are provided.')
+    if not any([cif for cif in os.listdir() if cif.endswith('.cif')]):
+        raise ValueError('Either no CIF files are provided.')
 
     if skip_filter:
         # Copy the input files to the reference directory without filtering
-        for path in structure_files:
+        for path in os.listdir():
             if not path.endswith('.cif'):
                 continue
             file = os.path.basename(path)
@@ -354,9 +361,9 @@ def generate_reference_structures(
                 shutil.copy(path, reference_path)
     else:
         # Run the filtering process: adds the filtered structures to the
-        # reference_structures_path directory
+        # reference_structures_dir
         with tempfile.TemporaryDirectory() as tmp_input_dir:
-            for path in structure_files:
+            for path in os.listdir():
                 if not path.endswith('.cif'):
                     continue
                 if os.path.isfile(path):
@@ -373,7 +380,13 @@ def generate_reference_structures(
     return reference_structures_dir
 
 
-def train(model_entry: AutoXRDModel):
+def train(
+    working_directory,
+    simulation_settings: SimulationSettingsInput,
+    training_settings: TrainingSettingsInput,
+    includes_pdf: bool = True,
+    callbacks: list[tf.keras.callbacks.Callback] = None,
+):
     """
     Main function to run the XRD model pipeline: generate reference structures,
     simulate XRD patterns, setup data for training, initialize the model, and train it.
@@ -386,39 +399,47 @@ def train(model_entry: AutoXRDModel):
             settings. The object will also be updated with the trained model and W&B
             run URLs.
     """
+    output = TrainModelOutput()
     original_dir = os.getcwd()
-    working_dir = (
-        model_entry.working_directory
-        if model_entry.working_directory
-        else os.path.join('auto_xrd_training')
+    rel_working_dir = (
+        working_directory if working_directory else os.path.join('auto_xrd_training')
     )
+    working_dir = os.path.join(original_dir, rel_working_dir)
     os.makedirs(working_dir, exist_ok=True)
-    os.chdir(working_dir)
 
     try:
+        # move the cifs into the working directory
+        for cif_file in simulation_settings.structure_files:
+            shutil.copy(cif_file, working_dir)
+        os.chdir(working_dir)
+        # Generate and save the reference structures
         reference_structures_dir = generate_reference_structures(
-            model_entry.simulation_settings.structure_files,
-            model_entry.simulation_settings.skip_filter,
-            model_entry.simulation_settings.include_elems,
+            simulation_settings.skip_filter,
+            simulation_settings.include_elems,
         )
+        output.reference_structures = []
+        for reference_cif_file in get_cif_files_from_folder(
+            os.path.join(working_dir, reference_structures_dir)
+        ):
+            output.reference_structures.append(reference_cif_file)
         # Generate XRD patterns
         xrd_obj = spectrum_generation.SpectraGenerator(
             reference_dir=reference_structures_dir,
-            num_spectra=model_entry.simulation_settings.num_patterns,
-            max_texture=model_entry.simulation_settings.max_texture,
-            min_domain_size=model_entry.simulation_settings.min_domain_size.magnitude,
-            max_domain_size=model_entry.simulation_settings.max_domain_size.magnitude,
-            max_strain=model_entry.simulation_settings.max_strain,
-            max_shift=model_entry.simulation_settings.max_shift.magnitude,
-            impur_amt=model_entry.simulation_settings.impur_amt,
-            min_angle=model_entry.simulation_settings.min_angle.magnitude,
-            max_angle=model_entry.simulation_settings.max_angle.magnitude,
-            separate=model_entry.simulation_settings.separate,
+            num_spectra=simulation_settings.num_patterns,
+            max_texture=simulation_settings.max_texture,
+            min_domain_size=simulation_settings.min_domain_size,
+            max_domain_size=simulation_settings.max_domain_size,
+            max_strain=simulation_settings.max_strain,
+            max_shift=simulation_settings.max_shift,
+            impur_amt=simulation_settings.impur_amt,
+            min_angle=simulation_settings.min_angle,
+            max_angle=simulation_settings.max_angle,
+            separate=simulation_settings.separate,
             is_pdf=False,
         )
         xrd_spectras = xrd_obj.augmented_spectra
         dataset = DataSetUp(
-            xrd_spectras, testing_fraction=model_entry.training_settings.test_fraction
+            xrd_spectras, testing_fraction=training_settings.test_fraction
         )
         num_phases = dataset.num_phases
         train_x, train_y, test_x, test_y = dataset.split_training_testing()
@@ -433,39 +454,39 @@ def train(model_entry: AutoXRDModel):
         model = build_model(train_x.shape[1:], num_phases, is_pdf=False)
 
         # Train the model and get the wandb run URL
-        wandb_run_url_xrd = train_model(
-            train_x, train_y, model, model_entry.training_settings
+        wandb_run_url_xrd = fit_model(
+            train_x, train_y, model, training_settings, callbacks
         )
-        model_entry.wandb_run_url_xrd = wandb_run_url_xrd
+        output.wandb_run_url_xrd = wandb_run_url_xrd
 
         # Save the trained model
         xrd_model_path = os.path.join(models_dir, 'XRD_Model.h5')
         model.save(xrd_model_path, include_optimizer=False)
-        model_entry.xrd_model = xrd_model_path
+        output.xrd_model_path = xrd_model_path
 
         # Test the model
         test_model(model, test_x, test_y)
 
-        if not model_entry.includes_pdf:
+        if not includes_pdf:
             return
 
         # If `model_config.includes_pdf` is True, train another model on PDFs
         pdf_spectras = spectrum_generation.SpectraGenerator(
             reference_dir=reference_structures_dir,
-            num_spectra=model_entry.simulation_settings.num_patterns,
-            max_texture=model_entry.simulation_settings.max_texture,
-            min_domain_size=model_entry.simulation_settings.min_domain_size.magnitude,
-            max_domain_size=model_entry.simulation_settings.max_domain_size.magnitude,
-            max_strain=model_entry.simulation_settings.max_strain,
-            max_shift=model_entry.simulation_settings.max_shift.magnitude,
-            impur_amt=model_entry.simulation_settings.impur_amt,
-            min_angle=model_entry.simulation_settings.min_angle.magnitude,
-            max_angle=model_entry.simulation_settings.max_angle.magnitude,
-            separate=model_entry.simulation_settings.separate,
+            num_spectra=simulation_settings.num_patterns,
+            max_texture=simulation_settings.max_texture,
+            min_domain_size=simulation_settings.min_domain_size,
+            max_domain_size=simulation_settings.max_domain_size,
+            max_strain=simulation_settings.max_strain,
+            max_shift=simulation_settings.max_shift,
+            impur_amt=simulation_settings.impur_amt,
+            min_angle=simulation_settings.min_angle,
+            max_angle=simulation_settings.max_angle,
+            separate=simulation_settings.separate,
             is_pdf=True,
         ).augmented_spectra
         dataset_pdf = DataSetUp(
-            pdf_spectras, testing_fraction=model_entry.training_settings.test_fraction
+            pdf_spectras, testing_fraction=training_settings.test_fraction
         )
         num_phases_pdf = dataset_pdf.num_phases
         train_x_pdf, train_y_pdf, test_x_pdf, test_y_pdf = (
@@ -476,34 +497,90 @@ def train(model_entry: AutoXRDModel):
         model_pdf = build_model(train_x_pdf.shape[1:], num_phases_pdf, is_pdf=True)
 
         # Train the PDF model and get the wandb run URL
-        wandb_run_url_pdf = train_model(
-            train_x_pdf, train_y_pdf, model_pdf, model_entry.training_settings
+        wandb_run_url_pdf = fit_model(
+            train_x_pdf, train_y_pdf, model_pdf, training_settings, callbacks
         )
-        model_entry.wandb_run_url_pdf = wandb_run_url_pdf
+        output.wandb_run_url_pdf = wandb_run_url_pdf
 
         # Save the PDF model
         pdf_model_path = os.path.join(models_dir, 'PDF_Model.h5')
         model_pdf.save(pdf_model_path, include_optimizer=False)
-        model_entry.pdf_model = pdf_model_path
+        output.pdf_model_path = pdf_model_path
 
         # Test the PDF model
         test_model(model_pdf, test_x_pdf, test_y_pdf)
 
-        # Save the reference structures
-        model_entry.reference_structures = []
-        for reference_cif_file in get_cif_files_from_folder(
-            os.path.join(working_dir, reference_structures_dir)
-        ):
-            reference_structure = ReferenceStructure(
-                name=os.path.basename(reference_cif_file).split('.cif')[0],
-                cif_file=reference_cif_file,
-            )
-            model_entry.reference_structures.append(reference_structure)
     except Exception as e:
         print(f'Error during training: {e}')
     finally:
         # Restore the original working directory
         os.chdir(original_dir)
+
+    return output
+
+
+def train_nomad_model(model: AutoXRDModel):
+    """
+    Trains an autoXRD model using the NOMAD schema instance `AutoXRDModel`. This wrapper
+    ensures compatibility between the NOMAD schema and the autoXRD training pipeline.
+    The function updates the `model` instance with trained model paths, reference
+    structure paths, and W&B run URLs.
+
+    Args:
+        model (AutoXRDModel): An instance of the AutoXRDModel schema containing all
+            the necessary settings for training. The model will be updated with the
+            trained model and W&B run URLs.
+    """
+    if not isinstance(model, AutoXRDModel):
+        raise TypeError('`model` must be an instance of AutoXRDModel')
+
+    simulation_settings = SimulationSettingsInput(
+        structure_files=model.simulation_settings.structure_files,
+        max_texture=float(model.simulation_settings.max_texture),
+        min_domain_size=float(model.simulation_settings.min_domain_size.magnitude),
+        max_domain_size=float(model.simulation_settings.max_domain_size.magnitude),
+        max_strain=float(model.simulation_settings.max_strain),
+        num_patterns=int(model.simulation_settings.num_patterns),
+        min_angle=float(model.simulation_settings.min_angle.magnitude),
+        max_angle=float(model.simulation_settings.max_angle.magnitude),
+        max_shift=float(model.simulation_settings.max_shift.magnitude),
+        separate=model.simulation_settings.separate,
+        impur_amt=float(model.simulation_settings.impur_amt),
+        skip_filter=model.simulation_settings.skip_filter,
+        include_elems=model.simulation_settings.include_elems,
+    )
+    training_settings = TrainingSettingsInput(
+        num_epochs=int(model.training_settings.num_epochs),
+        batch_size=int(model.training_settings.batch_size),
+        learning_rate=float(model.training_settings.learning_rate),
+        seed=int(model.training_settings.seed),
+        test_fraction=float(model.training_settings.test_fraction),
+        enable_wandb=model.training_settings.enable_wandb,
+        wandb_project=model.training_settings.wandb_project,
+        wandb_entity=model.training_settings.wandb_entity,
+    )
+
+    # Train the model
+    output = train(
+        model.working_directory,
+        simulation_settings,
+        training_settings,
+        includes_pdf=model.includes_pdf,
+    )
+
+    # Update the model with the training results
+    model.xrd_model = output.xrd_model_path
+    model.pdf_model = output.pdf_model_path
+    model.wandb_run_url_xrd = output.wandb_run_url_xrd
+    model.wandb_run_url_pdf = output.wandb_run_url_pdf
+    reference_structures = []
+    for cif_file in output.reference_structures:
+        reference_structure = ReferenceStructure(
+            cif_file=cif_file,
+            structure_name=os.path.basename(cif_file).split('.cif')[0],
+        )
+        reference_structures.append(reference_structure)
+    model.reference_structures = reference_structures
 
 
 def get_cif_files_from_folder(folder_name):
