@@ -64,6 +64,38 @@ class TrainModelOutput:
 
 
 @dataclass
+class AutoXRDModelInput:
+    """Class to represent the AutoXRD model input."""
+
+    upload_id: str
+    entry_id: str
+    working_directory: str
+    reference_structure_paths: list[str]
+    includes_pdf: bool
+    xrd_model_path: str
+    pdf_model_path: str | None = None
+
+
+@dataclass
+class AnalysisSettingsInput:
+    """Class to represent analysis settings for model training."""
+
+    auto_xrd_model: AutoXRDModelInput
+    max_phases: int
+    cutoff_intensity: float
+    min_confidence: float
+    unknown_threshold: float
+    show_reduced: bool
+    include_pdf: bool
+    parallel: bool
+    raw: bool
+    show_individual: bool
+    wavelength: float
+    min_angle: float
+    max_angle: float
+
+
+@dataclass
 class AnalysisInput:
     """
     A data class to hold the XRD data input for analysis.

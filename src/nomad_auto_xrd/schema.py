@@ -335,7 +335,7 @@ class AutoXRDModel(Entity, Schema):
     )
     pdf_model = Quantity(
         type=str,
-        description='Path to the trained XRD model file.',
+        description='Path to the trained PDF model file.',
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.FileEditQuantity,
         ),
