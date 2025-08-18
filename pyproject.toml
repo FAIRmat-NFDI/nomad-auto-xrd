@@ -139,4 +139,4 @@ skip = [".github/*"]
 schema = "nomad_auto_xrd:schema_entry_point"
 models_app = "nomad_auto_xrd.apps:models_app_entry_point"
 example_upload = "nomad_auto_xrd.example_uploads:example_upload_entry_point"
-auto_xrd_training_action = "nomad_auto_xrd.actions.training:training_entry_point"
+auto_xrd_training_action = "nomad_auto_xrd.actions.training:training_action"

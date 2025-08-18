@@ -2,8 +2,8 @@ import os
 from dataclasses import asdict
 
 import tensorflow as tf
+from nomad.actions.utils import get_upload, get_upload_files
 from nomad.datamodel.context import ServerContext
-from nomad.orchestrator.utils import get_upload, get_upload_files
 from temporalio import activity
 
 from nomad_auto_xrd.actions.training.models import (

@@ -24,6 +24,7 @@ import nbformat
 import numpy as np
 from ase.io import read
 from matid import SymmetryAnalyzer
+from nomad.actions.utils import get_action_status, start_action
 from nomad.datamodel import ArchiveSection
 from nomad.datamodel.data import Schema
 from nomad.datamodel.metainfo.annotations import (
@@ -44,8 +45,6 @@ from nomad.metainfo import (
 )
 from nomad.normalizing.common import nomad_atoms_from_ase_atoms
 from nomad.normalizing.topology import add_system, add_system_info
-from nomad.orchestrator.shared.constant import TaskQueue
-from nomad.orchestrator.utils import get_action_status, start_action
 from nomad_analysis.jupyter.schema import JupyterAnalysis
 from nomad_measurements.xrd.schema import XRayDiffraction
 
@@ -787,9 +786,8 @@ class AutoXRDTraining(JupyterAnalysis):
                 ),
             )
             self.workflow_id = start_action(
-                'nomad_auto_xrd.actions.training.workflow.TrainingWorkflow',
+                'nomad_auto_xrd.actions.training:training_action',
                 data=input_data,
-                task_queue=TaskQueue.CPU,
             )
         except Exception as e:
             logger.error(
@@ -1107,20 +1105,20 @@ class AutoXRDAnalysis(JupyterAnalysis):
     )
     trigger_run_analysis = Quantity(
         type=bool,
-        description='Triggers the analysis workflow for the auto XRD analysis.',
+        description='Triggers the analysis action for the auto XRD analysis.',
         default=False,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.ActionEditQuantity,
-            label='Run Analysis Workflow',
+            label='Run Analysis Action',
         ),
     )
-    trigger_get_workflow_status = Quantity(
+    trigger_get_action_status = Quantity(
         type=bool,
-        description='Retrieves the status of the analysis workflow.',
+        description='Retrieves the status of the analysis action.',
         default=False,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.ActionEditQuantity,
-            label='Get Workflow Status',
+            label='Get Inference Action Status',
         ),
     )
     analysis_settings = SubSection(
@@ -1338,11 +1336,12 @@ class AutoXRDAnalysis(JupyterAnalysis):
                 )
             else:
                 self.run_analysis(archive, logger)
+                self.trigger_get_action_status = True
             self.trigger_run_analysis = False
 
         try:
             if self.workflow_id and (
-                self.trigger_get_workflow_status
+                self.trigger_get_action_status
                 or not self.workflow_status
                 or self.workflow_status == 'RUNNING'
             ):
@@ -1352,7 +1351,7 @@ class AutoXRDAnalysis(JupyterAnalysis):
         except Exception as e:
             logger.error(f'Error getting workflow status: {e}. ')
         finally:
-            self.trigger_get_workflow_status = False
+            self.trigger_get_action_status = False
 
 
 m_package.__init_metainfo__()

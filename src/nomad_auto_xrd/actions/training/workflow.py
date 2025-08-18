@@ -15,7 +15,7 @@ with workflow.unsafe.imports_passed_through():
     )
 
 
-@workflow.defn(name='nomad_auto_xrd.actions.training.workflow.TrainingWorkflow')
+@workflow.defn
 class TrainingWorkflow:
     @workflow.run
     async def run(self, data: UserInput) -> str:
