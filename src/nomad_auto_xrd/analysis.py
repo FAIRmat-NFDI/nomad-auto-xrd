@@ -678,12 +678,18 @@ class XRDAutoAnalyser:
 
         os.chdir(original_dir)
 
+        # Convert the results to a serializable format
+        for i, spectrum in enumerate(all_results.reduced_spectra):
+            all_results.reduced_spectra[i] = (
+                spectrum.tolist() if isinstance(spectrum, np.ndarray) else spectrum
+            )
+
         return all_results
 
 
 def populate_analysis_entry(
     analysis_entry: 'AutoXRDAnalysis',
-    results: AnalysisResult,
+    result: AnalysisResult,
 ) -> None:
     """
     Unpacks results and populates the `analysis_entry.results`.
@@ -700,11 +706,11 @@ def populate_analysis_entry(
         phases_m_proxies,
     ) in enumerate(
         zip(
-            results.xrd_measurement_m_proxies,
-            results.plot_paths,
-            results.phases,
-            results.confidences,
-            results.phases_m_proxies,
+            result.xrd_measurement_m_proxies,
+            result.plot_paths,
+            result.phases,
+            result.confidences,
+            result.phases_m_proxies,
         )
     ):
         analysis_entry.m_setdefault(f'results/{result_iter}')
@@ -726,7 +732,7 @@ def populate_analysis_entry(
 
 def analyse(
     analysis_entry: 'AutoXRDAnalysis', logger: 'BoundLogger | None' = None
-) -> dict[str, AnalysisResult]:
+) -> AnalysisResult:
     """
     Runs the XRDAutoAnalyser in a temporary directory for the given Auto XRD analysis
     entry, moves the plots to the 'Plots' directory, and populates the
@@ -737,11 +743,8 @@ def analyse(
             data and model information.
 
     Returns:
-        dict[str, AnalysisResult]: Dictionary containing the analysis results for
-            XRD and PDF, if applicable. The keys are 'xrd', 'pdf', and
-            'merged_results'. If both XRD and PDF analyses are performed,
-            'merged_results' will contain the merged results of both analyses.
-            else, it will contain the results of XRD analysis only.
+        AnalysisResult: The results of the analysis, including identified phases,
+            confidences, and plot paths.
     """
     with tempfile.TemporaryDirectory() as temp_dir:
         analysis_inputs = single_pattern_preprocessor(
@@ -797,7 +800,7 @@ def analyse(
 
 def analyse_combinatorial(
     analysis_entry: 'AutoXRDAnalysis', logger: 'BoundLogger | None' = None
-) -> dict[str, AnalysisResult]:
+) -> AnalysisResult:
     """
     Runs the XRDAutoAnalyser in a temporary directory for the given Auto XRD analysis
     entry, moves the plots to the 'Plots' directory, and populates the
@@ -808,11 +811,8 @@ def analyse_combinatorial(
             data and model information.
 
     Returns:
-        dict[str, AnalysisResult]: Dictionary containing the analysis results for
-            XRD and PDF, if applicable. The keys are 'xrd', 'pdf', and
-            'merged_results'. If both XRD and PDF analyses are performed,
-            'merged_results' will contain the merged results of both analyses.
-            else, it will contain the results of XRD analysis only.
+        AnalysisResult: The results of the analysis, including identified phases,
+            confidences, and plot paths.
     """
     with tempfile.TemporaryDirectory() as temp_dir:
         analysis_inputs = multiple_patterns_preprocessor(

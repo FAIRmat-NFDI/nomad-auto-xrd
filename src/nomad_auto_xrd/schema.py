@@ -48,8 +48,15 @@ from nomad.normalizing.topology import add_system, add_system_info
 from nomad_analysis.jupyter.schema import JupyterAnalysis
 from nomad_measurements.xrd.schema import XRayDiffraction
 
-from nomad_auto_xrd.actions.training.models import UserInput
-from nomad_auto_xrd.models import SimulationSettingsInput, TrainingSettingsInput
+from nomad_auto_xrd.actions.analysis.models import UserInput as AnalysisUserInput
+from nomad_auto_xrd.actions.training.models import UserInput as TrainingUserInput
+from nomad_auto_xrd.models import (
+    AnalysisSettingsInput,
+    AutoXRDModelInput,
+    SimulationSettingsInput,
+    TrainingSettingsInput,
+)
+from nomad_auto_xrd.preprocessors import single_pattern_preprocessor
 
 if TYPE_CHECKING:
     from structlog.stdlib import (
@@ -538,7 +545,7 @@ class AnalysisSettings(ArchiveSection):
     include_pdf = Quantity(
         type=bool,
         description='Flag to include PDFs in the analysis.',
-        default=False,
+        default=True,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.BoolEditQuantity,
         ),
@@ -752,7 +759,7 @@ class AutoXRDTraining(JupyterAnalysis):
         adds the reference to the model entry in `outputs`.
         """
         try:
-            input_data = UserInput(
+            input_data = TrainingUserInput(
                 upload_id=archive.metadata.upload_id,
                 user_id=archive.metadata.authors[0].user_id,
                 simulation_settings=SimulationSettingsInput(
@@ -1073,6 +1080,8 @@ class AutoXRDAnalysis(JupyterAnalysis):
                     exclude=[
                         'steps',
                         'outputs',
+                        'trigger_generate_notebook',
+                        'location',
                     ],
                 ),
             ),
@@ -1144,14 +1153,45 @@ class AutoXRDAnalysis(JupyterAnalysis):
         The workflow runs the analysis, populates the `results` section with the
         identified phases, and updates the `workflow_status`.
         """
-        raise NotImplementedError()
-        # TODO prepare the input for the workflow
-        input_data = dict()
+        analysis_inputs = single_pattern_preprocessor(
+            [section.reference for section in self.inputs], logger
+        )
+        model_entry = self.analysis_settings.auto_xrd_model
+        model_input = AutoXRDModelInput(
+            upload_id=model_entry.m_parent.metadata.upload_id,
+            entry_id=model_entry.m_parent.metadata.entry_id,
+            working_directory=model_entry.working_directory,
+            includes_pdf=model_entry.includes_pdf,
+            reference_structure_paths=[
+                section.cif_file for section in model_entry.reference_structures
+            ],
+            xrd_model_path=model_entry.xrd_model,
+            pdf_model_path=model_entry.pdf_model,
+        )
+        input_data = AnalysisUserInput(
+            upload_id=archive.metadata.upload_id,
+            user_id=archive.metadata.authors[0].user_id,
+            mainfile=archive.metadata.mainfile,
+            analysis_settings=AnalysisSettingsInput(
+                auto_xrd_model=model_input,
+                max_phases=self.analysis_settings.max_phases,
+                cutoff_intensity=self.analysis_settings.cutoff_intensity,
+                min_confidence=self.analysis_settings.min_confidence,
+                unknown_threshold=self.analysis_settings.unknown_threshold,
+                show_reduced=self.analysis_settings.show_reduced,
+                include_pdf=self.analysis_settings.include_pdf,
+                parallel=self.analysis_settings.parallel,
+                raw=self.analysis_settings.raw,
+                show_individual=self.analysis_settings.show_individual,
+                wavelength=self.analysis_settings.wavelength.to('angstrom').magnitude,
+                min_angle=self.analysis_settings.min_angle.to('degree').magnitude,
+                max_angle=self.analysis_settings.max_angle.to('degree').magnitude,
+            ),
+            analysis_inputs=analysis_inputs,
+        )
         try:
             self.workflow_id = start_action(
-                'nomad_auto_xrd.actions.analysis.workflow.RunAnalysis',
-                data=input_data,
-                task_queue=TaskQueue.CPU,
+                'nomad_auto_xrd.actions.analysis:analysis_action', data=input_data
             )
         except Exception as e:
             logger.error(
@@ -1231,36 +1271,6 @@ class AutoXRDAnalysis(JupyterAnalysis):
             logger (Logger): A structured logger.
         """
         self.method = 'Auto XRD Analysis'
-        if self.description is None or self.description == '':
-            self.description = """
-            <p>
-            This ELN includes a Jupyter notebook designed to perform auto XRD analysis
-            using a pre-trained ML model. Follow these steps to perform the
-            analysis:</p>
-            <ol>
-                <li>
-                Initialize the <strong><em>analysis_settings</em></strong> section and
-                ensure that the
-                <strong><em>analysis_settings.auto_xrd_model</em></strong>
-                quantity references an <strong><em>AutoXRDModel</em></strong> entry.
-                The selected model should be compatible with the sample's composition
-                space.
-                </li>
-                <li>
-                Review and adjust the default analysis settings in the
-                <strong><em>analysis_settings</em></strong> section if necessary to
-                match the requirements of your analysis.
-                </li>
-                <li>
-                Use the <strong><em>analysis.inputs</em></strong> section to add the XRD
-                measurement entries for which the analysis is to be performed.
-                </li>
-                <li>
-                Open the Jupyter notebook from the <strong><em>notebook</em></strong>
-                quantity and follow the provided instructions to execute the analysis.
-                </li>
-            </ol>
-            """
         super().normalize(archive, logger)
 
         # validate the data in the referenced XRD entries
