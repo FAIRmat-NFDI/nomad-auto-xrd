@@ -534,7 +534,7 @@ class XRDAutoAnalyser:
 
         return xrd_model_path, pdf_model_path, reference_structure_m_proxies
 
-    def run_analysis(  # noqa: PLR0912
+    def eval(  # noqa: PLR0912
         self, analysis_inputs: list[AnalysisInput]
     ) -> AnalysisResult:
         """
@@ -779,7 +779,7 @@ def analyse(
             max_angle=analysis_entry.analysis_settings.max_angle.to('degree').magnitude,
         )
         analyser = XRDAutoAnalyser(temp_dir, analysis_settings, logger)
-        results = analyser.run_analysis(analysis_inputs)
+        results = analyser.eval(analysis_inputs)
 
         # Move the plot out of `temp_dir`
         plots_dir = os.path.join('Plots')
@@ -850,7 +850,7 @@ def analyse_combinatorial(
             max_angle=analysis_entry.analysis_settings.max_angle.to('degree').magnitude,
         )
         analyser = XRDAutoAnalyser(temp_dir, analysis_settings, logger)
-        results = analyser.run_analysis(analysis_inputs)
+        results = analyser.eval(analysis_inputs)
 
         # Move the plot out of `temp_dir`
         plots_dir = os.path.join('Plots')
