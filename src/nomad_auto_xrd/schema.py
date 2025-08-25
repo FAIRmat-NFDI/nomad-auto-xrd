@@ -47,6 +47,7 @@ from nomad.normalizing.common import nomad_atoms_from_ase_atoms
 from nomad.normalizing.topology import add_system, add_system_info
 from nomad_analysis.jupyter.schema import JupyterAnalysis
 from nomad_measurements.xrd.schema import XRayDiffraction
+from pymatgen.io.cif import CifParser
 
 from nomad_auto_xrd.actions.analysis.models import UserInput as AnalysisUserInput
 from nomad_auto_xrd.actions.training.models import UserInput as TrainingUserInput
@@ -681,6 +682,8 @@ class AutoXRDTraining(JupyterAnalysis):
                     'description',
                     'method',
                     'structure_files',
+                    'notebook',
+                    'trigger_generate_notebook',
                 ],
                 visible=Filter(
                     exclude=[
@@ -1332,12 +1335,27 @@ class AutoXRDTrainingAction(Action):
                     'The training action is already running. Please wait for it to '
                     'complete before running the training again.'
                 )
-            elif not self.simulation_settings or not self.training_settings:
+            elif (
+                not self.simulation_settings
+                or not self.simulation_settings.structure_files
+                or not self.training_settings
+            ):
                 self.trigger_run_action = False
                 logger.warning(
                     'Either simulation_settings or simulation_setting.structure_files'
                     'or training_settings not set. Cannot running the training action.'
                 )
+            else:
+                for cif in self.simulation_settings.structure_files:
+                    parser = CifParser(cif)
+                    try:
+                        parser.get_structures()
+                    except Exception as e:
+                        self.trigger_run_action = False
+                        logger.error(
+                            f'Error in parsing {cif}: "{e}". Cannot run the training.'
+                        )
+                        break
 
         super().normalize(archive, logger)
 
