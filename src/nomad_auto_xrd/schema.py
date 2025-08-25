@@ -26,7 +26,7 @@ from ase.io import read
 from matid import SymmetryAnalyzer
 from nomad.actions.utils import get_action_status, start_action
 from nomad.datamodel import ArchiveSection
-from nomad.datamodel.data import Schema
+from nomad.datamodel.data import EntryDataCategory, Schema
 from nomad.datamodel.metainfo.annotations import (
     BrowserAnnotation,
     ELNAnnotation,
@@ -37,6 +37,7 @@ from nomad.datamodel.metainfo.annotations import (
 from nomad.datamodel.metainfo.basesections import Analysis, Entity, SectionReference
 from nomad.datamodel.results import Material, SymmetryNew, System
 from nomad.metainfo import (
+    Category,
     MProxy,
     Quantity,
     SchemaPackage,
@@ -1152,7 +1153,32 @@ class AutoXRDAnalysis(JupyterAnalysis):
                     continue
 
 
+class ActionCategory(EntryDataCategory):
+    """
+    Category for schemas that can be used to run NOMAD Actions from ELN interface.
+    """
+
+    m_def = Category(
+        label='Run NOMAD Actions from ELN',
+        categories=[EntryDataCategory],
+    )
+
+
 class Action(Analysis):
+    """
+    Base class for actions that can be triggered from the ELN interface. Includes two
+    action buttons: one for triggering the action and another for retrieving the
+    status of the action using the action ID. Subclasses should implement the
+    `run_action` method to define the specific action to be performed.
+    """
+
+    m_def = Section(
+        categories=[ActionCategory],
+        description="""
+        Section for running NOMAD Actions.
+        """,
+        label='Actions',
+    )
     description = Quantity(
         description='A description for the action given by the user.',
         a_eln=ELNAnnotation(
@@ -1205,6 +1231,17 @@ class Action(Analysis):
         self.action_status = status.name
 
     def normalize(self, archive, logger):
+        """
+        Normalizes the action entry. If `trigger_run_action` is set to True, it calls
+        the `run_action` method to execute the action and sets
+        `trigger_get_action_status` to True to retrieve the action status. If
+        `trigger_get_action_status` is set to True, it calls the `_get_action_status`
+        method to update the `action_status`.
+
+        Args:
+            archive (Archive): A NOMAD archive.
+            logger (Logger): A structured logger.
+        """
         if self.trigger_run_action:
             try:
                 self.run_action(archive, logger)
@@ -1232,6 +1269,7 @@ class AutoXRDTrainingAction(Action):
     """
 
     m_def = Section(
+        label='Auto XRD Training',
         a_eln=ELNAnnotation(
             properties=SectionProperties(
                 order=[
@@ -1369,6 +1407,7 @@ class AutoXRDAnalysisAction(Action):
     """
 
     m_def = Section(
+        label='Auto XRD Analysis',
         a_eln=ELNAnnotation(
             properties=SectionProperties(
                 order=[
