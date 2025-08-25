@@ -21,7 +21,6 @@ from typing import (
 )
 
 import nbformat
-import numpy as np
 from ase.io import read
 from matid import SymmetryAnalyzer
 from nomad.actions.utils import get_action_status, start_action
@@ -1497,6 +1496,43 @@ class AutoXRDAnalysisAction(Action):
             'nomad_auto_xrd.actions.analysis:analysis_action', data=input_data
         )
 
+    def validate_inputs(self):
+        """
+        Raises errors when the data in the referenced XRD entries is not valid.
+        1. Ensures that the referenced entries are of type `XRayDiffraction`.
+        2. Ensures that the two theta range of the XRD pattern is a super set of the
+           two theta range specified in the analysis settings.
+        """
+        for xrd_reference in self.inputs:
+            if not xrd_reference.reference:
+                continue
+            xrd = xrd_reference.reference
+            if isinstance(xrd, MProxy):
+                xrd.m_proxy_resolve()
+            if not isinstance(xrd, XRayDiffraction):
+                raise TypeError(
+                    f'XRD entry "{xrd.name}" is not of type `XRayDiffraction`.'
+                )
+            pattern = xrd.m_parent.results.properties.structural.diffraction_pattern[0]
+            two_theta = pattern.two_theta_angles
+            intensity = pattern.intensity
+            if two_theta is None or intensity is None:
+                raise ValueError(
+                    f'XRD entry "{xrd.name}" does not contain '
+                    'valid two theta angles or intensity data.'
+                )
+            elif (
+                min(two_theta) > self.analysis_settings.min_angle
+                or max(two_theta) < self.analysis_settings.max_angle
+            ):
+                raise ValueError(
+                    f'Two theta range of XRD entry "{xrd.name}" '
+                    f'[{min(two_theta)}, {max(two_theta)}] should be a super set of '
+                    'two theta range specified in the analysis settings '
+                    f'[{self.analysis_settings.min_angle}, '
+                    f'{self.analysis_settings.max_angle}].'
+                )
+
     def normalize(self, archive, logger):
         """
         Normalizes the `AutoXRDAnalysis` entry.
@@ -1507,57 +1543,13 @@ class AutoXRDAnalysisAction(Action):
         """
         self.method = 'Auto XRD Analysis'
 
-        # validate the data in the referenced XRD entries
         validation = True
         if self.analysis_settings:
-            for xrd_reference in self.inputs:
-                if not xrd_reference.reference:
-                    continue
-                xrd = xrd_reference.reference
-                if isinstance(xrd, MProxy):
-                    xrd.m_proxy_resolve()
-                if not isinstance(xrd, XRayDiffraction):
-                    validation = False
-                    logger.warning(
-                        f'Validation warning: XRD entry "{xrd.name}" is not of type '
-                        '`XRayDiffraction`.'
-                    )
-                    continue
-                try:
-                    pattern = (
-                        xrd.m_parent.results.properties.structural.diffraction_pattern[
-                            0
-                        ]
-                    )
-                    two_theta = pattern.two_theta_angles
-                    intensity = pattern.intensity
-                except AttributeError as e:
-                    logger.error(
-                        f'Validation Error accessing XRD entry "{xrd.name}". {e}'
-                    )
-                    validation = False
-                    continue
-                if two_theta is None or intensity is None:
-                    logger.warning(
-                        f'Validation warning: XRD entry {xrd.name} does not contain '
-                        'valid two theta angles or intensity data.'
-                    )
-                    validation = False
-                    continue
-                elif (
-                    min(two_theta) > self.analysis_settings.min_angle
-                    or max(two_theta) < self.analysis_settings.max_angle
-                ):
-                    logger.warning(
-                        'Validation warning:'
-                        f'Two theta range of XRD entry "{xrd.name}" [{min(two_theta)}, '
-                        f'{max(two_theta)}] should be a super set of two theta range '
-                        'specified in the analysis settings '
-                        f'[{self.analysis_settings.min_angle}, '
-                        f'{self.analysis_settings.max_angle}].'
-                    )
-                    validation = False
-                    continue
+            try:
+                self.validate_inputs()
+            except Exception as e:
+                validation = False
+                logger.error(str(e))
 
         if self.trigger_run_action:
             if self.action_id and self.action_status == 'RUNNING':
@@ -1571,20 +1563,20 @@ class AutoXRDAnalysisAction(Action):
             ):
                 self.trigger_run_action = False
                 logger.error(
-                    'Auto XRD model is not set. Please set the auto XRD model in the '
-                    'analysis settings before running the analysis.'
+                    'analysis_settings or analysis_settings.auto_xrd_model '
+                    'is not set. Cannot run the analysis action.'
                 )
             elif not self.inputs:
                 self.trigger_run_action = False
                 logger.error(
-                    'No XRD measurements are provided for analysis. Please add '
-                    'XRD measurements in the inputs section.'
+                    'No XRD measurements are provided for analysis. Cannot run the '
+                    'analysis action.'
                 )
             elif not validation:
                 self.trigger_run_action = False
                 logger.error(
-                    'Validation of the XRD entries failed. Please fix the warning and '
-                    'errors before running the analysis.'
+                    'Validation of the XRD entries failed. Cannot run the analysis '
+                    'action.'
                 )
 
         super().normalize(archive, logger)

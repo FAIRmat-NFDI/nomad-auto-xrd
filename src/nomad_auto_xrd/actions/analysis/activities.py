@@ -31,7 +31,8 @@ async def analyze(data: AnalyzeInput) -> AnalysisResult:
         with tempfile.TemporaryDirectory() as temp_dir:
             analyzer = XRDAutoAnalyser(temp_dir, data.analysis_settings)
             result = analyzer.eval(data.analysis_inputs)
-            # Move the plots from `temp_dir` to a `Plots` folder within the working directory
+            # Move the plots from `temp_dir` to a `Plots` folder within the
+            # working directory
             plots_dir = os.path.join(data.working_directory, 'Plots')
             os.makedirs(plots_dir, exist_ok=True)
             for result_iter, plot_path in enumerate(result.plot_paths):
