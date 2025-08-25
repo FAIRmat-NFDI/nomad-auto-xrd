@@ -51,13 +51,13 @@ from pymatgen.io.cif import CifParser
 
 from nomad_auto_xrd.actions.analysis.models import UserInput as AnalysisUserInput
 from nomad_auto_xrd.actions.training.models import UserInput as TrainingUserInput
-from nomad_auto_xrd.models import (
+from nomad_auto_xrd.common.models import (
     AnalysisSettingsInput,
     AutoXRDModelInput,
     SimulationSettingsInput,
     TrainingSettingsInput,
 )
-from nomad_auto_xrd.preprocessors import single_pattern_preprocessor
+from nomad_auto_xrd.common.preprocessors import single_pattern_preprocessor
 
 if TYPE_CHECKING:
     from structlog.stdlib import (
@@ -759,7 +759,7 @@ class AutoXRDTraining(JupyterAnalysis):
         )
 
         source = [
-            'from nomad_auto_xrd.schema import (\n',
+            'from nomad_auto_xrd.schema_packages.schema import (\n',
             '    AutoXRDModel,\n',
             '    SimulationSettings,\n',
             '    TrainingSettings,\n',
@@ -833,7 +833,7 @@ class AutoXRDTraining(JupyterAnalysis):
         )
 
         source = [
-            'from nomad_auto_xrd.training import train_nomad_model\n',
+            'from nomad_auto_xrd.common.training import train_nomad_model\n',
             '\n',
             'train_nomad_model(model)',
         ]
@@ -1031,7 +1031,7 @@ class AutoXRDAnalysis(JupyterAnalysis):
         )
 
         source = [
-            'from nomad_auto_xrd.analysis import analyse\n',
+            'from nomad_auto_xrd.common.analysis import analyse\n',
             '\n',
             'analyse(analysis)\n',
             '\n',

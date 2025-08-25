@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from nomad_auto_xrd.models import SimulationSettingsInput, TrainingSettingsInput
+from nomad_auto_xrd.common.models import SimulationSettingsInput, TrainingSettingsInput
 
 
 @dataclass

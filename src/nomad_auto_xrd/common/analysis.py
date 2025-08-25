@@ -31,17 +31,17 @@ from nomad.datamodel.metainfo.basesections import SectionReference
 from nomad_analysis.utils import get_reference
 from tqdm import tqdm
 
-from nomad_auto_xrd.models import (
+from nomad_auto_xrd.common.models import (
     AnalysisInput,
     AnalysisResult,
     AnalysisSettingsInput,
     AutoXRDModelInput,
 )
-from nomad_auto_xrd.preprocessors import (
+from nomad_auto_xrd.common.preprocessors import (
     multiple_patterns_preprocessor,
     single_pattern_preprocessor,
 )
-from nomad_auto_xrd.schema import (
+from nomad_auto_xrd.schema_packages.schema import (
     AutoXRDAnalysis,
     IdentifiedPhase,
 )

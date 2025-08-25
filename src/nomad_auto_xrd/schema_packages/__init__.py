@@ -16,7 +16,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-try:
-    from ._version import version as __version__
-except ImportError:
-    __version__ = ''
+from nomad.config.models.plugins import SchemaPackageEntryPoint
+
+
+class AutoXRDSchemaPackageEntryPoint(SchemaPackageEntryPoint):
+    """
+    Schema for training Auto XRD models and running Auto XRD analysis.
+    """
+
+    def load(self):
+        from nomad_auto_xrd.schema_packages.schema import m_package
+
+        return m_package
+
+
+schema_entry_point = AutoXRDSchemaPackageEntryPoint(
+    name='Auto XRD',
+    description='Schema for training Auto XRD models and running Auto XRD analysis.',
+)

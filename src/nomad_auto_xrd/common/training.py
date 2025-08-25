@@ -28,13 +28,13 @@ from autoXRD import solid_solns, spectrum_generation, tabulate_cifs
 from nomad.datamodel import EntryArchive
 from tensorflow.keras.callbacks import Callback
 
-from nomad_auto_xrd.ml_models import build_model
-from nomad_auto_xrd.models import (
+from nomad_auto_xrd.common.ml_models import build_model
+from nomad_auto_xrd.common.models import (
     SimulationSettingsInput,
     TrainingSettingsInput,
     TrainModelOutput,
 )
-from nomad_auto_xrd.schema import AutoXRDModel, ReferenceStructure
+from nomad_auto_xrd.schema_packages.schema import AutoXRDModel, ReferenceStructure
 
 
 @dataclass

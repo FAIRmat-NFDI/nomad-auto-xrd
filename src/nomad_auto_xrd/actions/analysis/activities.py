@@ -8,7 +8,7 @@ from nomad_auto_xrd.actions.analysis.models import (
     AnalyzeInput,
     UpdateAnalysisEntryInput,
 )
-from nomad_auto_xrd.models import AnalysisResult
+from nomad_auto_xrd.common.models import AnalysisResult
 
 
 @activity.defn
@@ -18,7 +18,7 @@ async def analyze(data: AnalyzeInput) -> AnalysisResult:
     """
     from nomad.actions.utils import get_upload_files
 
-    from nomad_auto_xrd.analysis import XRDAutoAnalyser
+    from nomad_auto_xrd.common.analysis import XRDAutoAnalyser
 
     # Run training within the upload folder
     original_path = os.path.abspath(os.curdir)
@@ -55,7 +55,7 @@ async def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
     from nomad.client import parse
     from nomad.datamodel.context import ServerContext
 
-    from nomad_auto_xrd.analysis import populate_analysis_entry
+    from nomad_auto_xrd.common.analysis import populate_analysis_entry
 
     context = ServerContext(get_upload(data.upload_id, data.user_id))
     upload_files = get_upload_files(data.upload_id, data.user_id)
