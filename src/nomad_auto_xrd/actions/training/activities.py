@@ -3,7 +3,6 @@ import os
 from dataclasses import asdict
 
 import tensorflow as tf
-from nomad.actions.utils import get_upload, get_upload_files
 from temporalio import activity
 
 from nomad_auto_xrd.actions.training.models import (
@@ -46,6 +45,8 @@ async def train_model(data: TrainModelInput) -> TrainModelOutput:
     """
     Activity to train a machine learning model.
     """
+    from nomad.actions.utils import get_upload_files
+
     from nomad_auto_xrd.training import train
 
     # Run training within the upload folder
@@ -76,8 +77,10 @@ async def create_trained_model_entry(data: CreateTrainedModelEntryInput) -> None
     Activity to create a trained model entry in the same upload.
     """
 
+    from nomad.actions.utils import get_upload, get_upload_files
     from nomad.client import parse
     from nomad.datamodel.context import ServerContext
+    from nomad.utils import hash as m_hash
     from nomad_measurements.utils import get_reference
 
     from nomad_auto_xrd.schema import (
@@ -135,7 +138,7 @@ async def create_trained_model_entry(data: CreateTrainedModelEntryInput) -> None
     )
     reference = get_reference(
         data.upload_id,
-        hash(data.upload_id, os.path.join(data.working_directory, archive_name)),
+        m_hash(data.upload_id, os.path.join(data.working_directory, archive_name)),
     )
 
     # Add a reference to the model entry in the training entry

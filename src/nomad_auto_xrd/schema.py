@@ -91,7 +91,7 @@ class SimulationSettings(ArchiveSection):
         a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
     )
     max_texture = Quantity(
-        type=np.float64,
+        type=float,
         description='Maximum texture value for the simualtions.',
         default=0.5,
         a_eln=ELNAnnotation(
@@ -99,7 +99,7 @@ class SimulationSettings(ArchiveSection):
         ),
     )
     min_domain_size = Quantity(
-        type=np.float64,
+        type=float,
         description='Minimum domain size.',
         unit='nm',
         default=5.0,
@@ -108,7 +108,7 @@ class SimulationSettings(ArchiveSection):
         ),
     )
     max_domain_size = Quantity(
-        type=np.float64,
+        type=float,
         description='Maximum domain size.',
         unit='nm',
         default=30.0,
@@ -117,7 +117,7 @@ class SimulationSettings(ArchiveSection):
         ),
     )
     max_strain = Quantity(
-        type=np.float64,
+        type=float,
         description='Maximum strain value.',
         default=0.03,
         a_eln=ELNAnnotation(
@@ -133,7 +133,7 @@ class SimulationSettings(ArchiveSection):
         ),
     )
     min_angle = Quantity(
-        type=np.float64,
+        type=float,
         description='Minimum angle value.',
         unit='deg',
         default=10.0,
@@ -142,7 +142,7 @@ class SimulationSettings(ArchiveSection):
         ),
     )
     max_angle = Quantity(
-        type=np.float64,
+        type=float,
         description='Maximum angle value.',
         unit='deg',
         default=80.0,
@@ -151,7 +151,7 @@ class SimulationSettings(ArchiveSection):
         ),
     )
     max_shift = Quantity(
-        type=np.float64,
+        type=float,
         description='Maximum shift value.',
         unit='deg',
         default=0.1,
@@ -168,7 +168,7 @@ class SimulationSettings(ArchiveSection):
         ),
     )
     impur_amt = Quantity(
-        type=np.float64,
+        type=float,
         description='Impurity amount.',
         default=0.0,
         a_eln=ELNAnnotation(
@@ -215,8 +215,9 @@ class TrainingSettings(ArchiveSection):
         ),
     )
     learning_rate = Quantity(
-        type=np.float64,
+        type=float,
         description='Learning rate for training.',
+        default=0.001,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity,
         ),
@@ -224,12 +225,13 @@ class TrainingSettings(ArchiveSection):
     seed = Quantity(
         type=int,
         description='Seed for random number generator.',
+        default=34,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity,
         ),
     )
     test_fraction = Quantity(
-        type=np.float64,
+        type=float,
         description='Fraction of data used for testing.',
         default=0.2,
         a_eln=ELNAnnotation(
@@ -1164,7 +1166,7 @@ class ActionCategory(EntryDataCategory):
     )
 
 
-class Action(Analysis):
+class Action(Analysis, Schema):
     """
     Base class for actions that can be triggered from the ELN interface. Includes two
     action buttons: one for triggering the action and another for retrieving the
@@ -1183,7 +1185,7 @@ class Action(Analysis):
         description='A description for the action given by the user.',
         a_eln=ELNAnnotation(
             component='RichTextEditQuantity',
-            props=dict(height=500),
+            props=dict(height=200),
         ),
     )
     action_id = Quantity(
@@ -1294,7 +1296,6 @@ class AutoXRDTrainingAction(Action):
             ),
         ),
     )
-
     simulation_settings = SubSection(
         section_def=SimulationSettings,
         description='Settings for simulating XRD patterns.',
@@ -1381,13 +1382,14 @@ class AutoXRDTrainingAction(Action):
             ):
                 self.trigger_run_action = False
                 logger.warning(
-                    'Either simulation_settings or simulation_setting.structure_files'
+                    'Either simulation_settings or simulation_setting.structure_files '
                     'or training_settings not set. Cannot running the training action.'
                 )
             else:
                 for cif in self.simulation_settings.structure_files:
-                    parser = CifParser(cif)
                     try:
+                        with archive.m_context.raw_file(cif) as file:
+                            parser = CifParser(file)
                         parser.get_structures()
                     except Exception as e:
                         self.trigger_run_action = False
