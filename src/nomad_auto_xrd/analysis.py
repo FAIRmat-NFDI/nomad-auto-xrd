@@ -718,6 +718,7 @@ def populate_analysis_entry(
             reference=xrd_measurement_m_proxy
         )
         analysis_entry.results[result_iter].identified_phases_plot = plot_path
+        analysis_entry.results[result_iter].identified_phases = []
         for phase, confidence, phase_m_proxy in zip(
             phases, confidences, phases_m_proxies
         ):

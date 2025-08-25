@@ -42,6 +42,7 @@ class SimulationSettingsInput:
 class TrainingSettingsInput:
     """Class to represent training settings for model training."""
 
+    # TODO make use of these fields in the training process.
     num_epochs: int
     batch_size: int
     learning_rate: float

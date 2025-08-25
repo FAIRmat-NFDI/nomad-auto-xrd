@@ -155,5 +155,5 @@ async def create_trained_model_entry(data: CreateTrainedModelEntryInput) -> None
     # TODO: use the following code once the bug with parse_level=None is fixed
     # context = ServerContext(get_upload(data.upload_id, data.user_id))
     # archive_name = os.path.join(data.working_directory, 'auto_xrd_model.archive.json')
-    # with context.update_entry(archive_name, process=True, write=True) as archive:
+    # with context.update_entry(archive_name, write=True, process=True) as archive:
     #     archive['data'] = model.m_to_dict(with_root_def=True)

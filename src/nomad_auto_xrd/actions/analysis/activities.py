@@ -1,7 +1,7 @@
 import os
+import shutil
 import tempfile
 
-from nomad.actions.utils import get_upload, get_upload_files
 from temporalio import activity
 
 from nomad_auto_xrd.actions.analysis.models import (
@@ -16,6 +16,8 @@ async def analyze(data: AnalyzeInput) -> AnalysisResult:
     """
     Activity to run auto xrd analysis on the given data.
     """
+    from nomad.actions.utils import get_upload_files
+
     from nomad_auto_xrd.analysis import XRDAutoAnalyser
 
     # Run training within the upload folder
@@ -29,6 +31,14 @@ async def analyze(data: AnalyzeInput) -> AnalysisResult:
         with tempfile.TemporaryDirectory() as temp_dir:
             analyzer = XRDAutoAnalyser(temp_dir, data.analysis_settings)
             result = analyzer.eval(data.analysis_inputs)
+            # Move the plots from `temp_dir` to a `Plots` folder within the working directory
+            plots_dir = os.path.join(data.working_directory, 'Plots')
+            os.makedirs(plots_dir, exist_ok=True)
+            for result_iter, plot_path in enumerate(result.plot_paths):
+                new_plot_path = os.path.join(plots_dir, os.path.basename(plot_path))
+                if os.path.exists(plot_path):
+                    shutil.copy2(plot_path, new_plot_path)
+                    result.plot_paths[result_iter] = new_plot_path
     finally:
         os.chdir(original_path)
 
@@ -40,6 +50,7 @@ async def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
     """
     Activity to create update the inference entry in the same upload.
     """
+    from nomad.actions.utils import get_upload, get_upload_files
     from nomad.client import parse
     from nomad.datamodel.context import ServerContext
 
@@ -52,5 +63,5 @@ async def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
     with context.update_entry(data.mainfile, process=True, write=True) as archive:
         parsed_archive = parse(archive_name)[0]
         populate_analysis_entry(parsed_archive.data, data.analysis_result)
-        parsed_archive.data.trigger_run_analysis = False
+        parsed_archive.data.trigger_run_action = False
         archive['data'] = parsed_archive.data.m_to_dict(with_root_def=True)
