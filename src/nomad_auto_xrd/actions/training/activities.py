@@ -1,9 +1,9 @@
+import json
 import os
 from dataclasses import asdict
 
 import tensorflow as tf
 from nomad.actions.utils import get_upload, get_upload_files
-from nomad.datamodel.context import ServerContext
 from temporalio import activity
 
 from nomad_auto_xrd.actions.training.models import (
@@ -11,7 +11,6 @@ from nomad_auto_xrd.actions.training.models import (
     TrainModelInput,
 )
 from nomad_auto_xrd.models import TrainModelOutput
-from nomad_auto_xrd.schema import AutoXRDModel, ReferenceStructure
 
 
 class TemporalHeartbeatCallback(tf.keras.callbacks.Callback):
@@ -77,6 +76,16 @@ async def create_trained_model_entry(data: CreateTrainedModelEntryInput) -> None
     Activity to create a trained model entry in the same upload.
     """
 
+    from nomad.client import parse
+    from nomad.datamodel.context import ServerContext
+    from nomad_measurements.utils import get_reference
+
+    from nomad_auto_xrd.schema import (
+        AutoXRDModel,
+        AutoXRDModelReference,
+        ReferenceStructure,
+    )
+
     model = AutoXRDModel(
         working_directory=data.working_directory,
         includes_pdf=data.includes_pdf,
@@ -109,7 +118,39 @@ async def create_trained_model_entry(data: CreateTrainedModelEntryInput) -> None
         for cif_path in data.reference_structure_paths
     ]
 
+    upload = get_upload(data.upload_id, data.user_id)
+    archive_name = 'auto_xrd_model.archive.json'
+    with open(archive_name, 'w', encoding='utf-8') as f:
+        json.dump({'data': model.m_to_dict(with_root_def=True)}, f, indent=4)
+    upload.process_upload(
+        file_operations=[
+            dict(
+                op='ADD',
+                path=archive_name,
+                target_dir=data.working_directory,
+                temporary=True,
+            )
+        ],
+        only_updated_files=True,
+    )
+    reference = get_reference(
+        data.upload_id,
+        hash(data.upload_id, os.path.join(data.working_directory, archive_name)),
+    )
+
+    # Add a reference to the model entry in the training entry
     context = ServerContext(get_upload(data.upload_id, data.user_id))
-    archive_name = os.path.join(data.working_directory, 'auto_xrd_model.archive.json')
-    with context.update_entry(archive_name, process=True, write=True) as archive:
-        archive['data'] = model.m_to_dict(with_root_def=True)
+    upload_files = get_upload_files(data.upload_id, data.user_id)
+    upload_raw_path = os.path.join(upload_files.os_path, 'raw')
+    archive_name = os.path.join(upload_raw_path, data.mainfile)
+    with context.update_entry(data.mainfile, process=True, write=True) as archive:
+        parsed_archive = parse(archive_name)[0]
+        parsed_archive.data.outputs.append(AutoXRDModelReference(reference=reference))
+        parsed_archive.data.trigger_run_action = False
+        archive['data'] = parsed_archive.data.m_to_dict(with_root_def=True)
+
+    # TODO: use the following code once the bug with parse_level=None is fixed
+    # context = ServerContext(get_upload(data.upload_id, data.user_id))
+    # archive_name = os.path.join(data.working_directory, 'auto_xrd_model.archive.json')
+    # with context.update_entry(archive_name, process=True, write=True) as archive:
+    #     archive['data'] = model.m_to_dict(with_root_def=True)

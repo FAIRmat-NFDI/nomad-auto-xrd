@@ -1283,6 +1283,7 @@ class AutoXRDTrainingAction(Action):
         input_data = TrainingUserInput(
             upload_id=archive.metadata.upload_id,
             user_id=archive.metadata.authors[0].user_id,
+            mainfile=archive.metadata.mainfile,
             simulation_settings=SimulationSettingsInput(
                 structure_files=self.simulation_settings.structure_files,
                 max_texture=float(self.simulation_settings.max_texture),

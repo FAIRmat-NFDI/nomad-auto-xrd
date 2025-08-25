@@ -28,6 +28,7 @@ class TrainingWorkflow:
             TrainModelInput(
                 upload_id=data.upload_id,
                 user_id=data.user_id,
+                mainfile=data.mainfile,
                 simulation_settings=data.simulation_settings,
                 training_settings=data.training_settings,
                 working_directory=working_directory,
@@ -44,6 +45,7 @@ class TrainingWorkflow:
         create_entry_input = CreateTrainedModelEntryInput(
             upload_id=data.upload_id,
             user_id=data.user_id,
+            mainfile=data.mainfile,
             simulation_settings=data.simulation_settings,
             training_settings=data.training_settings,
             working_directory=working_directory,
@@ -60,8 +62,6 @@ class TrainingWorkflow:
             start_to_close_timeout=timedelta(seconds=300),
             retry_policy=RetryPolicy(
                 initial_interval=timedelta(seconds=10),
-                maximum_attempts=3,
-                backoff_coefficient=2.0,
             ),
         )
         return training_output

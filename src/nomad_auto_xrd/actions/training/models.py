@@ -9,6 +9,7 @@ class UserInput:
 
     upload_id: str
     user_id: str
+    mainfile: str
 
     simulation_settings: SimulationSettingsInput
     training_settings: TrainingSettingsInput
