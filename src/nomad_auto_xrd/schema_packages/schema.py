@@ -674,6 +674,7 @@ class AutoXRDTraining(JupyterAnalysis):
     """
 
     m_def = Section(
+        label='Auto XRD Training',
         a_eln=ELNAnnotation(
             properties=SectionProperties(
                 order=[
@@ -950,6 +951,7 @@ class AutoXRDAnalysis(JupyterAnalysis):
     """
 
     m_def = Section(
+        label='Auto XRD Analysis',
         a_eln=ELNAnnotation(
             properties=SectionProperties(
                 order=[
@@ -1265,12 +1267,12 @@ class Action(Analysis, Schema):
 
 class AutoXRDTrainingAction(Action):
     """
-    Schema for training an auto XRD model. Generates a Jupyter notebook containing
-    helper code to train and index the model in NOMAD.
+    Schema that uses actions to train an auto XRD model using specified simulation
+    and training settings.
     """
 
     m_def = Section(
-        label='Auto XRD Training',
+        label='Auto XRD Training Action',
         a_eln=ELNAnnotation(
             properties=SectionProperties(
                 order=[
@@ -1402,13 +1404,12 @@ class AutoXRDTrainingAction(Action):
 
 class AutoXRDAnalysisAction(Action):
     """
-    Schema for running an auto XRD analysis using an pre-trained Auto XRD model.
-    Allows to attach Auto XRD model and XRD measurement entries and run the analysis
-    using a pre-defined Jupyter notebook to identify the phases in the XRD data.
+    Schema that uses actions to run an auto XRD analysis using a pre-trained Auto XRD
+    model.
     """
 
     m_def = Section(
-        label='Auto XRD Analysis',
+        label='Auto XRD Analysis Action',
         a_eln=ELNAnnotation(
             properties=SectionProperties(
                 order=[
