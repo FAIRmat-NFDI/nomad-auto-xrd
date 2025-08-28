@@ -16,14 +16,14 @@ async def analyze(data: AnalyzeInput) -> AnalysisResult:
     """
     Activity to run auto xrd analysis on the given data.
     """
-    from nomad.actions.utils import get_upload_files
 
     from nomad_auto_xrd.common.analysis import XRDAutoAnalyser
+    from nomad_auto_xrd.common.utils import get_upload
 
     # Run training within the upload folder
     original_path = os.path.abspath(os.curdir)
-    upload_files = get_upload_files(data.upload_id, data.user_id)
-    upload_raw_path = os.path.join(upload_files.os_path, 'raw')
+    upload = get_upload(data.upload_id, data.user_id)
+    upload_raw_path = os.path.join(upload.upload_files.os_path, 'raw')
 
     try:
         os.chdir(upload_raw_path)
@@ -51,15 +51,16 @@ async def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
     """
     Activity to create update the inference entry in the same upload.
     """
-    from nomad.actions.utils import get_action_status, get_upload, get_upload_files
+    from nomad.actions.utils import get_action_status
     from nomad.client import parse
     from nomad.datamodel.context import ServerContext
 
     from nomad_auto_xrd.common.analysis import populate_analysis_entry
+    from nomad_auto_xrd.common.utils import get_upload
 
-    context = ServerContext(get_upload(data.upload_id, data.user_id))
-    upload_files = get_upload_files(data.upload_id, data.user_id)
-    upload_raw_path = os.path.join(upload_files.os_path, 'raw')
+    upload = get_upload(data.upload_id, data.user_id)
+    context = ServerContext(upload)
+    upload_raw_path = os.path.join(upload.upload_files.os_path, 'raw')
     archive_name = os.path.join(upload_raw_path, data.mainfile)
     with context.update_entry(data.mainfile, process=True, write=True) as archive:
         parsed_archive = parse(archive_name)[0]
