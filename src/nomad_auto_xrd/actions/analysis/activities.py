@@ -51,7 +51,7 @@ async def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
     """
     Activity to create update the inference entry in the same upload.
     """
-    from nomad.actions.utils import get_upload, get_upload_files
+    from nomad.actions.utils import get_action_status, get_upload, get_upload_files
     from nomad.client import parse
     from nomad.datamodel.context import ServerContext
 
@@ -65,4 +65,7 @@ async def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
         parsed_archive = parse(archive_name)[0]
         populate_analysis_entry(parsed_archive.data, data.analysis_result)
         parsed_archive.data.trigger_run_action = False
+        parsed_archive.data.action_status = get_action_status(
+            parsed_archive.data.action_id
+        ).name
         archive['data'] = parsed_archive.data.m_to_dict(with_root_def=True)

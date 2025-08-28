@@ -77,7 +77,7 @@ async def create_trained_model_entry(data: CreateTrainedModelEntryInput) -> None
     Activity to create a trained model entry in the same upload.
     """
 
-    from nomad.actions.utils import get_upload, get_upload_files
+    from nomad.actions.utils import get_action_status, get_upload, get_upload_files
     from nomad.client import parse
     from nomad.datamodel.context import ServerContext
     from nomad.utils import hash as m_hash
@@ -150,6 +150,9 @@ async def create_trained_model_entry(data: CreateTrainedModelEntryInput) -> None
         parsed_archive = parse(archive_name)[0]
         parsed_archive.data.outputs.append(AutoXRDModelReference(reference=reference))
         parsed_archive.data.trigger_run_action = False
+        parsed_archive.data.action_status = get_action_status(
+            parsed_archive.data.action_id
+        ).name
         archive['data'] = parsed_archive.data.m_to_dict(with_root_def=True)
 
     # TODO: use the following code once the bug with parse_level=None is fixed
