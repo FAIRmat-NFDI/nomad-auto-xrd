@@ -1,6 +1,10 @@
 from dataclasses import dataclass
 
-from nomad_auto_xrd.models import AnalysisInput, AnalysisResult, AnalysisSettingsInput
+from nomad_auto_xrd.common.models import (
+    AnalysisInput,
+    AnalysisResult,
+    AnalysisSettingsInput,
+)
 
 
 @dataclass

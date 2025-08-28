@@ -9,7 +9,7 @@ from nomad_auto_xrd.actions.training.models import (
     CreateTrainedModelEntryInput,
     TrainModelInput,
 )
-from nomad_auto_xrd.models import TrainModelOutput
+from nomad_auto_xrd.common.models import TrainModelOutput
 
 
 class TemporalHeartbeatCallback(tf.keras.callbacks.Callback):
@@ -47,7 +47,7 @@ async def train_model(data: TrainModelInput) -> TrainModelOutput:
     """
     from nomad.actions.utils import get_upload_files
 
-    from nomad_auto_xrd.training import train
+    from nomad_auto_xrd.common.training import train
 
     # Run training within the upload folder
     original_path = os.path.abspath(os.curdir)
@@ -83,7 +83,7 @@ async def create_trained_model_entry(data: CreateTrainedModelEntryInput) -> None
     from nomad.utils import hash as m_hash
     from nomad_measurements.utils import get_reference
 
-    from nomad_auto_xrd.schema import (
+    from nomad_auto_xrd.schema_packages.schema import (
         AutoXRDModel,
         AutoXRDModelReference,
         ReferenceStructure,
