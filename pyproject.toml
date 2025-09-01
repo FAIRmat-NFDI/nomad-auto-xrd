@@ -29,7 +29,7 @@ maintainers = [
 ]
 license = { file = "LICENSE" }
 dependencies = [
-    "nomad-lab[infrastructure]>=1.3.18.dev89",
+    "nomad-lab[infrastructure]>=1.3.18.dev92",
     "nomad-analysis>=0.1.1",
     "nomad-measurements",
     "nomad-schema-plugin-run>=1.0.1",

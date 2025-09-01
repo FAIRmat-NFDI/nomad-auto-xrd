@@ -20,7 +20,7 @@ import os
 import pytest
 from nomad.client import normalize_all, parse
 
-from nomad_auto_xrd.schema import AutoXRDModel
+from nomad_auto_xrd.schema_packages.schema import AutoXRDModel
 
 data_dir = os.path.abspath(os.path.join('tests', 'data', 'schemas'))
 log_levels = ['error', 'critical']

@@ -64,7 +64,7 @@ if TYPE_CHECKING:
         BoundLogger,
     )
 
-m_package = SchemaPackage()
+m_package = SchemaPackage(aliases=['nomad_auto_xrd.schema'])
 
 
 class Model(Entity, Schema):
