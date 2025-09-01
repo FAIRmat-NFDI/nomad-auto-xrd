@@ -1369,8 +1369,13 @@ class AutoXRDTrainingAction(Action):
         """
         self.method = 'Auto XRD Model Training'
 
+        if self.action_status == 'RUNNING':
+            # update the status if current status is RUNNING
+            self.action_status = get_action_status(self.action_id).name
+
         if self.trigger_run_action:
-            if self.action_status and self.action_status == 'RUNNING':
+            if self.action_status == 'RUNNING':
+                # if the updated status is still RUNNING, do not trigger a new run
                 self.trigger_run_action = False
                 logger.warning(
                     'The training action is already running. Please wait for it to '
@@ -1552,8 +1557,13 @@ class AutoXRDAnalysisAction(Action):
                 validation = False
                 logger.error(str(e))
 
+        if self.action_status == 'RUNNING':
+            # update the status if current status is RUNNING
+            self.action_status = get_action_status(self.action_id).name
+
         if self.trigger_run_action:
-            if self.action_id and self.action_status == 'RUNNING':
+            if self.action_status == 'RUNNING':
+                # if the updated status is still RUNNING, do not trigger a new run
                 self.trigger_run_action = False
                 logger.warning(
                     'The analysis action is already running. Please wait for it to '
