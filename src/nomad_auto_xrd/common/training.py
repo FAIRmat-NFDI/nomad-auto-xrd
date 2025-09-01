@@ -368,7 +368,7 @@ def train(
         output.wandb_run_url_xrd = wandb_run_url_xrd
 
         # Save the trained model
-        xrd_model_path = os.path.join(models_dir, 'XRD_Model.keras')
+        xrd_model_path = os.path.join(models_dir, 'XRD_Model.h5')
         model.save(xrd_model_path, include_optimizer=False)
         output.xrd_model_path = xrd_model_path
 
@@ -411,7 +411,7 @@ def train(
         output.wandb_run_url_pdf = wandb_run_url_pdf
 
         # Save the PDF model
-        pdf_model_path = os.path.join(models_dir, 'PDF_Model.keras')
+        pdf_model_path = os.path.join(models_dir, 'PDF_Model.h5')
         model_pdf.save(pdf_model_path, include_optimizer=False)
         output.pdf_model_path = pdf_model_path
 
