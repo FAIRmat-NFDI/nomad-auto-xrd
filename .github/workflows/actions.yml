@@ -30,9 +30,8 @@ jobs:
         curl -LsSf https://astral.sh/uv/install.sh | sh
     - name: Build the package
       run: |
-        uv pip install --upgrade pip
         uv pip install build
-        uv python -m build
+        uv build
     - name: Install the package
       run: |
         uv pip install dist/*.tar.gz
