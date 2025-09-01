@@ -76,16 +76,13 @@ async def create_trained_model_entry(data: CreateTrainedModelEntryInput) -> None
     Activity to create a trained model entry in the same upload.
     """
 
-    from nomad.actions.utils import get_action_status
-    from nomad.client import parse
     from nomad.datamodel.context import ServerContext
-    from nomad.utils import hash as m_hash
+    from nomad.utils import generate_entry_id
     from nomad_measurements.utils import get_reference
 
     from nomad_auto_xrd.common.utils import get_upload
     from nomad_auto_xrd.schema_packages.schema import (
         AutoXRDModel,
-        AutoXRDModelReference,
         ReferenceStructure,
     )
 
@@ -121,42 +118,38 @@ async def create_trained_model_entry(data: CreateTrainedModelEntryInput) -> None
         for cif_path in data.reference_structure_paths
     ]
 
-    upload = get_upload(data.upload_id, data.user_id)
-    archive_name = 'auto_xrd_model.archive.json'
-    with open(archive_name, 'w', encoding='utf-8') as f:
-        json.dump({'data': model.m_to_dict(with_root_def=True)}, f, indent=4)
-    upload.process_upload(
-        file_operations=[
-            dict(
-                op='ADD',
-                path=archive_name,
-                target_dir=data.working_directory,
-                temporary=True,
-            )
-        ],
-        only_updated_files=True,
+    context = ServerContext(get_upload(data.upload_id, data.user_id))
+    rel_mainfile_path = os.path.join(
+        data.working_directory, 'auto_xrd_model.archive.json'
     )
+
+    # Create an entry for the trained model and generate its reference
+    with context.update_entry(rel_mainfile_path, write=True, process=True) as archive:
+        archive['data'] = model.m_to_dict(with_root_def=True)
     reference = get_reference(
         data.upload_id,
-        m_hash(data.upload_id, os.path.join(data.working_directory, archive_name)),
+        generate_entry_id(data.upload_id, rel_mainfile_path),
     )
 
     # Add a reference to the model entry in the training entry
-    upload = get_upload(data.upload_id, data.user_id)
-    context = ServerContext(upload)
-    upload_raw_path = os.path.join(upload.upload_files.os_path, 'raw')
-    archive_name = os.path.join(upload_raw_path, data.mainfile)
     with context.update_entry(data.mainfile, process=True, write=True) as archive:
-        parsed_archive = parse(archive_name)[0]
-        parsed_archive.data.outputs.append(AutoXRDModelReference(reference=reference))
-        parsed_archive.data.trigger_run_action = False
-        parsed_archive.data.action_status = get_action_status(
-            parsed_archive.data.action_id
-        ).name
-        archive['data'] = parsed_archive.data.m_to_dict(with_root_def=True)
+        archive['data']['outputs'] = [{'reference': reference}]
+        archive['data']['trigger_run_action'] = False
+        archive['data']['action_id'] = data.action_id
+        archive['data']['action_status'] = 'COMPLETED'
 
-    # TODO: use the following code once the bug with parse_level=None is fixed
-    # context = ServerContext(get_upload(data.upload_id, data.user_id))
-    # archive_name = os.path.join(data.working_directory, 'auto_xrd_model.archive.json')
-    # with context.update_entry(archive_name, write=True, process=True) as archive:
-    #     archive['data'] = model.m_to_dict(with_root_def=True)
+    ## The following code is an alternative way to add the model entry to the upload
+    # archive_name = 'auto_xrd_model.archive.json'
+    # with open(archive_name, 'w', encoding='utf-8') as f:
+    #     json.dump({'data': model.m_to_dict(with_root_def=True)}, f, indent=4)
+    # upload.process_upload(
+    #     file_operations=[
+    #         dict(
+    #             op='ADD',
+    #             path=archive_name,
+    #             target_dir=data.working_directory,
+    #             temporary=True,
+    #         )
+    #     ],
+    #     only_updated_files=True,
+    # )

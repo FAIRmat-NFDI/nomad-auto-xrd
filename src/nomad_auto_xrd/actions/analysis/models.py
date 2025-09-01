@@ -30,4 +30,5 @@ class AnalyzeInput(UserInput):
 class UpdateAnalysisEntryInput(UserInput):
     """Class to represent input for updating an analysis entry."""
 
+    action_id: str
     analysis_result: AnalysisResult

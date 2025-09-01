@@ -27,6 +27,7 @@ class TrainModelInput(UserInput):
 class CreateTrainedModelEntryInput(TrainModelInput):
     """Class to represent input for creating a trained model entry."""
 
+    action_id: str
     xrd_model_path: str
     pdf_model_path: str | None = None
     wandb_run_url_xrd: str | None = None

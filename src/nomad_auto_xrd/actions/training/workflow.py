@@ -44,6 +44,7 @@ class TrainingWorkflow:
             ),
         )
         create_entry_input = CreateTrainedModelEntryInput(
+            action_id=workflow_id,
             upload_id=data.upload_id,
             user_id=data.user_id,
             mainfile=data.mainfile,

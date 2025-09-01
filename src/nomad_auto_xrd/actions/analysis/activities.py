@@ -51,22 +51,26 @@ async def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
     """
     Activity to create update the inference entry in the same upload.
     """
-    from nomad.actions.utils import get_action_status
-    from nomad.client import parse
     from nomad.datamodel.context import ServerContext
 
-    from nomad_auto_xrd.common.analysis import populate_analysis_entry
+    from nomad_auto_xrd.common.analysis import to_nomad_data_results_section
     from nomad_auto_xrd.common.utils import get_upload
 
+    result_sections = [
+        nomad_data_result.m_to_dict()
+        for nomad_data_result in to_nomad_data_results_section(data.analysis_result)
+    ]
     upload = get_upload(data.upload_id, data.user_id)
     context = ServerContext(upload)
-    upload_raw_path = os.path.join(upload.upload_files.os_path, 'raw')
-    archive_name = os.path.join(upload_raw_path, data.mainfile)
+
     with context.update_entry(data.mainfile, process=True, write=True) as archive:
-        parsed_archive = parse(archive_name)[0]
-        populate_analysis_entry(parsed_archive.data, data.analysis_result)
-        parsed_archive.data.trigger_run_action = False
-        parsed_archive.data.action_status = get_action_status(
-            parsed_archive.data.action_id
-        ).name
-        archive['data'] = parsed_archive.data.m_to_dict(with_root_def=True)
+        archive['data']['results'] = result_sections
+        archive['data']['trigger_run_action'] = False
+        archive['data']['action_id'] = data.action_id
+        archive['data']['action_status'] = 'COMPLETED'
+
+    # Context manager method only fetches the data from the input mainfile of the ELN
+    # entry. This won't reflect the data that was updated/added by normalization not
+    # part of the double-saving (save once to populate the ELN fields, save again to
+    # populate the input mainfile based on ELN fields). If this data is needed, we
+    # need to use `nomad.search` to fetch the data from the message pack archives.

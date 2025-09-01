@@ -43,6 +43,7 @@ from nomad_auto_xrd.common.preprocessors import (
 )
 from nomad_auto_xrd.schema_packages.schema import (
     AutoXRDAnalysis,
+    AutoXRDAnalysisResult,
     IdentifiedPhase,
 )
 
@@ -687,48 +688,46 @@ class XRDAutoAnalyser:
         return all_results
 
 
-def populate_analysis_entry(
-    analysis_entry: 'AutoXRDAnalysis',
+def to_nomad_data_results_section(
     result: AnalysisResult,
-) -> None:
+) -> list[AutoXRDAnalysisResult]:
     """
-    Unpacks results and populates the `analysis_entry.results`.
+    Transforms the analysis results into a list of NOMAD `AutoXRDAnalysisResult`
+    sections.
 
     Args:
-        analysis_entry (AutoXRDAnalysis): The AutoXRDAnalysis section to populate.
         results (AnalysisResult): The results from the analysis.
     """
-    for result_iter, (
+    result_sections = []
+    for (
         xrd_measurement_m_proxy,
         plot_path,
         phases,
         confidences,
         phases_m_proxies,
-    ) in enumerate(
-        zip(
-            result.xrd_measurement_m_proxies,
-            result.plot_paths,
-            result.phases,
-            result.confidences,
-            result.phases_m_proxies,
-        )
+    ) in zip(
+        result.xrd_measurement_m_proxies,
+        result.plot_paths,
+        result.phases,
+        result.confidences,
+        result.phases_m_proxies,
     ):
-        analysis_entry.m_setdefault(f'results/{result_iter}')
-        analysis_entry.results[result_iter].xrd_measurement = SectionReference(
-            reference=xrd_measurement_m_proxy
-        )
-        analysis_entry.results[result_iter].identified_phases_plot = plot_path
-        analysis_entry.results[result_iter].identified_phases = []
-        for phase, confidence, phase_m_proxy in zip(
-            phases, confidences, phases_m_proxies
-        ):
-            analysis_entry.results[result_iter].identified_phases.append(
+        result_section = AutoXRDAnalysisResult(
+            xrd_measurement=SectionReference(reference=xrd_measurement_m_proxy),
+            identified_phases_plot=plot_path,
+            identified_phases=[
                 IdentifiedPhase(
                     name=phase,
                     confidence=confidence,
                     reference_structure=phase_m_proxy,
                 )
-            )
+                for phase, confidence, phase_m_proxy in zip(
+                    phases, confidences, phases_m_proxies
+                )
+            ],
+        )
+        result_sections.append(result_section)
+    return result_sections
 
 
 def analyse(
@@ -794,7 +793,7 @@ def analyse(
                 shutil.copy2(plot_path, new_plot_path)
                 results.plot_paths[result_iter] = new_plot_path
 
-    populate_analysis_entry(analysis_entry, results)
+    analysis_entry.results = to_nomad_data_results_section(results)
 
     return results
 
@@ -862,7 +861,7 @@ def analyse_combinatorial(
                 shutil.copy2(plot_path, new_plot_path)
                 results.plot_paths[result_iter] = new_plot_path
 
-    populate_analysis_entry(analysis_entry, results)
+    analysis_entry.results = to_nomad_data_results_section(results)
 
     return results
 

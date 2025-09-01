@@ -40,12 +40,14 @@ class AnalysisWorkflow:
             update_analysis_entry,
             UpdateAnalysisEntryInput(
                 **asdict(data),
+                action_id=workflow_id,
                 analysis_result=result,
             ),
             start_to_close_timeout=timedelta(seconds=600),
             retry_policy=RetryPolicy(
                 initial_interval=timedelta(seconds=10),
-                backoff_coefficient=1,
+                maximum_attempts=3,
+                backoff_coefficient=2.0,
             ),
         )
         return result
