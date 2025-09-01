@@ -45,8 +45,8 @@ async def train_model(data: TrainModelInput) -> TrainModelOutput:
     """
     Activity to train a machine learning model.
     """
-    from nomad_auto_xrd.common.utils import get_upload
     from nomad_auto_xrd.common.training import train
+    from nomad_auto_xrd.common.utils import get_upload
 
     # Run training within the upload folder
     original_path = os.path.abspath(os.curdir)
