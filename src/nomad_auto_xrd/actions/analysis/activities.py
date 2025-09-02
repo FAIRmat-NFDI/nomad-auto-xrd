@@ -20,12 +20,39 @@ async def analyze(data: AnalyzeInput) -> AnalysisResult:
     from nomad_auto_xrd.common.analysis import XRDAutoAnalyzer
     from nomad_auto_xrd.common.utils import get_upload
 
-    # Run training within the upload folder
+    # Run analysis within the upload folder
     original_path = os.path.abspath(os.curdir)
     upload = get_upload(data.upload_id, data.user_id)
     upload_raw_path = os.path.join(upload.upload_files.os_path, 'raw')
 
     try:
+        # if the upload id of the trained model is different from the upload id of the
+        # analysis, create symlinks to the required model artifacts directory
+        created_symlinks = []
+        if data.analysis_settings.auto_xrd_model.upload_id != data.upload_id:
+            trained_model_upload = get_upload(
+                data.analysis_settings.auto_xrd_model.upload_id, data.user_id
+            )
+            trained_model_upload_raw_path = os.path.join(
+                trained_model_upload.upload_files.os_path,
+                'raw',
+            )
+            trained_model_working_dir = (
+                data.analysis_settings.auto_xrd_model.working_directory
+            )
+            os.symlink(
+                os.path.abspath(
+                    os.path.join(
+                        trained_model_upload_raw_path, trained_model_working_dir
+                    )
+                ),
+                os.path.join(upload_raw_path, trained_model_working_dir),
+                target_is_directory=True,
+            )
+            created_symlinks.append(
+                os.path.join(upload_raw_path, trained_model_working_dir)
+            )
+
         os.chdir(upload_raw_path)
         os.makedirs(data.working_directory, exist_ok=True)
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -42,6 +69,8 @@ async def analyze(data: AnalyzeInput) -> AnalysisResult:
                     result.plot_paths[result_iter] = new_plot_path
     finally:
         os.chdir(original_path)
+        for link in created_symlinks:
+            os.unlink(link)
 
     return result
 
