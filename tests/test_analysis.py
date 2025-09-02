@@ -21,7 +21,7 @@ import tempfile
 import pytest
 from nomad.client import normalize_all, parse
 
-from nomad_auto_xrd.common.analysis import analyse
+from nomad_auto_xrd.common.analysis import analyze
 from nomad_auto_xrd.schema_packages.schema import ReferenceStructure
 
 # Check environment variable
@@ -48,7 +48,7 @@ log_levels = ['error', 'critical']
 )
 def test_analysis(parsed_measurement_archives, caplog, clean_up):
     """
-    Test the `analyse` functions of the AutoXRD package. Set ups the NOMAD entries that
+    Test the `analyze` functions of the AutoXRD package. Set ups the NOMAD entries that
     are needed for the analysis and then runs the analysis.
         - The XRD entries are created from the raw files. Handled by the
           `parsed_measurement_archives` fixture.
@@ -88,7 +88,7 @@ def test_analysis(parsed_measurement_archives, caplog, clean_up):
     with tempfile.TemporaryDirectory() as temp_dir:
         os.chdir(temp_dir)
         try:
-            analyse(analysis.data)
+            analyze(analysis.data)
         finally:
             os.chdir(original_dir)
 

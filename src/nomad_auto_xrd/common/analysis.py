@@ -404,9 +404,9 @@ def run_analysis_existing_spectra(
     )  # Replace 'logger=None' with an actual logger instance if available
 
 
-class XRDAutoAnalyser:
+class XRDAutoAnalyzer:
     """
-    A class to handle XRD analysis using the XRD-AutoAnalyser.
+    A class to handle XRD analysis using the XRD-AutoAnalyzer.
     This class provides methods to prepare data, setup model, run analysis, and
     visualize results.
     """
@@ -418,7 +418,7 @@ class XRDAutoAnalyser:
         logger: 'BoundLogger | None' = None,
     ):
         """
-        Initializes the XRDAutoAnalyser.
+        Initializes the XRDAutoAnalyzer.
 
         Args:
             working_directory (str): The directory where the analysis will be performed.
@@ -730,11 +730,11 @@ def to_nomad_data_results_section(
     return result_sections
 
 
-def analyse(
+def analyze(
     analysis_entry: 'AutoXRDAnalysis', logger: 'BoundLogger | None' = None
 ) -> AnalysisResult:
     """
-    Runs the XRDAutoAnalyser in a temporary directory for the given Auto XRD analysis
+    Runs the XRDAutoAnalyzer in a temporary directory for the given Auto XRD analysis
     entry, moves the plots to the 'Plots' directory, and populates the
     `analysis_entry.results` with the analysis results.
 
@@ -781,8 +781,8 @@ def analyse(
             min_angle=analysis_entry.analysis_settings.min_angle.to('degree').magnitude,
             max_angle=analysis_entry.analysis_settings.max_angle.to('degree').magnitude,
         )
-        analyser = XRDAutoAnalyser(temp_dir, analysis_settings, logger)
-        results = analyser.eval(analysis_inputs)
+        analyzer = XRDAutoAnalyzer(temp_dir, analysis_settings, logger)
+        results = analyzer.eval(analysis_inputs)
 
         # Move the plot out of `temp_dir`
         plots_dir = os.path.join('Plots')
@@ -798,11 +798,11 @@ def analyse(
     return results
 
 
-def analyse_combinatorial(
+def analyze_combinatorial(
     analysis_entry: 'AutoXRDAnalysis', logger: 'BoundLogger | None' = None
 ) -> AnalysisResult:
     """
-    Runs the XRDAutoAnalyser in a temporary directory for the given Auto XRD analysis
+    Runs the XRDAutoAnalyzer in a temporary directory for the given Auto XRD analysis
     entry, moves the plots to the 'Plots' directory, and populates the
     `analysis_entry.results` with the analysis results.
 
@@ -849,8 +849,8 @@ def analyse_combinatorial(
             min_angle=analysis_entry.analysis_settings.min_angle.to('degree').magnitude,
             max_angle=analysis_entry.analysis_settings.max_angle.to('degree').magnitude,
         )
-        analyser = XRDAutoAnalyser(temp_dir, analysis_settings, logger)
-        results = analyser.eval(analysis_inputs)
+        analyzer = XRDAutoAnalyzer(temp_dir, analysis_settings, logger)
+        results = analyzer.eval(analysis_inputs)
 
         # Move the plot out of `temp_dir`
         plots_dir = os.path.join('Plots')
