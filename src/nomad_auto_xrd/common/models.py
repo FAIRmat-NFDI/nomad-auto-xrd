@@ -20,6 +20,83 @@ from dataclasses import dataclass
 
 
 @dataclass
+class SimulationSettingsInput:
+    """Class to represent simulation settings for model training."""
+
+    structure_files: list[str]
+    max_texture: float
+    min_domain_size: float
+    max_domain_size: float
+    max_strain: float
+    num_patterns: int
+    min_angle: float
+    max_angle: float
+    max_shift: float
+    separate: bool
+    impur_amt: float
+    skip_filter: bool
+    include_elems: bool
+
+
+@dataclass
+class TrainingSettingsInput:
+    """Class to represent training settings for model training."""
+
+    # TODO make use of these fields in the training process.
+    num_epochs: int
+    batch_size: int
+    learning_rate: float
+    seed: int
+    test_fraction: float
+    enable_wandb: bool
+    wandb_project: str | None = None
+    wandb_entity: str | None = None
+
+
+@dataclass
+class TrainModelOutput:
+    """Class to represent output of model training."""
+
+    xrd_model_path: str | None = None
+    pdf_model_path: str | None = None
+    wandb_run_url_xrd: str | None = None
+    wandb_run_url_pdf: str | None = None
+    reference_structure_paths: list[str] | None = None
+
+
+@dataclass
+class AutoXRDModelInput:
+    """Class to represent the AutoXRD model input."""
+
+    upload_id: str
+    entry_id: str
+    working_directory: str
+    reference_structure_paths: list[str]
+    includes_pdf: bool
+    xrd_model_path: str
+    pdf_model_path: str | None = None
+
+
+@dataclass
+class AnalysisSettingsInput:
+    """Class to represent analysis settings for model training."""
+
+    auto_xrd_model: AutoXRDModelInput
+    max_phases: int
+    cutoff_intensity: float
+    min_confidence: float
+    unknown_threshold: float
+    show_reduced: bool
+    include_pdf: bool
+    parallel: bool
+    raw: bool
+    show_individual: bool
+    wavelength: float
+    min_angle: float
+    max_angle: float
+
+
+@dataclass
 class AnalysisInput:
     """
     A data class to hold the XRD data input for analysis.

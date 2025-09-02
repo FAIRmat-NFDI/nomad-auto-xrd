@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 from nomad_analysis.utils import get_reference
 from nomad_measurements.xrd.schema import XRayDiffraction
 
-from nomad_auto_xrd.models import AnalysisInput
+from nomad_auto_xrd.common.models import AnalysisInput
 
 if TYPE_CHECKING:
     from structlog.stdlib import BoundLogger

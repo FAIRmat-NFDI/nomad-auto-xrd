@@ -21,7 +21,7 @@ import tempfile
 import pytest
 from nomad.client import normalize_all, parse
 
-from nomad_auto_xrd.training import train
+from nomad_auto_xrd.common.training import train_nomad_model
 
 # Check environment variable
 run_pipeline_tests = os.environ.get('RUN_PIPELINE_TESTS', 'false').lower() == 'true'
@@ -40,11 +40,11 @@ log_levels = ['error', 'critical']
     [log_levels],
     indirect=True,
 )
-def test_train(caplog):
+def test_train_nomad_model(caplog):
     """
-    Test the `train` function of the AutoXRD package. Set ups the NOMAD entries for the
-    Auto XRD model, passes it to the training module and checks if the training was
-    successful.
+    Test the `train_nomad_model` function of the AutoXRD package. Set ups the NOMAD
+    entries for the Auto XRD model, passes it to the training module and checks if the
+    training was successful.
     """
     # Setup the model entry
     model = parse(os.path.join(data_dir, 'AutoXRDModel.archive.yaml'))[0]
@@ -60,7 +60,7 @@ def test_train(caplog):
     with tempfile.TemporaryDirectory() as tmpdirname:
         # Set the training directory
         model.data.working_directory = tmpdirname
-        train(model.data)
+        train_nomad_model(model.data)
         normalize_all(model)
 
         assert os.path.exists(os.path.join(tmpdirname, model.data.xrd_model))
