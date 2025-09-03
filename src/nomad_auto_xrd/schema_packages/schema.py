@@ -1020,7 +1020,8 @@ class AutoXRDAnalysis(JupyterAnalysis):
             'These will reflect under `analysis.analysis_settings.model` and ',
             '`analysis.inputs`.\n',
             '\n',
-            'Once this is done, we can use the `nomad_auto_xrd.analysis.analyse` ',
+            'Once this is done, we can use the '
+            '`nomad_auto_xrd.common.analysis.analyze` ',
             'routine to execute the analysis workflow on the `analysis` entry. This ',
             'will populate the `analysis.results`; one results sub-section is created ',
             'for each XRD measurement input.\n',
@@ -1033,9 +1034,9 @@ class AutoXRDAnalysis(JupyterAnalysis):
         )
 
         source = [
-            'from nomad_auto_xrd.common.analysis import analyse\n',
+            'from nomad_auto_xrd.common.analysis import analyze\n',
             '\n',
-            'analyse(analysis)\n',
+            'analyze(analysis)\n',
             '\n',
             'analysis.results\n',
         ]

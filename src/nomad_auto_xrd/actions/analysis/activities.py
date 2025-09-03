@@ -17,7 +17,7 @@ async def analyze(data: AnalyzeInput) -> AnalysisResult:
     Activity to run auto xrd analysis on the given data.
     """
 
-    from nomad_auto_xrd.common.analysis import XRDAutoAnalyser
+    from nomad_auto_xrd.common.analysis import XRDAutoAnalyzer
     from nomad_auto_xrd.common.utils import get_upload
 
     # Run training within the upload folder
@@ -29,7 +29,7 @@ async def analyze(data: AnalyzeInput) -> AnalysisResult:
         os.chdir(upload_raw_path)
         os.makedirs(data.working_directory, exist_ok=True)
         with tempfile.TemporaryDirectory() as temp_dir:
-            analyzer = XRDAutoAnalyser(temp_dir, data.analysis_settings)
+            analyzer = XRDAutoAnalyzer(temp_dir, data.analysis_settings)
             result = analyzer.eval(data.analysis_inputs)
             # Move the plots from `temp_dir` to a `Plots` folder within the
             # working directory
