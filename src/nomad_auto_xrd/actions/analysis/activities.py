@@ -70,7 +70,8 @@ async def analyze(data: AnalyzeInput) -> AnalysisResult:
     finally:
         os.chdir(original_path)
         for link in created_symlinks:
-            os.unlink(link)
+            if os.path.exists(link):
+                os.unlink(link)
 
     return result
 
