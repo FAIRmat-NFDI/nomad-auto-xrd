@@ -37,21 +37,29 @@ async def analyze(data: AnalyzeInput) -> AnalysisResult:
                 trained_model_upload.upload_files.os_path,
                 'raw',
             )
-            trained_model_working_dir = (
-                data.analysis_settings.auto_xrd_model.working_directory
+            src_path = os.path.abspath(
+                os.path.join(
+                    trained_model_upload_raw_path,
+                    data.analysis_settings.auto_xrd_model.working_directory,
+                )
             )
-            os.symlink(
-                os.path.abspath(
-                    os.path.join(
-                        trained_model_upload_raw_path, trained_model_working_dir
+            dest_path = os.path.join(
+                upload_raw_path,
+                data.analysis_settings.auto_xrd_model.working_directory,
+            )
+            if os.path.exists(dest_path):
+                if os.path.islink(dest_path):
+                    os.unlink(dest_path)
+                else:
+                    raise FileExistsError(
+                        f'Cannot create symlink, path already exists: {dest_path}'
                     )
-                ),
-                os.path.join(upload_raw_path, trained_model_working_dir),
+            os.symlink(
+                src=src_path,
+                dst=dest_path,
                 target_is_directory=True,
             )
-            created_symlinks.append(
-                os.path.join(upload_raw_path, trained_model_working_dir)
-            )
+            created_symlinks.append(dest_path)
 
         os.chdir(upload_raw_path)
         os.makedirs(data.working_directory, exist_ok=True)
