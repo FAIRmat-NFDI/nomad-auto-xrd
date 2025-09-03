@@ -55,6 +55,7 @@ dev = [
     "pytest",
     "structlog",
 ]
+cpu-action = ["nomad-auto-xrd[analytics]"]
 
 [tool.uv]
 prerelease = "allow"  # Allows pre-release/dev versions
