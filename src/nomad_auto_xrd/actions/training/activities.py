@@ -1,7 +1,6 @@
 import os
 from dataclasses import asdict
 
-import tensorflow as tf
 from temporalio import activity
 
 from nomad_auto_xrd.actions.training.models import (
@@ -9,34 +8,6 @@ from nomad_auto_xrd.actions.training.models import (
     TrainModelInput,
 )
 from nomad_auto_xrd.common.models import TrainModelOutput
-
-
-class TemporalHeartbeatCallback(tf.keras.callbacks.Callback):
-    """Callback to send Temporal heartbeats during training."""
-
-    def __init__(self, total_epochs):
-        super().__init__()
-        self.total_epochs = total_epochs
-
-    def on_train_begin(self, logs=None):
-        activity.heartbeat('Training started...')
-
-    def on_epoch_end(self, epoch, logs=None):
-        epoch_num = epoch + 1
-        progress_msg = f'Epoch {epoch_num}/{self.total_epochs} - '
-
-        if logs:
-            progress_msg += (
-                f'Loss: {logs.get("loss", 0):.4f}, '
-                f'Acc: {logs.get("categorical_accuracy", 0):.4f}, '
-                f'Val Loss: {logs.get("val_loss", 0):.4f}, '
-                f'Val Acc: {logs.get("val_categorical_accuracy", 0):.4f}'
-            )
-
-        activity.heartbeat(progress_msg)
-
-    def on_train_end(self, logs=None):
-        activity.heartbeat('Training completed!')
 
 
 @activity.defn
@@ -58,7 +29,6 @@ async def train_model(data: TrainModelInput) -> TrainModelOutput:
             simulation_settings=data.simulation_settings,
             training_settings=data.training_settings,
             includes_pdf=data.includes_pdf,
-            callbacks=[TemporalHeartbeatCallback(data.training_settings.num_epochs)],
         )
     finally:
         os.chdir(original_path)
