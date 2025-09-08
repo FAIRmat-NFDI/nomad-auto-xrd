@@ -1527,10 +1527,12 @@ class AutoXRDAnalysisAction(Action):
 
     def validate_inputs(self):
         """
-        Raises errors when the data in the referenced XRD entries is not valid.
         1. Ensures that the referenced entries are of type `XRayDiffraction`.
         2. Ensures that the two theta range of the XRD pattern is a super set of the
            two theta range specified in the analysis settings.
+
+        Raises errors when the data in the referenced XRD entries is not valid. Updates
+        the two theta range in analysis settings when required.
         """
         for xrd_reference in self.inputs:
             if not xrd_reference.reference:
@@ -1550,17 +1552,12 @@ class AutoXRDAnalysisAction(Action):
                     f'XRD entry "{xrd.name}" does not contain '
                     'valid two theta angles or intensity data.'
                 )
-            elif (
-                min(two_theta) > self.analysis_settings.min_angle
-                or max(two_theta) < self.analysis_settings.max_angle
-            ):
-                raise ValueError(
-                    f'Two theta range of XRD entry "{xrd.name}" '
-                    f'[{min(two_theta)}, {max(two_theta)}] should be a super set of '
-                    'two theta range specified in the analysis settings '
-                    f'[{self.analysis_settings.min_angle}, '
-                    f'{self.analysis_settings.max_angle}].'
-                )
+            self.analysis_settings.min_angle = max(
+                min(two_theta), self.analysis_settings.min_angle
+            )
+            self.analysis_settings.max_angle = min(
+                max(two_theta), self.analysis_settings.max_angle
+            )
 
     def populate_material_topology(self, archive, logger):
         """
@@ -1603,14 +1600,25 @@ class AutoXRDAnalysisAction(Action):
             logger (Logger): A structured logger.
         """
         self.method = 'Auto XRD Analysis'
+        self.m_setdefault('analysis_settings')
 
-        validation = True
-        if self.analysis_settings:
-            try:
-                self.validate_inputs()
-            except Exception as e:
-                validation = False
-                logger.error(str(e))
+        input_validation_failed = False
+        try:
+            self.validate_inputs()
+        except Exception as e:
+            input_validation_failed = True
+            logger.error(str(e))
+        if (
+            self.analysis_settings.min_angle.magnitude
+            != AnalysisSettings.min_angle.default
+            or self.analysis_settings.max_angle.magnitude
+            != AnalysisSettings.max_angle.default
+        ):
+            logger.info(
+                f'Based on the inputs, adjusted the two theta range '
+                f'for analysis to [{self.analysis_settings.min_angle}, '
+                f'{self.analysis_settings.max_angle}].'
+            )
 
         if self.action_status == 'RUNNING':
             # update the status if current status is RUNNING
@@ -1638,7 +1646,7 @@ class AutoXRDAnalysisAction(Action):
                     'No XRD measurements are provided for analysis. Cannot run the '
                     'analysis action.'
                 )
-            elif not validation:
+            elif input_validation_failed:
                 self.trigger_run_action = False
                 logger.error(
                     'Validation of the XRD entries failed. Cannot run the analysis '
