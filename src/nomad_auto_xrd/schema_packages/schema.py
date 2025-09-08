@@ -96,7 +96,6 @@ def populate_material_topology_with_cifs(
     elements = set()
     for ase_atoms in ase_atoms_list:
         elements.update(ase_atoms.get_chemical_symbols())
-        raise AssertionError('ASE atoms list is empty.')
     material.elements = list(elements)
 
     # Create a System: this is a NOMAD specific data structure for
@@ -461,6 +460,7 @@ class AutoXRDModel(Entity, Schema):
                 for reference_structure in self.reference_structures
             ]
             try:
+                archive.m_setdefault('results/material')
                 archive.results.material = populate_material_topology_with_cifs(
                     cif_files, archive.m_context
                 )
@@ -1562,7 +1562,7 @@ class AutoXRDAnalysisAction(Action):
                     f'{self.analysis_settings.max_angle}].'
                 )
 
-    def populate_topology(self, archive, logger):
+    def populate_material_topology(self, archive, logger):
         """
         Populates the `archive.results.material.topology` of the analysis entry based
         on the identified phases in analysis results.
@@ -1571,13 +1571,28 @@ class AutoXRDAnalysisAction(Action):
             archive (Archive): A NOMAD archive.
             logger (Logger): A structured logger.
         """
-        systems = []
-        for result in self.results:
-            try:
-                system = result.identified_phases
-                systems.extend(system)
-            except Exception as e:
-                logger.error(f'Error populating topology for result {result.id}: {e}')
+        cif_files = list(
+            set(
+                phase.reference_structure.cif_file
+                for result in self.results
+                for phase in result.identified_phases
+            )
+        )
+        try:
+            if not self.analysis_settings or not self.analysis_settings.auto_xrd_model:
+                return
+            model_context = self.analysis_settings.auto_xrd_model.m_context
+            archive.m_setdefault('results/material')
+            archive.results.material = populate_material_topology_with_cifs(
+                cif_files, model_context
+            )
+        except Exception as e:
+            logger.error(
+                'Failed to populate material topology.',
+                error=str(e),
+                error_type=type(e).__name__,
+                exc_info=True,
+            )
 
     def normalize(self, archive, logger):
         """
@@ -1630,7 +1645,7 @@ class AutoXRDAnalysisAction(Action):
                     'action.'
                 )
 
-        self.populate_topology(archive, logger)
+        self.populate_material_topology(archive, logger)
         super().normalize(archive, logger)
 
 
