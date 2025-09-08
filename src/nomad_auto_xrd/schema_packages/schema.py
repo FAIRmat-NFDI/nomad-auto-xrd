@@ -21,7 +21,7 @@ from typing import (
 )
 
 import nbformat
-from ase.io import read
+from ase.io import read as ase_io_read
 from matid import SymmetryAnalyzer
 from nomad.actions.utils import get_action_status, start_action
 from nomad.datamodel import ArchiveSection
@@ -60,9 +60,77 @@ from nomad_auto_xrd.common.models import (
 from nomad_auto_xrd.common.preprocessors import single_pattern_preprocessor
 
 if TYPE_CHECKING:
+    from nomad.datamodel.context import Context
     from structlog.stdlib import (
         BoundLogger,
     )
+
+
+def populate_material_topology_with_cifs(
+    cif_files: list[str], context: 'Context'
+) -> Material:
+    """
+    Returns a `nomad.datamodel.results.Material` section with elements and topology
+    information from a list of CIF files.
+
+    Args:
+        cif_files (list[str]): A list of CIF file paths.
+        context (Context): The NOMAD upload context. Required to read raw files.
+
+    Returns:
+        Material: A populated `nomad.datamodel.results.Material` section.
+    """
+    material = Material()
+
+    # Read the cif files and convert them into ase atoms
+    ase_atoms_list = []
+    for cif_file in cif_files:
+        if not cif_file or not cif_file.endswith('.cif'):
+            raise ValueError(
+                f'Cannot parse structure file: {cif_file}. Should be a "*.cif" file.'
+            )
+        with context.raw_file(cif_file) as file:
+            ase_atoms_list.append(ase_io_read(file.name))
+
+    # populate elements from a set of all the elements in ase_atoms
+    elements = set()
+    for ase_atoms in ase_atoms_list:
+        elements.update(ase_atoms.get_chemical_symbols())
+        raise AssertionError('ASE atoms list is empty.')
+    material.elements = list(elements)
+
+    # Create a System: this is a NOMAD specific data structure for
+    # storing structural and chemical information that is suitable for both
+    # experiments and simulations.
+    topology = {}
+    labels = []
+    for ase_atoms in ase_atoms_list:
+        symmetry = SymmetryNew()
+        symmetry_analyzer = SymmetryAnalyzer(ase_atoms, symmetry_tol=1)
+        symmetry.bravais_lattice = symmetry_analyzer.get_bravais_lattice()
+        symmetry.space_group_number = symmetry_analyzer.get_space_group_number()
+        symmetry.space_group_symbol = (
+            symmetry_analyzer.get_space_group_international_short()
+        )
+        label = f'{ase_atoms.get_chemical_formula()}-{symmetry.space_group_number}'
+        labels.append(label)
+        symmetry.crystal_system = symmetry_analyzer.get_crystal_system()
+        symmetry.point_group = symmetry_analyzer.get_point_group()
+        system = System(
+            atoms=nomad_atoms_from_ase_atoms(ase_atoms),
+            label=label,
+            description='Reference structure used to train the auto-XRD model.',  # TODO make this more generic
+            structural_type='bulk',
+            dimensionality='3D',
+            symmetry=symmetry,
+        )
+        add_system_info(system, topology)
+        add_system(system, topology)
+
+    material.topology = list(topology.values())
+
+    return material
+
 
 m_package = SchemaPackage(aliases=['nomad_auto_xrd.schema'])
 
@@ -388,71 +456,25 @@ class AutoXRDModel(Entity, Schema):
     def normalize(self, archive: 'ArchiveSection', logger: 'BoundLogger'):
         super().normalize(archive, logger)
         if self.reference_structures:
-            # Read the reference CIF files and convert them into ase atoms
-            ase_atoms_list = []
-            for reference_structure in self.reference_structures:
-                cif_file = reference_structure.cif_file
-                if not cif_file or not cif_file.endswith('.cif'):
-                    logger.warn(
-                        f'Cannot parse structure file: {cif_file}. '
-                        'Should be a "*.cif" file.'
-                    )
-                    continue
-                with archive.m_context.raw_file(cif_file) as file:
-                    try:
-                        ase_atoms_list.append(read(file.name))
-                    except RuntimeError:
-                        logger.warn(f'Cannot parse cif file: {cif_file}.')
-
-            # Let's save the composition and structure into archive.results.material
-            if not archive.results.material:
-                archive.results.material = Material()
-
-            # populate elemets from a set aof all the elemsts in ase_atoms
-            elements = set()
-            for ase_atoms in ase_atoms_list:
-                elements.update(ase_atoms.get_chemical_symbols())
-            archive.results.material.elements = list(elements)
-
-            # Create a System: this is a NOMAD specific data structure for
-            # storing structural and chemical information that is suitable for both
-            # experiments and simulations.
-            topology = {}
-            labels = []
-            for ase_atoms in ase_atoms_list:
-                symmetry = SymmetryNew()
-                symmetry_analyzer = SymmetryAnalyzer(ase_atoms, symmetry_tol=1)
-                symmetry.bravais_lattice = symmetry_analyzer.get_bravais_lattice()
-                symmetry.space_group_number = symmetry_analyzer.get_space_group_number()
-                symmetry.space_group_symbol = (
-                    symmetry_analyzer.get_space_group_international_short()
+            cif_files = [
+                reference_structure.cif_file
+                for reference_structure in self.reference_structures
+            ]
+            try:
+                archive.results.material = populate_material_topology_with_cifs(
+                    cif_files, archive.m_context
                 )
-                symmetry.crystal_system = symmetry_analyzer.get_crystal_system()
-                symmetry.point_group = symmetry_analyzer.get_point_group()
-                label = (
-                    f'{ase_atoms.get_chemical_formula()}-{symmetry.space_group_number}'
+                for i in range(len(archive.results.material.topology)):
+                    self.reference_structures[
+                        i
+                    ].system = f'#/results/material/topology/{i}'
+            except Exception as e:
+                logger.error(
+                    'Error in populating material topology from CIF files.',
+                    error=str(e),
+                    error_type=type(e).__name__,
+                    exc_info=True,
                 )
-                labels.append(label)
-                system = System(
-                    atoms=nomad_atoms_from_ase_atoms(ase_atoms),
-                    label=label,
-                    description='Reference structure used to train the auto-XRD model.',
-                    structural_type='bulk',
-                    dimensionality='3D',
-                    symmetry=symmetry,
-                )
-                add_system_info(system, topology)
-                add_system(system, topology)
-
-            archive.results.material.topology = list(topology.values())
-            topology_m_proxies = dict()
-            for i, system in enumerate(archive.results.material.topology):
-                topology_m_proxies[system.label] = f'#/results/material/topology/{i}'
-
-            # connect `data.reference_structures[i].system` and
-            # `results.material.topology[j]` using the label
-            for i, label in enumerate(labels):
-                self.reference_structures[i].system = topology_m_proxies[label]
 
 
 class AutoXRDModelReference(SectionReference):
@@ -1540,6 +1562,23 @@ class AutoXRDAnalysisAction(Action):
                     f'{self.analysis_settings.max_angle}].'
                 )
 
+    def populate_topology(self, archive, logger):
+        """
+        Populates the `archive.results.material.topology` of the analysis entry based
+        on the identified phases in analysis results.
+
+        Args:
+            archive (Archive): A NOMAD archive.
+            logger (Logger): A structured logger.
+        """
+        systems = []
+        for result in self.results:
+            try:
+                system = result.identified_phases
+                systems.extend(system)
+            except Exception as e:
+                logger.error(f'Error populating topology for result {result.id}: {e}')
+
     def normalize(self, archive, logger):
         """
         Normalizes the `AutoXRDAnalysis` entry.
@@ -1591,6 +1630,7 @@ class AutoXRDAnalysisAction(Action):
                     'action.'
                 )
 
+        self.populate_topology(archive, logger)
         super().normalize(archive, logger)
 
 
