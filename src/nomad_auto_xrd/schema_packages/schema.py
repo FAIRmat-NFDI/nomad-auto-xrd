@@ -118,7 +118,7 @@ def populate_material_topology_with_cifs(
         system = System(
             atoms=nomad_atoms_from_ase_atoms(ase_atoms),
             label=label,
-            description='Reference structure used to train the auto-XRD model.',  # TODO make this more generic
+            description='Structure generated from a CIF file.',
             structural_type='bulk',
             dimensionality='3D',
             symmetry=symmetry,
