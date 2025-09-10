@@ -1124,12 +1124,18 @@ class AutoXRDAnalysis(JupyterAnalysis):
                     f'XRD entry "{xrd.name}" does not contain '
                     'valid two theta angles or intensity data.'
                 )
-            self.analysis_settings.min_angle = max(
-                min(two_theta), self.analysis_settings.min_angle
-            )
-            self.analysis_settings.max_angle = min(
-                max(two_theta), self.analysis_settings.max_angle
-            )
+            new_min = max(min(two_theta), self.analysis_settings.min_angle)
+            new_max = min(max(two_theta), self.analysis_settings.max_angle)
+            if new_min < new_max:
+                self.analysis_settings.min_angle = new_min
+                self.analysis_settings.max_angle = new_max
+            else:
+                raise ValueError(
+                    'A valid two theta range for analysis settings could not be '
+                    'determined for the given set of inputs. '
+                    'The range in analysis setting should be a '
+                    'sub-set of the two theta range of all the input measurements.'
+                )
 
     def normalize(self, archive, logger):
         """
