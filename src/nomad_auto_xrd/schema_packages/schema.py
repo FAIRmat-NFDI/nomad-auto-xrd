@@ -1097,6 +1097,40 @@ class AutoXRDAnalysis(JupyterAnalysis):
 
         return cells
 
+    def validate_inputs(self):
+        """
+        1. Ensures that the referenced entries are of type `XRayDiffraction`.
+        2. Ensures that the two theta range of the XRD pattern is a super set of the
+           two theta range specified in the analysis settings.
+
+        Raises errors when the data in the referenced XRD entries is not valid. Updates
+        the two theta range in analysis settings when required.
+        """
+        for xrd_reference in self.inputs:
+            if not xrd_reference.reference:
+                continue
+            xrd = xrd_reference.reference
+            if isinstance(xrd, MProxy):
+                xrd.m_proxy_resolve()
+            if not isinstance(xrd, XRayDiffraction):
+                raise TypeError(
+                    f'XRD entry "{xrd.name}" is not of type `XRayDiffraction`.'
+                )
+            pattern = xrd.m_parent.results.properties.structural.diffraction_pattern[0]
+            two_theta = pattern.two_theta_angles
+            intensity = pattern.intensity
+            if two_theta is None or intensity is None:
+                raise ValueError(
+                    f'XRD entry "{xrd.name}" does not contain '
+                    'valid two theta angles or intensity data.'
+                )
+            self.analysis_settings.min_angle = max(
+                min(two_theta), self.analysis_settings.min_angle
+            )
+            self.analysis_settings.max_angle = min(
+                max(two_theta), self.analysis_settings.max_angle
+            )
+
     def normalize(self, archive, logger):
         """
         Normalizes the `AutoXRDAnalysis` entry.
@@ -1136,50 +1170,13 @@ class AutoXRDAnalysis(JupyterAnalysis):
                 </li>
             </ol>
             """
-        super().normalize(archive, logger)
+        self.m_setdefault('analysis_settings')
+        try:
+            self.validate_inputs()
+        except Exception as e:
+            logger.error(str(e))
 
-        # validate the data in the referenced XRD entries
-        if self.analysis_settings:
-            for xrd_reference in self.inputs:
-                if not xrd_reference.reference:
-                    continue
-                xrd = xrd_reference.reference
-                if isinstance(xrd, MProxy):
-                    xrd.m_proxy_resolve()
-                if not isinstance(xrd, XRayDiffraction):
-                    logger.error(
-                        f'XRD entry "{xrd.name}" is not of type `XRayDiffraction`.'
-                    )
-                    continue
-                try:
-                    pattern = (
-                        xrd.m_parent.results.properties.structural.diffraction_pattern[
-                            0
-                        ]
-                    )
-                    two_theta = pattern.two_theta_angles
-                    intensity = pattern.intensity
-                except AttributeError as e:
-                    logger.error(f'Error accessing XRD entry "{xrd.name}". {e}')
-                    continue
-                if two_theta is None or intensity is None:
-                    logger.error(
-                        f'XRD entry {xrd.name} does not contain valid two theta '
-                        'angles or intensity data.'
-                    )
-                    continue
-                elif (
-                    min(two_theta) > self.analysis_settings.min_angle
-                    or max(two_theta) < self.analysis_settings.max_angle
-                ):
-                    logger.error(
-                        f'Two theta range of XRD entry "{xrd.name}" [{min(two_theta)}, '
-                        f'{max(two_theta)}] should be a super set of two theta range '
-                        'specified in the analysis settings '
-                        f'[{self.analysis_settings.min_angle}, '
-                        f'{self.analysis_settings.max_angle}].'
-                    )
-                    continue
+        super().normalize(archive, logger)
 
 
 class ActionCategory(EntryDataCategory):
