@@ -57,7 +57,10 @@ from nomad_auto_xrd.common.models import (
     SimulationSettingsInput,
     TrainingSettingsInput,
 )
-from nomad_auto_xrd.common.preprocessors import single_pattern_preprocessor
+from nomad_auto_xrd.common.preprocessors import (
+    multiple_patterns_preprocessor,
+    single_pattern_preprocessor,
+)
 
 if TYPE_CHECKING:
     from nomad.datamodel.context import Context
@@ -1485,9 +1488,16 @@ class AutoXRDAnalysisAction(Action):
         The workflow runs the analysis, populates the `results` section with the
         identified phases, and updates the `workflow_status`.
         """
-        analysis_inputs = single_pattern_preprocessor(
-            [section.reference for section in self.inputs], logger
-        )
+        analysis_inputs = []
+        for section in self.inputs:
+            if len(section.reference.results) > 1:
+                analysis_inputs.extend(
+                    multiple_patterns_preprocessor([section.reference], logger)
+                )
+            else:
+                analysis_inputs.extend(
+                    single_pattern_preprocessor([section.reference], logger)
+                )
         model_entry = self.analysis_settings.auto_xrd_model
         model_input = AutoXRDModelInput(
             upload_id=model_entry.m_parent.metadata.upload_id,
