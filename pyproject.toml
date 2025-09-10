@@ -54,7 +54,7 @@ dev = [
     "ruff",
     "pytest",
     "structlog",
-    "nomad-dtu-nanolab-plugin",
+    "nomad-dtu-nanolab-plugin; python_version >= '3.11'",
 ]
 cpu-action = ["nomad-auto-xrd[analytics]"]
 
