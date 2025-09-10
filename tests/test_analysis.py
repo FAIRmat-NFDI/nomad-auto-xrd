@@ -56,6 +56,8 @@ def test_analysis(parsed_measurement_archives, caplog, clean_up):
         - The analysis entry stores the settings for the analysis including references
           to the XRD entry and the model entry.
     """
+    expected_num_results = 5  # 2 from single patterns + 3 from combinatorial
+
     # prepare the pre-trained model entry
     reference_files = [
         os.path.join(data_dir, 'References', path)
@@ -74,13 +76,27 @@ def test_analysis(parsed_measurement_archives, caplog, clean_up):
     model.data.pdf_model = os.path.join(data_dir, 'Models', 'PDF_Model.h5')
     normalize_all(model)
 
+    # prepare the combinatorial XRD entry
+    combinatorial_xrd = parse(os.path.join(data_dir, 'CombinatorialXRD.archive.yaml'))[
+        0
+    ]
+    combinatorial_xrd.data.data_files = [
+        os.path.join(data_dir, 'combinatorial', path)
+        for path in os.listdir(os.path.join(data_dir, 'combinatorial'))
+        if path.endswith('.rasx')
+    ]
+    normalize_all(combinatorial_xrd)
+
     # prepare the analysis entry
     analysis = parse(os.path.join(data_dir, 'AutoXRDAnalysis.archive.yaml'))[0]
+    analysis.m_setdefault('data/analysis_settings')
     analysis.data.analysis_settings.auto_xrd_model = model.data
     analysis.m_setdefault('data/inputs/0')
     analysis.data.inputs[0].reference = parsed_measurement_archives[0].data
     analysis.m_setdefault('data/inputs/1')
     analysis.data.inputs[1].reference = parsed_measurement_archives[1].data
+    analysis.m_setdefault('data/inputs/2')
+    analysis.data.inputs[2].reference = combinatorial_xrd.data
     normalize_all(analysis)
 
     # run the analysis
@@ -92,7 +108,10 @@ def test_analysis(parsed_measurement_archives, caplog, clean_up):
         finally:
             os.chdir(original_dir)
 
-    assert analysis.data.results[0] is not None and analysis.data.results[1] is not None
+    # check that results are created
+    assert len(analysis.data.results) == expected_num_results
+    for result in analysis.data.results:
+        assert result is not None
 
     # clean up the created files
     clean_up.track(os.path.join(data_dir, analysis.data.notebook))
