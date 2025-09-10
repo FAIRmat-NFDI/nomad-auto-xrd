@@ -1175,6 +1175,17 @@ class AutoXRDAnalysis(JupyterAnalysis):
             self.validate_inputs()
         except Exception as e:
             logger.error(str(e))
+        if (
+            self.analysis_settings.min_angle.magnitude
+            != AnalysisSettings.min_angle.default
+            or self.analysis_settings.max_angle.magnitude
+            != AnalysisSettings.max_angle.default
+        ):
+            logger.info(
+                f'Based on the inputs, adjusted the two theta range '
+                f'for analysis to [{self.analysis_settings.min_angle}, '
+                f'{self.analysis_settings.max_angle}].'
+            )
 
         super().normalize(archive, logger)
 
