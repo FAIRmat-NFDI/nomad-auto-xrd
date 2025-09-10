@@ -747,77 +747,16 @@ def analyze(
             confidences, and plot paths.
     """
     with tempfile.TemporaryDirectory() as temp_dir:
-        analysis_inputs = single_pattern_preprocessor(
-            [section.reference for section in analysis_entry.inputs], logger
-        )
-        if not analysis_inputs:
-            raise ValueError('No valid XRD data found in the analysis entry inputs.')
-        model_entry = analysis_entry.analysis_settings.auto_xrd_model
-        model_input = AutoXRDModelInput(
-            upload_id=model_entry.m_parent.metadata.upload_id,
-            entry_id=model_entry.m_parent.metadata.entry_id,
-            working_directory=model_entry.working_directory,
-            includes_pdf=model_entry.includes_pdf,
-            reference_structure_paths=[
-                section.cif_file for section in model_entry.reference_structures
-            ],
-            xrd_model_path=model_entry.xrd_model,
-            pdf_model_path=model_entry.pdf_model,
-        )
-        analysis_settings = AnalysisSettingsInput(
-            auto_xrd_model=model_input,
-            max_phases=analysis_entry.analysis_settings.max_phases,
-            cutoff_intensity=analysis_entry.analysis_settings.cutoff_intensity,
-            min_confidence=analysis_entry.analysis_settings.min_confidence,
-            unknown_threshold=analysis_entry.analysis_settings.unknown_threshold,
-            show_reduced=analysis_entry.analysis_settings.show_reduced,
-            include_pdf=analysis_entry.analysis_settings.include_pdf,
-            parallel=analysis_entry.analysis_settings.parallel,
-            raw=analysis_entry.analysis_settings.raw,
-            show_individual=analysis_entry.analysis_settings.show_individual,
-            wavelength=analysis_entry.analysis_settings.wavelength.to(
-                'angstrom'
-            ).magnitude,
-            min_angle=analysis_entry.analysis_settings.min_angle.to('degree').magnitude,
-            max_angle=analysis_entry.analysis_settings.max_angle.to('degree').magnitude,
-        )
-        analyzer = XRDAutoAnalyzer(temp_dir, analysis_settings, logger)
-        results = analyzer.eval(analysis_inputs)
-
-        # Move the plot out of `temp_dir`
-        plots_dir = os.path.join('Plots')
-        os.makedirs(plots_dir, exist_ok=True)
-        for result_iter, plot_path in enumerate(results.plot_paths):
-            new_plot_path = os.path.join(plots_dir, os.path.basename(plot_path))
-            if os.path.exists(plot_path):
-                shutil.copy2(plot_path, new_plot_path)
-                results.plot_paths[result_iter] = new_plot_path
-
-    analysis_entry.results = to_nomad_data_results_section(results)
-
-    return results
-
-
-def analyze_combinatorial(
-    analysis_entry: 'AutoXRDAnalysis', logger: 'BoundLogger | None' = None
-) -> AnalysisResult:
-    """
-    Runs the XRDAutoAnalyzer in a temporary directory for the given Auto XRD analysis
-    entry, moves the plots to the 'Plots' directory, and populates the
-    `analysis_entry.results` with the analysis results.
-
-    Args:
-        analysis_entry (AutoXRDAnalysis): NOMAD analysis section containing the XRD
-            data and model information.
-
-    Returns:
-        AnalysisResult: The results of the analysis, including identified phases,
-            confidences, and plot paths.
-    """
-    with tempfile.TemporaryDirectory() as temp_dir:
-        analysis_inputs = multiple_patterns_preprocessor(
-            [section.reference for section in analysis_entry.inputs], logger
-        )
+        analysis_inputs = []
+        for section in analysis_entry.inputs:
+            if len(section.reference.results) > 1:
+                analysis_inputs.extend(
+                    multiple_patterns_preprocessor([section.reference], logger)
+                )
+            else:
+                analysis_inputs.extend(
+                    single_pattern_preprocessor([section.reference], logger)
+                )
         if not analysis_inputs:
             raise ValueError('No valid XRD data found in the analysis entry inputs.')
         model_entry = analysis_entry.analysis_settings.auto_xrd_model
