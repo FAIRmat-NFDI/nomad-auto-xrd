@@ -76,7 +76,7 @@ def single_pattern_preprocessor(
 
 def multiple_patterns_preprocessor(
     xrd_sections: list[XRayDiffraction], logger: 'BoundLogger' = None
-) -> None:
+) -> list[AnalysisInput]:
     """
     Extract relevant data from `XRayDiffraction` section into `AnalysisInput` objects.
     This preprocessor is suitable for `XRayDiffraction` sections that have multiple

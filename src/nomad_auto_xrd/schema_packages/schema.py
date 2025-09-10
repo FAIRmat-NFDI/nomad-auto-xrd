@@ -57,7 +57,10 @@ from nomad_auto_xrd.common.models import (
     SimulationSettingsInput,
     TrainingSettingsInput,
 )
-from nomad_auto_xrd.common.preprocessors import single_pattern_preprocessor
+from nomad_auto_xrd.common.preprocessors import (
+    multiple_patterns_preprocessor,
+    single_pattern_preprocessor,
+)
 
 if TYPE_CHECKING:
     from nomad.datamodel.context import Context
@@ -1094,6 +1097,46 @@ class AutoXRDAnalysis(JupyterAnalysis):
 
         return cells
 
+    def validate_inputs(self):
+        """
+        1. Ensures that the referenced entries are of type `XRayDiffraction`.
+        2. Ensures that the two theta range of the XRD pattern is a super set of the
+           two theta range specified in the analysis settings.
+
+        Raises errors when the data in the referenced XRD entries is not valid. Updates
+        the two theta range in analysis settings when required.
+        """
+        for xrd_reference in self.inputs:
+            if not xrd_reference.reference:
+                continue
+            xrd = xrd_reference.reference
+            if isinstance(xrd, MProxy):
+                xrd.m_proxy_resolve()
+            if not isinstance(xrd, XRayDiffraction):
+                raise TypeError(
+                    f'XRD entry "{xrd.name}" is not of type `XRayDiffraction`.'
+                )
+            pattern = xrd.m_parent.results.properties.structural.diffraction_pattern[0]
+            two_theta = pattern.two_theta_angles
+            intensity = pattern.intensity
+            if two_theta is None or intensity is None:
+                raise ValueError(
+                    f'XRD entry "{xrd.name}" does not contain '
+                    'valid two theta angles or intensity data.'
+                )
+            new_min = max(min(two_theta), self.analysis_settings.min_angle)
+            new_max = min(max(two_theta), self.analysis_settings.max_angle)
+            if new_min < new_max:
+                self.analysis_settings.min_angle = new_min
+                self.analysis_settings.max_angle = new_max
+            else:
+                raise ValueError(
+                    'A valid two theta range for analysis settings could not be '
+                    'determined for the given set of inputs. '
+                    'The range in analysis setting should be a '
+                    'sub-set of the two theta range of all the input measurements.'
+                )
+
     def normalize(self, archive, logger):
         """
         Normalizes the `AutoXRDAnalysis` entry.
@@ -1133,50 +1176,24 @@ class AutoXRDAnalysis(JupyterAnalysis):
                 </li>
             </ol>
             """
-        super().normalize(archive, logger)
+        self.m_setdefault('analysis_settings')
+        try:
+            self.validate_inputs()
+        except Exception as e:
+            logger.error(str(e))
+        if (
+            self.analysis_settings.min_angle.magnitude
+            != AnalysisSettings.min_angle.default
+            or self.analysis_settings.max_angle.magnitude
+            != AnalysisSettings.max_angle.default
+        ):
+            logger.info(
+                f'Based on the inputs, adjusted the two theta range '
+                f'for analysis to [{self.analysis_settings.min_angle}, '
+                f'{self.analysis_settings.max_angle}].'
+            )
 
-        # validate the data in the referenced XRD entries
-        if self.analysis_settings:
-            for xrd_reference in self.inputs:
-                if not xrd_reference.reference:
-                    continue
-                xrd = xrd_reference.reference
-                if isinstance(xrd, MProxy):
-                    xrd.m_proxy_resolve()
-                if not isinstance(xrd, XRayDiffraction):
-                    logger.error(
-                        f'XRD entry "{xrd.name}" is not of type `XRayDiffraction`.'
-                    )
-                    continue
-                try:
-                    pattern = (
-                        xrd.m_parent.results.properties.structural.diffraction_pattern[
-                            0
-                        ]
-                    )
-                    two_theta = pattern.two_theta_angles
-                    intensity = pattern.intensity
-                except AttributeError as e:
-                    logger.error(f'Error accessing XRD entry "{xrd.name}". {e}')
-                    continue
-                if two_theta is None or intensity is None:
-                    logger.error(
-                        f'XRD entry {xrd.name} does not contain valid two theta '
-                        'angles or intensity data.'
-                    )
-                    continue
-                elif (
-                    min(two_theta) > self.analysis_settings.min_angle
-                    or max(two_theta) < self.analysis_settings.max_angle
-                ):
-                    logger.error(
-                        f'Two theta range of XRD entry "{xrd.name}" [{min(two_theta)}, '
-                        f'{max(two_theta)}] should be a super set of two theta range '
-                        'specified in the analysis settings '
-                        f'[{self.analysis_settings.min_angle}, '
-                        f'{self.analysis_settings.max_angle}].'
-                    )
-                    continue
+        super().normalize(archive, logger)
 
 
 class ActionCategory(EntryDataCategory):
@@ -1485,9 +1502,16 @@ class AutoXRDAnalysisAction(Action):
         The workflow runs the analysis, populates the `results` section with the
         identified phases, and updates the `workflow_status`.
         """
-        analysis_inputs = single_pattern_preprocessor(
-            [section.reference for section in self.inputs], logger
-        )
+        analysis_inputs = []
+        for section in self.inputs:
+            if len(section.reference.results) > 1:
+                analysis_inputs.extend(
+                    multiple_patterns_preprocessor([section.reference], logger)
+                )
+            else:
+                analysis_inputs.extend(
+                    single_pattern_preprocessor([section.reference], logger)
+                )
         model_entry = self.analysis_settings.auto_xrd_model
         model_input = AutoXRDModelInput(
             upload_id=model_entry.m_parent.metadata.upload_id,
