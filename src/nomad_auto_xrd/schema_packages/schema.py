@@ -1265,7 +1265,7 @@ class Action(Analysis, Schema):
         """
         if not self.action_id:
             raise ValueError('No action ID found. Cannot retrieve action status.')
-        status = get_action_status(self.action_id)
+        status = get_action_status(self.action_id, archive.metadata.authors[0].user_id)
         if not status:
             raise ValueError(f'No status found for action ID: {self.action_id}.')
         self.action_status = status.name
@@ -1408,7 +1408,9 @@ class AutoXRDTrainingAction(Action):
 
         if self.action_status == 'RUNNING':
             # update the status if current status is RUNNING
-            self.action_status = get_action_status(self.action_id).name
+            self.action_status = get_action_status(
+                self.action_id, archive.metadata.authors[0].user_id
+            ).name
 
         if self.trigger_run_action:
             if self.action_status == 'RUNNING':
@@ -1640,7 +1642,9 @@ class AutoXRDAnalysisAction(Action):
 
         if self.action_status == 'RUNNING':
             # update the status if current status is RUNNING
-            self.action_status = get_action_status(self.action_id).name
+            self.action_status = get_action_status(
+                self.action_id, archive.metadata.authors[0].user_id
+            ).name
 
         if self.trigger_run_action:
             if self.action_status == 'RUNNING':
