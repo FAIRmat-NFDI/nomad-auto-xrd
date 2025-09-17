@@ -19,7 +19,7 @@ import os
 from typing import TYPE_CHECKING
 
 from nomad import infrastructure
-from nomad.processing.data import Upload
+from nomad.processing.data import PublicUploadFiles, StagingUploadFiles, Upload
 from nomad_analysis.utils import get_reference
 
 from nomad_auto_xrd.common.models import AnalysisInput
@@ -29,6 +29,14 @@ if TYPE_CHECKING:
 
 
 def get_upload(upload_id: str, user_id: str) -> Upload | None:
+    """
+    Retrieve an upload by ID and check if the user is authorized to access it.
+    Args:
+        upload_id (str): The ID of the upload to retrieve.
+        user_id (str): The ID of the user requesting access.
+    Returns:
+        Upload | None: The upload object if found and authorized, else None.
+    """
     if infrastructure.mongo_client is None:
         infrastructure.setup_mongo()
 
@@ -48,6 +56,38 @@ def get_upload(upload_id: str, user_id: str) -> Upload | None:
         )
 
     return upload
+
+
+def read_entry_archive(entry_id: str, upload_id: str, user_id: str) -> dict:
+    """
+    Read and return the archive of a specific entry from an upload after checking
+    user authorization.
+
+    Args:
+        entry_id (str): The ID of the entry to read.
+        upload_id (str): The ID of the upload containing the entry.
+        user_id (str): The ID of the user requesting access.
+
+    Returns:
+        dict: The archive of the specified entry.
+    """
+    get_upload(upload_id, user_id)  # Check authorization
+
+    # User is authorized, retrieve and return files
+    if StagingUploadFiles.exists_for(upload_id):
+        upload_files = StagingUploadFiles(upload_id)
+    elif PublicUploadFiles.exists_for(upload_id):
+        upload_files = PublicUploadFiles(upload_id)
+    else:
+        raise ValueError(f'Upload files for upload {upload_id} not found.')
+
+    archive = upload_files.read_archive(entry_id)
+
+    if archive is None:
+        raise ValueError(f'Entry with id {entry_id} not found in upload {upload_id}.')
+
+    return archive[entry_id]
+
 
 def pattern_preprocessor(
     xrd_entry_archive: dict, logger: 'BoundLogger | None' = None
