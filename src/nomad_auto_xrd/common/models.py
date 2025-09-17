@@ -131,7 +131,8 @@ class AnalysisResult:
         backup_phases (list[list]): Backup phases identified during the analysis for
             each file.
         scale_factors (list[list]): Scale factors applied to the spectra.
-        reduced_spectra (list[list]): Reduced spectra after analysis.
+        reduced_spectra (list[list] | None): Reduced spectra after analysis, if
+            available.
         phases_m_proxies (list[list] | None): M-proxies for the identified phases, if
             available.
         xrd_measurement_m_proxies (list | None): M-proxies for the `data.results`
@@ -144,7 +145,7 @@ class AnalysisResult:
     confidences: list[list]
     backup_phases: list[list]
     scale_factors: list[list]
-    reduced_spectra: list[list]
+    reduced_spectra: list[list] | None = None
     phases_m_proxies: list[list] | None = None
     xrd_measurement_m_proxies: list | None = None
     plot_paths: list | None = None
@@ -156,7 +157,9 @@ class AnalysisResult:
             'confs': self.confidences,
             'backup_phases': self.backup_phases,
             'scale_factors': self.scale_factors,
-            'reduced_spectra': self.reduced_spectra,
+            'reduced_spectra': (
+                self.reduced_spectra if self.reduced_spectra is not None else []
+            ),
             'phases_m_proxies': (
                 self.phases_m_proxies if self.phases_m_proxies is not None else []
             ),
@@ -176,7 +179,9 @@ class AnalysisResult:
             confidences=list(data['confs']),
             backup_phases=list(data['backup_phases']),
             scale_factors=list(data['scale_factors']),
-            reduced_spectra=list(data['reduced_spectra']),
+            reduced_spectra=list(data['reduced_spectra'])
+            if 'reduced_spectra' in data
+            else None,
             phases_m_proxies=list(data['phases_m_proxies'])
             if 'phases_m_proxies' in data
             else None,
@@ -195,19 +200,23 @@ class AnalysisResult:
         self.confidences.extend(other.confidences)
         self.backup_phases.extend(other.backup_phases)
         self.scale_factors.extend(other.scale_factors)
-        self.reduced_spectra.extend(other.reduced_spectra)
+
+        if other.reduced_spectra:
+            if self.reduced_spectra is None:
+                self.reduced_spectra = []
+            self.reduced_spectra.extend(other.reduced_spectra)
 
         if other.phases_m_proxies:
-            if not self.phases_m_proxies:
+            if self.phases_m_proxies is None:
                 self.phases_m_proxies = []
             self.phases_m_proxies.extend(other.phases_m_proxies)
 
         if other.xrd_measurement_m_proxies:
-            if not self.xrd_measurement_m_proxies:
+            if self.xrd_measurement_m_proxies is None:
                 self.xrd_measurement_m_proxies = []
             self.xrd_measurement_m_proxies.extend(other.xrd_measurement_m_proxies)
 
         if other.plot_paths:
-            if not self.plot_paths:
+            if self.plot_paths is None:
                 self.plot_paths = []
             self.plot_paths.extend(other.plot_paths)

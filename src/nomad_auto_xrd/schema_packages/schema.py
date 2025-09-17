@@ -50,16 +50,13 @@ from nomad_measurements.xrd.schema import XRayDiffraction
 from pymatgen.io.cif import CifParser
 
 from nomad_auto_xrd.actions.analysis.models import UserInput as AnalysisUserInput
+from nomad_auto_xrd.actions.analysis.models import XRDMeasurementEntry
 from nomad_auto_xrd.actions.training.models import UserInput as TrainingUserInput
 from nomad_auto_xrd.common.models import (
     AnalysisSettingsInput,
     AutoXRDModelInput,
     SimulationSettingsInput,
     TrainingSettingsInput,
-)
-from nomad_auto_xrd.common.preprocessors import (
-    multiple_patterns_preprocessor,
-    single_pattern_preprocessor,
 )
 
 if TYPE_CHECKING:
@@ -1268,7 +1265,7 @@ class Action(Analysis, Schema):
         """
         if not self.action_id:
             raise ValueError('No action ID found. Cannot retrieve action status.')
-        status = get_action_status(self.action_id)
+        status = get_action_status(self.action_id, archive.metadata.authors[0].user_id)
         if not status:
             raise ValueError(f'No status found for action ID: {self.action_id}.')
         self.action_status = status.name
@@ -1411,7 +1408,9 @@ class AutoXRDTrainingAction(Action):
 
         if self.action_status == 'RUNNING':
             # update the status if current status is RUNNING
-            self.action_status = get_action_status(self.action_id).name
+            self.action_status = get_action_status(
+                self.action_id, archive.metadata.authors[0].user_id
+            ).name
 
         if self.trigger_run_action:
             if self.action_status == 'RUNNING':
@@ -1502,16 +1501,13 @@ class AutoXRDAnalysisAction(Action):
         The workflow runs the analysis, populates the `results` section with the
         identified phases, and updates the `workflow_status`.
         """
-        analysis_inputs = []
-        for section in self.inputs:
-            if len(section.reference.results) > 1:
-                analysis_inputs.extend(
-                    multiple_patterns_preprocessor([section.reference], logger)
-                )
-            else:
-                analysis_inputs.extend(
-                    single_pattern_preprocessor([section.reference], logger)
-                )
+        xrd_measurement_entries = []
+        for input_ref_section in self.inputs:
+            xrd_measurement_entry = XRDMeasurementEntry(
+                entry_id=input_ref_section.reference.m_parent.metadata.entry_id,
+                upload_id=input_ref_section.reference.m_parent.metadata.upload_id,
+            )
+            xrd_measurement_entries.append(xrd_measurement_entry)
         model_entry = self.analysis_settings.auto_xrd_model
         model_input = AutoXRDModelInput(
             upload_id=model_entry.m_parent.metadata.upload_id,
@@ -1543,7 +1539,7 @@ class AutoXRDAnalysisAction(Action):
                 min_angle=self.analysis_settings.min_angle.to('degree').magnitude,
                 max_angle=self.analysis_settings.max_angle.to('degree').magnitude,
             ),
-            analysis_inputs=analysis_inputs,
+            xrd_measurement_entries=xrd_measurement_entries,
         )
         self.action_id = start_action(
             'nomad_auto_xrd.actions.analysis:analysis_action', data=input_data
@@ -1646,7 +1642,9 @@ class AutoXRDAnalysisAction(Action):
 
         if self.action_status == 'RUNNING':
             # update the status if current status is RUNNING
-            self.action_status = get_action_status(self.action_id).name
+            self.action_status = get_action_status(
+                self.action_id, archive.metadata.authors[0].user_id
+            ).name
 
         if self.trigger_run_action:
             if self.action_status == 'RUNNING':

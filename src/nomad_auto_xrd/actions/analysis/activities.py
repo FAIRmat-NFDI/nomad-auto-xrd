@@ -9,6 +9,7 @@ from nomad_auto_xrd.actions.analysis.models import (
     UpdateAnalysisEntryInput,
 )
 from nomad_auto_xrd.common.models import AnalysisResult
+from nomad_auto_xrd.common.utils import pattern_preprocessor, read_entry_archive
 
 
 @activity.defn
@@ -19,6 +20,14 @@ async def analyze(data: AnalyzeInput) -> AnalysisResult:
 
     from nomad_auto_xrd.common.analysis import XRDAutoAnalyzer
     from nomad_auto_xrd.common.utils import get_upload
+
+    # Read the entry archive to get the XRD measurement data
+    archive = read_entry_archive(
+        data.xrd_measurement_entry.entry_id,
+        data.xrd_measurement_entry.upload_id,
+        data.user_id,
+    )
+    analysis_inputs = pattern_preprocessor(archive)
 
     # Run analysis within the upload folder
     original_path = os.path.abspath(os.curdir)
@@ -65,7 +74,8 @@ async def analyze(data: AnalyzeInput) -> AnalysisResult:
         os.makedirs(data.working_directory, exist_ok=True)
         with tempfile.TemporaryDirectory() as temp_dir:
             analyzer = XRDAutoAnalyzer(temp_dir, data.analysis_settings)
-            result = analyzer.eval(data.analysis_inputs)
+            result = analyzer.eval(analysis_inputs)
+            result.reduced_spectra = None  # save space
             # Move the plots from `temp_dir` to a `Plots` folder within the
             # working directory
             plots_dir = os.path.join(data.working_directory, 'Plots')

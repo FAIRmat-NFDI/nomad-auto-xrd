@@ -1,34 +1,63 @@
 from dataclasses import dataclass
 
 from nomad_auto_xrd.common.models import (
-    AnalysisInput,
     AnalysisResult,
     AnalysisSettingsInput,
 )
 
 
 @dataclass
+class XRDMeasurementEntry:
+    """
+    Class to represent an XRD measurement entry.
+
+    Attributes:
+        entry_id (str): The entry ID of the XRD measurement.
+        upload_id (str): The upload ID of the XRD measurement.
+    """
+
+    entry_id: str
+    upload_id: str
+
+
+@dataclass
 class UserInput:
-    """Class to represent user input for analysis."""
+    """
+    Class to represent user input for analysis.
+
+    Attributes:
+        upload_id (str): The upload ID of ELN entry triggering the analysis.
+        user_id (str): The user ID of the user triggering the analysis.
+        mainfile (str): The main file of the ELN entry.
+        analysis_settings (AnalysisSettingsInput): Settings for the analysis.
+        xrd_measurement_entries: list[XRDMeasurementEntry]: List of XRD measurement
+            entries to analyze.
+    """
 
     upload_id: str
     user_id: str
     mainfile: str
-
     analysis_settings: AnalysisSettingsInput
-    analysis_inputs: list[AnalysisInput]
+    xrd_measurement_entries: list[XRDMeasurementEntry]
 
 
 @dataclass
-class AnalyzeInput(UserInput):
+class AnalyzeInput:
     """Class to represent input for analyze activity."""
 
+    upload_id: str
+    user_id: str
     working_directory: str
+    xrd_measurement_entry: XRDMeasurementEntry
+    analysis_settings: AnalysisSettingsInput
 
 
 @dataclass
-class UpdateAnalysisEntryInput(UserInput):
+class UpdateAnalysisEntryInput:
     """Class to represent input for updating an analysis entry."""
 
+    upload_id: str
+    user_id: str
+    mainfile: str
     action_id: str
     analysis_result: AnalysisResult
