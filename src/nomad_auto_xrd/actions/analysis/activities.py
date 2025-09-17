@@ -75,6 +75,7 @@ async def analyze(data: AnalyzeInput) -> AnalysisResult:
         with tempfile.TemporaryDirectory() as temp_dir:
             analyzer = XRDAutoAnalyzer(temp_dir, data.analysis_settings)
             result = analyzer.eval(analysis_inputs)
+            del result.reduced_spectra  # save space
             # Move the plots from `temp_dir` to a `Plots` folder within the
             # working directory
             plots_dir = os.path.join(data.working_directory, 'Plots')
