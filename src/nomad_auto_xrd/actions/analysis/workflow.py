@@ -35,7 +35,7 @@ class AnalysisWorkflow:
                         analysis_settings=data.analysis_settings,
                         xrd_measurement_entry=xrd_measurement_entry,
                     ),
-                    start_to_close_timeout=timedelta(hours=2),
+                    start_to_close_timeout=timedelta(days=1),
                     retry_policy=RetryPolicy(
                         initial_interval=timedelta(seconds=10),
                         maximum_attempts=3,
@@ -50,7 +50,9 @@ class AnalysisWorkflow:
         await workflow.execute_activity(
             update_analysis_entry,
             UpdateAnalysisEntryInput(
-                **asdict(data),
+                upload_id=data.upload_id,
+                user_id=data.user_id,
+                mainfile=data.mainfile,
                 action_id=workflow_id,
                 analysis_result=result,
             ),
