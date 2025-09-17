@@ -10,6 +10,7 @@ with workflow.unsafe.imports_passed_through():
         update_analysis_entry,
     )
     from nomad_auto_xrd.actions.analysis.models import (
+        AnalysisResult,
         AnalyzeInput,
         UpdateAnalysisEntryInput,
         UserInput,
@@ -22,23 +23,30 @@ class AnalysisWorkflow:
     async def run(self, data: UserInput) -> str:
         workflow_id = workflow.info().workflow_id
         working_directory = f'./auto_xrd_inference_{workflow_id}'
+        results = []
         for xrd_measurement_entry in data.xrd_measurement_entries:
-            await workflow.execute_activity(
-                analyze,
-                AnalyzeInput(
-                    upload_id=data.upload_id,
-                    user_id=data.user_id,
-                    working_directory=working_directory,
-                    analysis_settings=data.analysis_settings,
-                    xrd_measurement_entry=xrd_measurement_entry,
-                ),
-                start_to_close_timeout=timedelta(hours=2),
-                retry_policy=RetryPolicy(
-                    initial_interval=timedelta(seconds=10),
-                    maximum_attempts=3,
-                    backoff_coefficient=2.0,
-                ),
+            results.append(
+                await workflow.execute_activity(
+                    analyze,
+                    AnalyzeInput(
+                        upload_id=data.upload_id,
+                        user_id=data.user_id,
+                        working_directory=working_directory,
+                        analysis_settings=data.analysis_settings,
+                        xrd_measurement_entry=xrd_measurement_entry,
+                    ),
+                    start_to_close_timeout=timedelta(hours=2),
+                    retry_policy=RetryPolicy(
+                        initial_interval=timedelta(seconds=10),
+                        maximum_attempts=3,
+                        backoff_coefficient=2.0,
+                    ),
+                )
             )
+        result: AnalysisResult = results[0]
+        if len(results) > 1:
+            for res in results[1:]:
+                result.merge(res)
         await workflow.execute_activity(
             update_analysis_entry,
             UpdateAnalysisEntryInput(
