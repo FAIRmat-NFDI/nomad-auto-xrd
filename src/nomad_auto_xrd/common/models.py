@@ -202,21 +202,21 @@ class AnalysisResult:
         self.scale_factors.extend(other.scale_factors)
 
         if other.reduced_spectra:
-            if not self.reduced_spectra:
+            if self.reduced_spectra is None:
                 self.reduced_spectra = []
             self.reduced_spectra.extend(other.reduced_spectra)
 
         if other.phases_m_proxies:
-            if not self.phases_m_proxies:
+            if self.phases_m_proxies is None:
                 self.phases_m_proxies = []
             self.phases_m_proxies.extend(other.phases_m_proxies)
 
         if other.xrd_measurement_m_proxies:
-            if not self.xrd_measurement_m_proxies:
+            if self.xrd_measurement_m_proxies is None:
                 self.xrd_measurement_m_proxies = []
             self.xrd_measurement_m_proxies.extend(other.xrd_measurement_m_proxies)
 
         if other.plot_paths:
-            if not self.plot_paths:
+            if self.plot_paths is None:
                 self.plot_paths = []
             self.plot_paths.extend(other.plot_paths)

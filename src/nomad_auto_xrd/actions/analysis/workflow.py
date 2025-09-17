@@ -1,4 +1,3 @@
-from dataclasses import asdict
 from datetime import timedelta
 
 from temporalio import workflow
