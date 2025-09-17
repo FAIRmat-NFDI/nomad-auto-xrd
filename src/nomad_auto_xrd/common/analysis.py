@@ -37,10 +37,7 @@ from nomad_auto_xrd.common.models import (
     AnalysisSettingsInput,
     AutoXRDModelInput,
 )
-from nomad_auto_xrd.common.preprocessors import (
-    multiple_patterns_preprocessor,
-    single_pattern_preprocessor,
-)
+from nomad_auto_xrd.common.utils import pattern_preprocessor
 from nomad_auto_xrd.schema_packages.schema import (
     AutoXRDAnalysis,
     AutoXRDAnalysisResult,
@@ -748,15 +745,9 @@ def analyze(
     """
     with tempfile.TemporaryDirectory() as temp_dir:
         analysis_inputs = []
-        for section in analysis_entry.inputs:
-            if len(section.reference.results) > 1:
-                analysis_inputs.extend(
-                    multiple_patterns_preprocessor([section.reference], logger)
-                )
-            else:
-                analysis_inputs.extend(
-                    single_pattern_preprocessor([section.reference], logger)
-                )
+        for input_reference_section in analysis_entry.inputs:
+            xrd_measurement = input_reference_section.reference.m_parent.m_to_dict()
+            analysis_inputs.extend(pattern_preprocessor(xrd_measurement, logger))
         if not analysis_inputs:
             raise ValueError('No valid XRD data found in the analysis entry inputs.')
         model_entry = analysis_entry.analysis_settings.auto_xrd_model

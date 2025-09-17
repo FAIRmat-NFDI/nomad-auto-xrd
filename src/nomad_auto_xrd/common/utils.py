@@ -124,7 +124,8 @@ def pattern_preprocessor(
         if two_theta is None or intensity is None:
             (logger.warning if logger else print)(
                 f'Warning: Missing two_theta or intensity in pattern {idx} '
-                f'of entry {xrd_entry_archive["metadata"]["entry_id"]}. Skipping.'
+                f'of entry {xrd_entry_archive["metadata"].get("entry_id", None)}. '
+                'Skipping.'
             )
             continue
         analysis_inputs.append(
@@ -133,8 +134,8 @@ def pattern_preprocessor(
                 two_theta=two_theta,
                 intensity=intensity,
                 measurement_m_proxy=get_reference(
-                    xrd_entry_archive['metadata']['upload_id'],
-                    xrd_entry_archive['metadata']['entry_id'],
+                    xrd_entry_archive['metadata'].get('upload_id', None),
+                    xrd_entry_archive['metadata'].get('entry_id', None),
                     f'data/results/{idx}',
                 ),
             )
