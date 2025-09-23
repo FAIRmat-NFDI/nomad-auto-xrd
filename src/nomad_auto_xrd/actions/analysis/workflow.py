@@ -28,7 +28,7 @@ class AnalysisWorkflow:
             backoff_coefficient=2.0,
         )
         workflow_id = workflow.info().workflow_id
-        working_directory = f'./auto_xrd_inference_{workflow_id}'
+        working_directory = f'auto_xrd_inference_{workflow_id}'
         results = []
         for xrd_measurement_entry in data.xrd_measurement_entries:
             results.append(
@@ -42,11 +42,7 @@ class AnalysisWorkflow:
                         xrd_measurement_entry=xrd_measurement_entry,
                     ),
                     start_to_close_timeout=timedelta(days=1),
-                    retry_policy=RetryPolicy(
-                        initial_interval=timedelta(seconds=10),
-                        maximum_attempts=3,
-                        backoff_coefficient=2.0,
-                    ),
+                    retry_policy=retry_policy,
                 )
             )
         result: AnalysisResult = results[0]
@@ -77,10 +73,6 @@ class AnalysisWorkflow:
                 simulated_reference_patterns=simulated_reference_patterns,
             ),
             start_to_close_timeout=timedelta(seconds=600),
-            retry_policy=RetryPolicy(
-                initial_interval=timedelta(seconds=10),
-                maximum_attempts=3,
-                backoff_coefficient=2.0,
-            ),
+            retry_policy=retry_policy,
         )
         return result

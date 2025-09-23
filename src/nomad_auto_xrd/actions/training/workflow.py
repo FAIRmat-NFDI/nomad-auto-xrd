@@ -19,6 +19,13 @@ with workflow.unsafe.imports_passed_through():
 class TrainingWorkflow:
     @workflow.run
     async def run(self, data: UserInput) -> str:
+        retry_policy = (
+            RetryPolicy(
+                initial_interval=timedelta(seconds=10),
+                maximum_attempts=3,
+                backoff_coefficient=2.0,
+            ),
+        )
         workflow_id = workflow.info().workflow_id
         working_directory = f'auto_xrd_model_{workflow_id}'
         includes_pdf = True
@@ -37,11 +44,7 @@ class TrainingWorkflow:
             start_to_close_timeout=timedelta(hours=2),
             # TODO: uncomment during NOMAD logger integration
             # heartbeat_timeout=timedelta(hours=1),
-            retry_policy=RetryPolicy(
-                initial_interval=timedelta(seconds=10),
-                maximum_attempts=3,
-                backoff_coefficient=2.0,
-            ),
+            retry_policy=retry_policy,
         )
         create_entry_input = CreateTrainedModelEntryInput(
             action_id=workflow_id,
@@ -62,10 +65,6 @@ class TrainingWorkflow:
             create_trained_model_entry,
             create_entry_input,
             start_to_close_timeout=timedelta(minutes=10),
-            retry_policy=RetryPolicy(
-                initial_interval=timedelta(seconds=10),
-                maximum_attempts=3,
-                backoff_coefficient=2.0,
-            ),
+            retry_policy=retry_policy,
         )
         return training_output
