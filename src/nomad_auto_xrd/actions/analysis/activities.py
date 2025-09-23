@@ -6,6 +6,8 @@ from temporalio import activity
 
 from nomad_auto_xrd.actions.analysis.models import (
     AnalyzeInput,
+    SimulatedReferencePattern,
+    SimulateReferencePatternsInput,
     UpdateAnalysisEntryInput,
 )
 from nomad_auto_xrd.common.models import AnalysisResult
@@ -95,6 +97,38 @@ async def analyze(data: AnalyzeInput) -> AnalysisResult:
 
 
 @activity.defn
+async def simulate_reference_patterns(
+    data: SimulateReferencePatternsInput,
+) -> list[SimulatedReferencePattern]:
+    """
+    Activity to simulate reference patterns from the given CIF files.
+    """
+    from nomad.datamodel.context import ServerContext
+
+    from nomad_auto_xrd.common.utils import get_upload, simulate_pattern
+
+    simulated_patterns = []
+
+    upload = get_upload(data.upload_id, data.user_id)
+    context = ServerContext(upload)
+    for cif_path in data.cif_paths:
+        with context.raw_file(cif_path) as file:
+            two_theta, intensity = simulate_pattern(
+                file.name,
+                data.wavelength,
+                (data.min_angle, data.max_angle),
+            )
+            simulated_pattern = SimulatedReferencePattern(
+                cif_path=cif_path,
+                two_theta=two_theta,
+                intensity=intensity,
+            )
+            simulated_patterns.append(simulated_pattern)
+
+    return simulated_patterns
+
+
+@activity.defn
 async def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
     """
     Activity to create update the inference entry in the same upload.
@@ -116,6 +150,14 @@ async def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
         archive['data']['trigger_run_action'] = False
         archive['data']['action_id'] = data.action_id
         archive['data']['action_status'] = 'COMPLETED'
+        archive['data']['analysis_settings']['simulated_reference_patterns'] = [
+            {
+                'name': pattern.cif_path,
+                'two_theta': pattern.two_theta,
+                'intensity': pattern.intensity,
+            }
+            for pattern in data.simulated_reference_patterns
+        ]
 
     # Context manager method only fetches the data from the input mainfile of the ELN
     # entry. This won't reflect the data that was updated/added by normalization not

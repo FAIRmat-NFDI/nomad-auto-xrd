@@ -21,6 +21,8 @@ from typing import TYPE_CHECKING
 from nomad import infrastructure
 from nomad.processing.data import PublicUploadFiles, StagingUploadFiles, Upload
 from nomad_analysis.utils import get_reference
+from pymatgen.analysis.diffraction.xrd import XRDCalculator
+from pymatgen.core import Structure
 
 from nomad_auto_xrd.common.models import AnalysisInput
 
@@ -141,3 +143,30 @@ def pattern_preprocessor(
             )
         )
     return analysis_inputs
+
+
+def simulate_pattern(
+    cif: str, wavelength: float, two_theta_range: tuple[float, float]
+) -> tuple[list[float], list[float]]:
+    """
+    Simulates an XRD pattern for a given phase and wavelength over a specified
+    two-theta range.
+
+    Args:
+        cif (str): Path to the CIF file of the crystal structure.
+        wavelength (float): The X-ray wavelength in Angstroms.
+        two_theta_range (tuple[float, float]): The range of two-theta angles to
+            simulate.
+
+    Returns:
+        tuple[list[float], list[float]]: Simulated two-theta angles and corresponding
+        intensities.
+    """
+
+    structure = Structure.from_file(cif)
+    calculator = XRDCalculator(wavelength=wavelength)
+    pattern = calculator.get_pattern(structure, two_theta_range=two_theta_range)
+
+    return pattern.x.tolist(), pattern.y.tolist()
+
+

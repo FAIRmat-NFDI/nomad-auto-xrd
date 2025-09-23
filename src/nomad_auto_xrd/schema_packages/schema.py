@@ -635,6 +635,12 @@ class AnalysisSettings(ArchiveSection):
             component=ELNComponentEnum.NumberEditQuantity,
         ),
     )
+    simulated_reference_patterns = SubSection(
+        section_def=XRDResult1D,
+        repeats=True,
+        description='The simulated XRD patterns for the reference phases predicted by'
+        ' the model under the given analysis settings.',
+    )
 
 
 class IdentifiedPhase(ArchiveSection):

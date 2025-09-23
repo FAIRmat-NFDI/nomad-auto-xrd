@@ -53,6 +53,33 @@ class AnalyzeInput:
 
 
 @dataclass
+class SimulateReferencePatternsInput:
+    """Class to represent input for simulating reference patterns activity."""
+
+    user_id: str
+    model_upload_id: str
+    cif_paths: list[str]
+    wavelength: float
+    min_two_theta: float
+    max_two_theta: float
+
+
+class SimulatedReferencePattern:
+    """
+    Class to represent a simulated XRD pattern for a reference phase.
+
+    Attributes:
+    - cif_path: Path to the CIF file used for simulation.
+    - two_theta: List of two theta angles in degrees.
+    - intensity: List of intensity values corresponding to the two theta angles.
+    """
+
+    cif_path: str
+    two_theta: list[float]
+    intensity: list[float]
+
+
+@dataclass
 class UpdateAnalysisEntryInput:
     """Class to represent input for updating an analysis entry."""
 
@@ -61,3 +88,4 @@ class UpdateAnalysisEntryInput:
     mainfile: str
     action_id: str
     analysis_result: AnalysisResult
+    simulated_reference_patterns: list[SimulatedReferencePattern]
