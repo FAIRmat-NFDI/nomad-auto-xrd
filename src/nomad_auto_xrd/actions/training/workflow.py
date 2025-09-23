@@ -20,7 +20,7 @@ class TrainingWorkflow:
     @workflow.run
     async def run(self, data: UserInput) -> str:
         workflow_id = workflow.info().workflow_id
-        working_directory = f'./auto_xrd_model_{workflow_id}'
+        working_directory = f'auto_xrd_model_{workflow_id}'
         includes_pdf = True
 
         training_output = await workflow.execute_activity(
