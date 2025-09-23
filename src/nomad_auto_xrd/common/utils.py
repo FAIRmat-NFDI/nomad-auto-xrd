@@ -18,13 +18,19 @@
 import os
 from typing import TYPE_CHECKING
 
+import pandas as pd
+import plotly.express as px
 from nomad import infrastructure
 from nomad.processing.data import PublicUploadFiles, StagingUploadFiles, Upload
 from nomad_analysis.utils import get_reference
 from pymatgen.analysis.diffraction.xrd import XRDCalculator
 from pymatgen.core import Structure
 
-from nomad_auto_xrd.common.models import AnalysisInput
+from nomad_auto_xrd.common.models import (
+    AnalysisInput,
+    PatternAnalysisResult,
+    PhasesPosition,
+)
 
 if TYPE_CHECKING:
     from structlog.stdlib import BoundLogger
@@ -170,3 +176,51 @@ def simulate_pattern(
     return pattern.x.tolist(), pattern.y.tolist()
 
 
+def plot_identified_phases(data: PatternAnalysisResult) -> dict:
+    """
+    Generates a Plotly figure with the measured XRD pattern and simulated patterns of
+    the identified phases.
+
+    Args:
+        data (PatternAnalysisResult): The analysis result containing measured and
+            identified phases.
+    """
+    return {}
+
+
+def plot_identified_phases_sample_position(
+    data: list[PhasesPosition],
+) -> dict:
+    """
+    Generates a Plotly scatter plot with x and y position on the axes and the phase with
+    highest confidence as the marker.
+
+    Args:
+        data (list[PhasesPosition]): List of identified phases with sample positions.
+    """
+    df = pd.DataFrame(
+        {
+            'x_position': [d.x_position for d in data],
+            'y_position': [d.y_position for d in data],
+            'phase': [d.phases[0].name if d.phases else 'Unknown' for d in data],
+            'space_group': [d.phases[0].space_group if d.phases else 0 for d in data],
+            'confidence': [d.phases[0].confidence if d.phases else 0.0 for d in data],
+        }
+    )
+    x_unit = data[0].x_unit if data else ''
+    y_unit = data[0].y_unit if data else ''
+    fig = px.scatter(
+        df,
+        x='x_position',
+        y='y_position',
+        color='phase',
+        size='confidence',
+        title='Primary identified phases for the Combinatorial library',
+        labels={'x_position': f'x ({x_unit})', 'y_position': f'y ({y_unit})'},
+    )
+    fig.update_traces(
+        marker=dict(opacity=0.7, line=dict(width=1, color='DarkSlateGrey'))
+    )
+    fig.update_layout(legend_title_text='Primary Phase', hovermode='closest')
+
+    return fig.to_plotly_json()

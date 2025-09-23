@@ -34,6 +34,8 @@ dependencies = [
     "nomad-measurements",
     "nomad-schema-plugin-run>=1.0.1",
     "nomad-schema-plugin-simulation-workflow>=1.0.9",
+    "pandas",
+    "plotly",
 ]
 
 [project.urls]

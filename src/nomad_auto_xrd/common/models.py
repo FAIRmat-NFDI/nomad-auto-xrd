@@ -220,3 +220,40 @@ class AnalysisResult:
             if self.plot_paths is None:
                 self.plot_paths = []
             self.plot_paths.extend(other.plot_paths)
+
+
+@dataclass
+class Phase:
+    """
+    A data class to hold the identified phase and its confidence level.
+    """
+
+    name: str
+    space_group: int
+    confidence: float
+    simulated_two_theta: list[float] | None = None
+    simulated_intensity: list[float] | None = None
+
+
+@dataclass
+class PhasesPosition:
+    """
+    A data class to hold the identified phases and their positions for a sample.
+    """
+
+    x_position: float
+    y_position: float
+    x_unit: str
+    y_unit: str
+    phases: list[Phase]
+
+
+@dataclass
+class PatternAnalysisResult:
+    """
+    A data class to hold the results of the analysis for a single XRD pattern.
+    """
+
+    two_theta: list[float]
+    intensity: list[float]
+    phases: list[Phase]
