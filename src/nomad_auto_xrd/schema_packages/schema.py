@@ -34,6 +34,7 @@ from nomad.datamodel.metainfo.annotations import (
     SectionProperties,
 )
 from nomad.datamodel.metainfo.basesections import Analysis, Entity, SectionReference
+from nomad.datamodel.metainfo.plot import PlotlyFigure, PlotSection
 from nomad.datamodel.results import Material, SymmetryNew, System
 from nomad.metainfo import (
     Category,
@@ -656,15 +657,41 @@ class IdentifiedPhase(ArchiveSection):
     )
 
 
-class AutoXRDAnalysisResult(ArchiveSection):
+class AutoXRDAnalysisResult(PlotSection):
     """
-    Section for the results of the auto XRD analysis.
+    Section for the results of the auto XRD analysis of a single pattern.
     """
 
     name = Quantity(
         type=str,
         description='The name of the analysis result.',
     )
+    xrd_measurement = SubSection(
+        section_def=SectionReference,
+        description='The XRD measurement used for analysis.',
+    )
+
+    def create_plots(self) -> list[PlotlyFigure]:
+        """
+        Creates plots for the analysis results.
+
+        Returns:
+            list[PlotlyFigure]: A list of Plotly figures for the analysis results.
+        """
+        return []
+
+    def normalize(self, archive, logger):
+        super().normalize(archive, logger)
+        if self.xrd_measurement and self.xrd_measurement.name:
+            self.name = self.xrd_measurement.name
+        self.figures = self.create_plots()
+
+
+class SinglePatternAnalysisResult(AutoXRDAnalysisResult):
+    """
+    Section for the results of the auto XRD analysis of a single pattern.
+    """
+
     identified_phases_plot = Quantity(
         type=str,
         description='Path to the plot showing the identified phases.',
@@ -673,20 +700,26 @@ class AutoXRDAnalysisResult(ArchiveSection):
         ),
         a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
     )
-    xrd_measurement = SubSection(
-        section_def=SectionReference,
-        description='The XRD pattern used for analysis.',
-    )
     identified_phases = SubSection(
         section_def=IdentifiedPhase,
         repeats=True,
         description='The identified phases in the XRD data.',
     )
 
-    def normalize(self, archive, logger):
-        super().normalize(archive, logger)
-        if self.xrd_measurement and self.xrd_measurement.name:
-            self.name = self.xrd_measurement.name
+
+class MultiPatternAnalysisResult(AutoXRDAnalysisResult):
+    """
+    Section for the results of the auto XRD analysis of multiple patterns. For example,
+    analysis of XRD patterns measured at different sample positions for a combinatorial
+    library.
+    """
+
+    single_pattern_results = SubSection(
+        section_def=SinglePatternAnalysisResult,
+        repeats=True,
+        description='The results of the analysis for each XRD pattern.',
+    )
+
 
 
 class AutoXRDTraining(JupyterAnalysis):
