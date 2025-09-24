@@ -679,10 +679,6 @@ class AutoXRDAnalysisResult(PlotSection):
         type=str,
         description='The name of the analysis result.',
     )
-    xrd_measurement = SubSection(
-        section_def=SectionReference,
-        description='The XRD measurement used for analysis.',
-    )
 
     def generate_plots(self, logger: 'BoundLogger', **kwargs) -> list[PlotlyFigure]:
         """
@@ -696,17 +692,16 @@ class AutoXRDAnalysisResult(PlotSection):
         )
         return []
 
-    def normalize(self, archive, logger):
-        super().normalize(archive, logger)
-        if self.xrd_measurement and self.xrd_measurement.name:
-            self.name = self.xrd_measurement.name
-
 
 class SinglePatternAnalysisResult(AutoXRDAnalysisResult):
     """
     Section for the results of the auto XRD analysis of a single pattern.
     """
 
+    xrd_results = SubSection(
+        section_def=SectionReference,
+        description='The XRD measurement results used for analysis.',
+    )
     identified_phases_plot = Quantity(
         type=str,
         description='Path to the plot showing the identified phases.',
@@ -793,6 +788,11 @@ class SinglePatternAnalysisResult(AutoXRDAnalysisResult):
             )
         return figures
 
+    def normalize(self, archive, logger):
+        super().normalize(archive, logger)
+        if self.xrd_results and self.xrd_results.name:
+            self.name = self.xrd_results.name
+
 
 class MultiPatternAnalysisResult(AutoXRDAnalysisResult):
     """
@@ -801,6 +801,10 @@ class MultiPatternAnalysisResult(AutoXRDAnalysisResult):
     library.
     """
 
+    xrd_measurement = SubSection(
+        section_def=SectionReference,
+        description='The XRD measurement used for analysis.',
+    )
     single_pattern_results = SubSection(
         section_def=SinglePatternAnalysisResult,
         repeats=True,
@@ -855,6 +859,11 @@ class MultiPatternAnalysisResult(AutoXRDAnalysisResult):
                 )
             )
         return figures
+
+    def normalize(self, archive, logger):
+        super().normalize(archive, logger)
+        if self.xrd_measurement and self.xrd_measurement.name:
+            self.name = self.xrd_measurement.name
 
 
 class AutoXRDTraining(JupyterAnalysis):
@@ -1669,6 +1678,10 @@ class AutoXRDAnalysisAction(Action):
         The workflow runs the analysis, populates the `results` section with the
         identified phases, and updates the `workflow_status`.
         """
+        # reset results
+        self.results = []
+        archive.results.material = None
+
         xrd_measurement_entries = []
         for input_ref_section in self.inputs:
             xrd_measurement_entry = XRDMeasurementEntry(

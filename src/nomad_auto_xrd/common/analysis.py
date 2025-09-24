@@ -697,20 +697,20 @@ def to_nomad_data_results_section(
     """
     result_sections = []
     for (
-        xrd_measurement_m_proxy,
+        xrd_results_m_proxy,
         plot_path,
         phases,
         confidences,
         phases_m_proxies,
     ) in zip(
-        result.xrd_measurement_m_proxies,
+        result.xrd_results_m_proxies,
         result.plot_paths,
         result.phases,
         result.confidences,
         result.phases_m_proxies,
     ):
         result_section = AutoXRDAnalysisResult(
-            xrd_measurement=SectionReference(reference=xrd_measurement_m_proxy),
+            xrd_results=SectionReference(reference=xrd_results_m_proxy),
             identified_phases_plot=plot_path,
             identified_phases=[
                 IdentifiedPhase(
