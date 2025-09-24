@@ -591,14 +591,6 @@ class AnalysisSettings(ArchiveSection):
             component=ELNComponentEnum.BoolEditQuantity,
         ),
     )
-    show_individual = Quantity(
-        type=bool,
-        description='Flag to shows individual prediction results: XRD and PDF.',
-        default=False,
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.BoolEditQuantity,
-        ),
-    )
     wavelength = Quantity(
         type=float,
         unit='m',
@@ -1714,7 +1706,6 @@ class AutoXRDAnalysisAction(Action):
                 include_pdf=self.analysis_settings.include_pdf,
                 parallel=self.analysis_settings.parallel,
                 raw=self.analysis_settings.raw,
-                show_individual=self.analysis_settings.show_individual,
                 wavelength=self.analysis_settings.wavelength.to('angstrom').magnitude,
                 min_angle=self.analysis_settings.min_angle.to('degree').magnitude,
                 max_angle=self.analysis_settings.max_angle.to('degree').magnitude,

@@ -783,7 +783,6 @@ def analyze(
             include_pdf=analysis_entry.analysis_settings.include_pdf,
             parallel=analysis_entry.analysis_settings.parallel,
             raw=analysis_entry.analysis_settings.raw,
-            show_individual=analysis_entry.analysis_settings.show_individual,
             wavelength=analysis_entry.analysis_settings.wavelength.to(
                 'angstrom'
             ).magnitude,

@@ -89,7 +89,6 @@ class AnalysisSettingsInput:
     include_pdf: bool
     parallel: bool
     raw: bool
-    show_individual: bool
     wavelength: float
     min_angle: float
     max_angle: float
