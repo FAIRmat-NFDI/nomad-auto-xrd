@@ -47,10 +47,11 @@ class SimulateReferencePatternsInput:
     model_upload_id: str
     cif_paths: list[str]
     wavelength: float
-    min_two_theta: float
-    max_two_theta: float
+    min_angle: float
+    max_angle: float
 
 
+@dataclass
 class SimulatedReferencePattern:
     """
     Class to represent a simulated XRD pattern for a reference phase.

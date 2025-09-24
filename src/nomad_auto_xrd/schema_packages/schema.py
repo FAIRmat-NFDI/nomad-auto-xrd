@@ -47,7 +47,7 @@ from nomad.metainfo import (
 from nomad.normalizing.common import nomad_atoms_from_ase_atoms
 from nomad.normalizing.topology import add_system, add_system_info
 from nomad_analysis.jupyter.schema import JupyterAnalysis
-from nomad_measurements.xrd.schema import XRayDiffraction, XRDResult1D
+from nomad_measurements.xrd.schema import XRayDiffraction, XRDResult, XRDResult1D
 from pymatgen.io.cif import CifParser
 
 from nomad_auto_xrd.actions.analysis.models import UserInput as AnalysisUserInput
@@ -698,8 +698,8 @@ class SinglePatternAnalysisResult(AutoXRDAnalysisResult):
     Section for the results of the auto XRD analysis of a single pattern.
     """
 
-    xrd_results = SubSection(
-        section_def=SectionReference,
+    xrd_results = Quantity(
+        type=XRDResult,
         description='The XRD measurement results used for analysis.',
     )
     identified_phases_plot = Quantity(
@@ -801,8 +801,8 @@ class MultiPatternAnalysisResult(AutoXRDAnalysisResult):
     library.
     """
 
-    xrd_measurement = SubSection(
-        section_def=SectionReference,
+    xrd_measurement = Quantity(
+        type=XRayDiffraction,
         description='The XRD measurement used for analysis.',
     )
     single_pattern_results = SubSection(

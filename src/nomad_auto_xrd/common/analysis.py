@@ -27,7 +27,6 @@ import numpy as np
 import psutil
 import tensorflow as tf
 from autoXRD import spectrum_analysis, visualizer
-from nomad.datamodel.metainfo.basesections import SectionReference
 from nomad_analysis.utils import get_reference
 from tqdm import tqdm
 
@@ -713,7 +712,7 @@ def to_nomad_data_results_section(
         result.phases_m_proxies,
     ):
         result_section = SinglePatternAnalysisResult(
-            xrd_results=SectionReference(reference=xrd_results_m_proxy),
+            xrd_results=xrd_results_m_proxy,
             identified_phases_plot=plot_path,
             identified_phases=[
                 IdentifiedPhase(
@@ -733,7 +732,7 @@ def to_nomad_data_results_section(
             xrd_measurement_entry.upload_id, xrd_measurement_entry.entry_id, 'data'
         )
         return MultiPatternAnalysisResult(
-            xrd_measurement=SectionReference(reference=entry_data_proxy),
+            xrd_measurement=entry_data_proxy,
             single_pattern_results=result_sections,
         )
     else:

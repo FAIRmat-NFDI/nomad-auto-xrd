@@ -109,7 +109,7 @@ async def simulate_reference_patterns(
 
     simulated_patterns = []
 
-    upload = get_upload(data.upload_id, data.user_id)
+    upload = get_upload(data.model_upload_id, data.user_id)
     context = ServerContext(upload)
     for cif_path in data.cif_paths:
         with context.raw_file(cif_path) as file:
@@ -139,9 +139,9 @@ async def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
     from nomad_auto_xrd.common.utils import get_upload
 
     result_sections = [
-        to_nomad_data_results_section(
-            xrd_measurement_entry, analysis_result
-        ).m_to_dict()
+        to_nomad_data_results_section(xrd_measurement_entry, analysis_result).m_to_dict(
+            with_root_def=True
+        )
         for xrd_measurement_entry, analysis_result in zip(
             data.xrd_measurement_entries, data.analysis_results
         )
