@@ -18,11 +18,20 @@
 import os
 from typing import TYPE_CHECKING
 
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 from nomad import infrastructure
 from nomad.processing.data import PublicUploadFiles, StagingUploadFiles, Upload
 from nomad_analysis.utils import get_reference
+from pymatgen.analysis.diffraction.xrd import XRDCalculator
+from pymatgen.core import Structure
 
-from nomad_auto_xrd.common.models import AnalysisInput
+from nomad_auto_xrd.common.models import (
+    AnalysisInput,
+    PatternAnalysisResult,
+    PhasesPosition,
+)
 
 if TYPE_CHECKING:
     from structlog.stdlib import BoundLogger
@@ -141,3 +150,123 @@ def pattern_preprocessor(
             )
         )
     return analysis_inputs
+
+
+def simulate_pattern(
+    cif: str, wavelength: float, two_theta_range: tuple[float, float]
+) -> tuple[list[float], list[float]]:
+    """
+    Simulates an XRD pattern for a given phase and wavelength over a specified
+    two-theta range.
+
+    Args:
+        cif (str): Path to the CIF file of the crystal structure.
+        wavelength (float): The X-ray wavelength in Angstroms.
+        two_theta_range (tuple[float, float]): The range of two-theta angles to
+            simulate.
+
+    Returns:
+        tuple[list[float], list[float]]: Simulated two-theta angles and corresponding
+        intensities.
+    """
+
+    structure = Structure.from_file(cif)
+    calculator = XRDCalculator(wavelength=wavelength)
+    pattern = calculator.get_pattern(structure, two_theta_range=two_theta_range)
+
+    return pattern.x.tolist(), pattern.y.tolist()
+
+
+def plot_identified_phases(data: PatternAnalysisResult) -> dict:
+    """
+    Generates a Plotly figure with the measured XRD pattern and simulated patterns of
+    the identified phases.
+
+    Args:
+        data (PatternAnalysisResult): The analysis result containing measured and
+            identified phases.
+    """
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=data.two_theta,
+            y=data.intensity,
+            mode='lines',
+            name='Measured Pattern',
+        )
+    )
+    for phase in data.phases:
+        fig.add_trace(
+            go.Scatter(
+                x=phase.simulated_two_theta,
+                y=phase.simulated_intensity,
+                mode='markers',
+                marker=dict(symbol='line-ns-open', size=10, line=dict(width=2)),
+                name=f'{phase.name} (conf={phase.confidence:.1f})',
+            )
+        )
+    fig.update_layout(
+        title='Measured XRD pattern with simulated patterns of identified phases',
+        xaxis_title='2<i>θ</i> / °',
+        yaxis_title='Intensity',
+        hovermode='closest',
+        template='plotly_white',
+        dragmode='zoom',
+        xaxis=dict(fixedrange=False),
+        yaxis=dict(fixedrange=False),
+        showlegend=True,
+        legend=dict(
+            orientation='h',  # Horizontal orientation
+            yanchor='top',
+            y=-0.30,  # Position below the plot
+            xanchor='center',
+            x=0.5,  # Center horizontally
+        ),
+    )
+    return fig.to_plotly_json()
+
+
+def plot_identified_phases_sample_position(
+    data: list[PhasesPosition],
+) -> dict:
+    """
+    Generates a Plotly scatter plot with x and y position on the axes and the phase with
+    highest confidence as the marker.
+
+    Args:
+        data (list[PhasesPosition]): List of identified phases with sample positions.
+    """
+    df = pd.DataFrame(
+        {
+            'x_position': [d.x_position for d in data],
+            'y_position': [d.y_position for d in data],
+            'phase': [d.phases[0].name if d.phases else 'Unknown' for d in data],
+            'confidence': [d.phases[0].confidence if d.phases else 0.0 for d in data],
+        }
+    )
+    x_unit = data[0].x_unit if data else ''
+    y_unit = data[0].y_unit if data else ''
+    fig = px.scatter(
+        df,
+        x='x_position',
+        y='y_position',
+        color='phase',
+        size='confidence',
+    )
+    fig.update_traces(
+        marker=dict(opacity=0.7, line=dict(width=1, color='DarkSlateGrey'))
+    )
+    fig.update_layout(
+        title='Primary identified phases for the Combinatorial library',
+        legend_title_text='',
+        xaxis_title=f'x / {x_unit}',
+        yaxis_title=f'y / {y_unit}',
+        hovermode='closest',
+        template='plotly_white',
+        dragmode='zoom',
+        xaxis=dict(fixedrange=False),
+        yaxis=dict(fixedrange=False),
+        showlegend=True,
+    )
+
+    return fig.to_plotly_json()

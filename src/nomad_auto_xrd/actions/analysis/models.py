@@ -3,21 +3,8 @@ from dataclasses import dataclass
 from nomad_auto_xrd.common.models import (
     AnalysisResult,
     AnalysisSettingsInput,
+    XRDMeasurementEntry,
 )
-
-
-@dataclass
-class XRDMeasurementEntry:
-    """
-    Class to represent an XRD measurement entry.
-
-    Attributes:
-        entry_id (str): The entry ID of the XRD measurement.
-        upload_id (str): The upload ID of the XRD measurement.
-    """
-
-    entry_id: str
-    upload_id: str
 
 
 @dataclass
@@ -53,6 +40,34 @@ class AnalyzeInput:
 
 
 @dataclass
+class SimulateReferencePatternsInput:
+    """Class to represent input for simulating reference patterns activity."""
+
+    user_id: str
+    model_upload_id: str
+    cif_paths: list[str]
+    wavelength: float
+    min_angle: float
+    max_angle: float
+
+
+@dataclass
+class SimulatedReferencePattern:
+    """
+    Class to represent a simulated XRD pattern for a reference phase.
+
+    Attributes:
+    - cif_path: Path to the CIF file used for simulation.
+    - two_theta: List of two theta angles in degrees.
+    - intensity: List of intensity values corresponding to the two theta angles.
+    """
+
+    cif_path: str
+    two_theta: list[float]
+    intensity: list[float]
+
+
+@dataclass
 class UpdateAnalysisEntryInput:
     """Class to represent input for updating an analysis entry."""
 
@@ -60,4 +75,6 @@ class UpdateAnalysisEntryInput:
     user_id: str
     mainfile: str
     action_id: str
-    analysis_result: AnalysisResult
+    xrd_measurement_entries: list[XRDMeasurementEntry]
+    analysis_results: list[AnalysisResult]
+    simulated_reference_patterns: list[SimulatedReferencePattern]

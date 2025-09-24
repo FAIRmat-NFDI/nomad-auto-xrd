@@ -34,7 +34,8 @@ from nomad.datamodel.metainfo.annotations import (
     SectionProperties,
 )
 from nomad.datamodel.metainfo.basesections import Analysis, Entity, SectionReference
-from nomad.datamodel.results import Material, SymmetryNew, System
+from nomad.datamodel.metainfo.plot import PlotlyFigure, PlotSection
+from nomad.datamodel.results import DiffractionPattern, Material, SymmetryNew, System
 from nomad.metainfo import (
     Category,
     MProxy,
@@ -46,17 +47,24 @@ from nomad.metainfo import (
 from nomad.normalizing.common import nomad_atoms_from_ase_atoms
 from nomad.normalizing.topology import add_system, add_system_info
 from nomad_analysis.jupyter.schema import JupyterAnalysis
-from nomad_measurements.xrd.schema import XRayDiffraction
+from nomad_measurements.xrd.schema import XRayDiffraction, XRDResult, XRDResult1D
 from pymatgen.io.cif import CifParser
 
 from nomad_auto_xrd.actions.analysis.models import UserInput as AnalysisUserInput
-from nomad_auto_xrd.actions.analysis.models import XRDMeasurementEntry
 from nomad_auto_xrd.actions.training.models import UserInput as TrainingUserInput
 from nomad_auto_xrd.common.models import (
     AnalysisSettingsInput,
     AutoXRDModelInput,
+    PatternAnalysisResult,
+    Phase,
+    PhasesPosition,
     SimulationSettingsInput,
     TrainingSettingsInput,
+    XRDMeasurementEntry,
+)
+from nomad_auto_xrd.common.utils import (
+    plot_identified_phases,
+    plot_identified_phases_sample_position,
 )
 
 if TYPE_CHECKING:
@@ -634,6 +642,12 @@ class AnalysisSettings(ArchiveSection):
             component=ELNComponentEnum.NumberEditQuantity,
         ),
     )
+    simulated_reference_patterns = SubSection(
+        section_def=XRDResult1D,
+        repeats=True,
+        description='The simulated XRD patterns for the reference phases predicted by'
+        ' the model under the given analysis settings.',
+    )
 
 
 class IdentifiedPhase(ArchiveSection):
@@ -656,14 +670,37 @@ class IdentifiedPhase(ArchiveSection):
     )
 
 
-class AutoXRDAnalysisResult(ArchiveSection):
+class AutoXRDAnalysisResult(PlotSection):
     """
-    Section for the results of the auto XRD analysis.
+    Section for the results of the auto XRD analysis of a single pattern.
     """
 
     name = Quantity(
         type=str,
         description='The name of the analysis result.',
+    )
+
+    def generate_plots(self, logger: 'BoundLogger', **kwargs) -> list[PlotlyFigure]:
+        """
+        Creates plots for the analysis results.
+
+        Returns:
+            list[PlotlyFigure]: A list of Plotly figures for the analysis results.
+        """
+        logger.warning(
+            '`generate_plots` method not implemented for `AutoXRDAnalysisResult` class.'
+        )
+        return []
+
+
+class SinglePatternAnalysisResult(AutoXRDAnalysisResult):
+    """
+    Section for the results of the auto XRD analysis of a single pattern.
+    """
+
+    xrd_results = Quantity(
+        type=XRDResult,
+        description='The XRD measurement results used for analysis.',
     )
     identified_phases_plot = Quantity(
         type=str,
@@ -673,15 +710,161 @@ class AutoXRDAnalysisResult(ArchiveSection):
         ),
         a_browser=BrowserAnnotation(adaptor='RawFileAdaptor'),
     )
-    xrd_measurement = SubSection(
-        section_def=SectionReference,
-        description='The XRD pattern used for analysis.',
-    )
     identified_phases = SubSection(
         section_def=IdentifiedPhase,
         repeats=True,
         description='The identified phases in the XRD data.',
     )
+
+    def generate_plots(
+        self,
+        logger: 'BoundLogger',
+        **kwargs,
+    ) -> list[PlotlyFigure]:
+        """
+        Creates plots for the analysis results, specifically the XRD pattern with
+        identified phases.
+
+        Args:
+            logger (BoundLogger): The logger to use for logging messages.
+        Kwargs:
+            measured_pattern (DiffractionPattern): The measured XRD pattern.
+            reference_phase_simulated_patterns (list[XRDResult1D]): The simulated XRD
+                patterns for the reference phases.
+
+        Returns:
+            list[PlotlyFigure]: A list of Plotly figures for the analysis results.
+        """
+        figures = []
+        measured_pattern: DiffractionPattern = kwargs.get('measured_pattern')
+        reference_phase_simulated_patterns: list[XRDResult1D] = kwargs.get(
+            'reference_phase_simulated_patterns', []
+        )
+        if not measured_pattern or not reference_phase_simulated_patterns:
+            logger.warning(
+                '`measured_pattern` or `reference_phase_simulated_patterns` not '
+                'provided as kwargs to generate_plots method. Skipping plot generation.'
+            )
+            return figures
+        if self.identified_phases:
+            pattern_analysis_result = PatternAnalysisResult(
+                two_theta=measured_pattern.two_theta_angles.to('deg').magnitude,
+                intensity=measured_pattern.intensity,
+                phases=[
+                    Phase(
+                        name=phase.name,
+                        confidence=phase.confidence,
+                        simulated_two_theta=next(
+                            (
+                                pattern.two_theta.to('deg').magnitude
+                                for pattern in reference_phase_simulated_patterns
+                                if pattern.name == phase.name
+                            ),
+                            None,
+                        ),
+                        simulated_intensity=next(
+                            (
+                                pattern.intensity.magnitude
+                                for pattern in reference_phase_simulated_patterns
+                                if pattern.name == phase.name
+                            ),
+                            None,
+                        ),
+                    )
+                    for phase in self.identified_phases
+                ],
+            )
+            for phase in pattern_analysis_result.phases:
+                if (
+                    phase.simulated_two_theta is None
+                    or phase.simulated_intensity is None
+                ):
+                    logger.warning(
+                        f'Simulated pattern not found for phase: {phase.name}. Unable '
+                        'to generate the plot for identified phases.'
+                    )
+                    return figures
+            plotly_json = plot_identified_phases(pattern_analysis_result)
+            plotly_json['config'] = {'scrollZoom': False}
+            figures.append(
+                PlotlyFigure(
+                    label='Identified phases in the XRD pattern',
+                    index=0,
+                    figure=plotly_json,
+                )
+            )
+        return figures
+
+    def normalize(self, archive, logger):
+        super().normalize(archive, logger)
+        if self.xrd_results and self.xrd_results.name:
+            self.name = self.xrd_results.name
+
+
+class MultiPatternAnalysisResult(AutoXRDAnalysisResult):
+    """
+    Section for the results of the auto XRD analysis of multiple patterns. For example,
+    analysis of XRD patterns measured at different sample positions for a combinatorial
+    library.
+    """
+
+    xrd_measurement = Quantity(
+        type=XRayDiffraction,
+        description='The XRD measurement used for analysis.',
+    )
+    single_pattern_results = SubSection(
+        section_def=SinglePatternAnalysisResult,
+        repeats=True,
+        description='The results of the analysis for each XRD pattern.',
+    )
+
+    def generate_plots(self, logger: 'BoundLogger', **kwargs) -> list[PlotlyFigure]:
+        """
+        Creates plots for the analysis results, specifically a scatter plot showing
+        the identified phases at their respective sample positions.
+
+        Returns:
+            list[PlotlyFigure]: A list of Plotly figures for the analysis results.
+        """
+        figures = []
+        phases_position_list = []
+        for result in self.single_pattern_results:
+            if not result.identified_phases:
+                continue
+            try:
+                x_pos = result.xrd_results.x_absolute.to('millimeter').magnitude
+                y_pos = result.xrd_results.y_absolute.to('millimeter').magnitude
+                phases_position_list.append(
+                    PhasesPosition(
+                        x_position=x_pos,
+                        y_position=y_pos,
+                        x_unit='mm',
+                        y_unit='mm',
+                        phases=[
+                            Phase(
+                                name=phase.name,
+                                confidence=phase.confidence,
+                            )
+                            for phase in result.identified_phases
+                        ],
+                    )
+                )
+            except Exception:
+                logger.warning(
+                    'Error in extracting sample position from measurement reference.',
+                    exc_info=True,
+                )
+        if phases_position_list:
+            plotly_json = plot_identified_phases_sample_position(phases_position_list)
+            plotly_json['config'] = {'scrollZoom': False}
+            figures.append(
+                PlotlyFigure(
+                    label='Primary identified phases for the Combinatorial library',
+                    index=0,
+                    figure=plotly_json,
+                )
+            )
+        return figures
 
     def normalize(self, archive, logger):
         super().normalize(archive, logger)
@@ -1501,6 +1684,12 @@ class AutoXRDAnalysisAction(Action):
         The workflow runs the analysis, populates the `results` section with the
         identified phases, and updates the `workflow_status`.
         """
+        # reset results
+        self.results = []
+        self.analysis_settings.simulated_reference_patterns = []
+        if archive.results and archive.results.material:
+            archive.results.material = None
+
         xrd_measurement_entries = []
         for input_ref_section in self.inputs:
             xrd_measurement_entry = XRDMeasurementEntry(
@@ -1588,13 +1777,19 @@ class AutoXRDAnalysisAction(Action):
             archive (Archive): A NOMAD archive.
             logger (Logger): A structured logger.
         """
-        cif_files = list(
-            set(
-                phase.reference_structure.cif_file
-                for result in self.results
-                for phase in result.identified_phases
-            )
-        )
+        if not self.results:
+            return
+        cif_files_set = set()
+        for result in self.results:
+            if isinstance(result, SinglePatternAnalysisResult):
+                for phase in result.identified_phases:
+                    cif_files_set.add(phase.reference_structure.cif_file)
+            if isinstance(result, MultiPatternAnalysisResult):
+                for pattern_result in result.single_pattern_results:
+                    for phase in pattern_result.identified_phases:
+                        cif_files_set.add(phase.reference_structure.cif_file)
+
+        cif_files = list(cif_files_set)
         try:
             if not self.analysis_settings or not self.analysis_settings.auto_xrd_model:
                 return
@@ -1609,6 +1804,45 @@ class AutoXRDAnalysisAction(Action):
                 error=str(e),
                 error_type=type(e).__name__,
                 exc_info=True,
+            )
+
+    def generate_plots(self, logger):
+        """
+        Generates plots for the analysis results.
+        """
+        if not self.results:
+            return
+        try:
+            for result in self.results:
+                if isinstance(result, SinglePatternAnalysisResult):
+                    result.figures = result.generate_plots(
+                        logger,
+                        measured_pattern=(
+                            result.xrd_results.m_parent.m_parent.results.properties.structural.diffraction_pattern[
+                                0
+                            ]
+                        ),
+                        reference_phase_simulated_patterns=(
+                            self.analysis_settings.simulated_reference_patterns
+                        ),
+                    )
+                if isinstance(result, MultiPatternAnalysisResult):
+                    for pattern_result in result.single_pattern_results:
+                        pattern_result.figures = pattern_result.generate_plots(
+                            logger,
+                            measured_pattern=(
+                                pattern_result.xrd_results.m_parent.m_parent.results.properties.structural.diffraction_pattern[
+                                    0
+                                ]
+                            ),
+                            reference_phase_simulated_patterns=(
+                                self.analysis_settings.simulated_reference_patterns
+                            ),
+                        )
+                    result.figures = result.generate_plots(logger)
+        except Exception:
+            logger.error(
+                'Failed to generate plots for the analysis results.', exc_info=True
             )
 
     def normalize(self, archive, logger):
@@ -1676,6 +1910,7 @@ class AutoXRDAnalysisAction(Action):
                 )
 
         self.populate_material_topology(archive, logger)
+        self.generate_plots(logger)
         super().normalize(archive, logger)
 
 

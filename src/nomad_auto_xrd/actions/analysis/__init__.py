@@ -20,6 +20,7 @@ class AutoXRDAnalysisEntryPoint(ActionEntryPoint):
 
         from nomad_auto_xrd.actions.analysis.activities import (
             analyze,
+            simulate_reference_patterns,
             update_analysis_entry,
         )
         from nomad_auto_xrd.actions.analysis.workflow import AnalysisWorkflow
@@ -27,7 +28,7 @@ class AutoXRDAnalysisEntryPoint(ActionEntryPoint):
         return Action(
             task_queue=self.task_queue,
             workflow=AnalysisWorkflow,
-            activities=[analyze, update_analysis_entry],
+            activities=[analyze, simulate_reference_patterns, update_analysis_entry],
         )
 
 

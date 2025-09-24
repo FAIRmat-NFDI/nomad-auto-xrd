@@ -19,10 +19,12 @@ with workflow.unsafe.imports_passed_through():
 class TrainingWorkflow:
     @workflow.run
     async def run(self, data: UserInput) -> str:
-        workflow_id = workflow.info().workflow_id
-        working_directory = f'./auto_xrd_model_{workflow_id}'
+        retry_policy = RetryPolicy(
+            initial_interval=timedelta(seconds=10),
+            maximum_attempts=3,
+            backoff_coefficient=2.0,
+        )
         includes_pdf = True
-
         training_output = await workflow.execute_activity(
             train_model,
             TrainModelInput(
@@ -31,26 +33,22 @@ class TrainingWorkflow:
                 mainfile=data.mainfile,
                 simulation_settings=data.simulation_settings,
                 training_settings=data.training_settings,
-                working_directory=working_directory,
+                working_directory=workflow.info().workflow_id,
                 includes_pdf=includes_pdf,
             ),
             start_to_close_timeout=timedelta(hours=2),
             # TODO: uncomment during NOMAD logger integration
             # heartbeat_timeout=timedelta(hours=1),
-            retry_policy=RetryPolicy(
-                initial_interval=timedelta(seconds=10),
-                maximum_attempts=3,
-                backoff_coefficient=2.0,
-            ),
+            retry_policy=retry_policy,
         )
         create_entry_input = CreateTrainedModelEntryInput(
-            action_id=workflow_id,
+            action_id=workflow.info().workflow_id,
             upload_id=data.upload_id,
             user_id=data.user_id,
             mainfile=data.mainfile,
             simulation_settings=data.simulation_settings,
             training_settings=data.training_settings,
-            working_directory=working_directory,
+            working_directory=workflow.info().workflow_id,
             includes_pdf=includes_pdf,
             xrd_model_path=training_output.xrd_model_path,
             pdf_model_path=training_output.pdf_model_path,
@@ -62,10 +60,6 @@ class TrainingWorkflow:
             create_trained_model_entry,
             create_entry_input,
             start_to_close_timeout=timedelta(minutes=10),
-            retry_policy=RetryPolicy(
-                initial_interval=timedelta(seconds=10),
-                maximum_attempts=3,
-                backoff_coefficient=2.0,
-            ),
+            retry_policy=retry_policy,
         )
         return training_output

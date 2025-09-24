@@ -135,7 +135,7 @@ class AnalysisResult:
             available.
         phases_m_proxies (list[list] | None): M-proxies for the identified phases, if
             available.
-        xrd_measurement_m_proxies (list | None): M-proxies for the `data.results`
+        xrd_results_m_proxies (list | None): M-proxies for the `data.results`
             section of XRD entries, if available.
         plot_paths (list | None): Paths to the generated plots, if any.
     """
@@ -147,7 +147,7 @@ class AnalysisResult:
     scale_factors: list[list]
     reduced_spectra: list[list] | None = None
     phases_m_proxies: list[list] | None = None
-    xrd_measurement_m_proxies: list | None = None
+    xrd_results_m_proxies: list | None = None
     plot_paths: list | None = None
 
     def to_dict(self):
@@ -163,9 +163,9 @@ class AnalysisResult:
             'phases_m_proxies': (
                 self.phases_m_proxies if self.phases_m_proxies is not None else []
             ),
-            'xrd_measurement_m_proxies': (
-                self.xrd_measurement_m_proxies
-                if self.xrd_measurement_m_proxies is not None
+            'xrd_results_m_proxies': (
+                self.xrd_results_m_proxies
+                if self.xrd_results_m_proxies is not None
                 else []
             ),
             'plot_paths': self.plot_paths if self.plot_paths is not None else [],
@@ -185,8 +185,8 @@ class AnalysisResult:
             phases_m_proxies=list(data['phases_m_proxies'])
             if 'phases_m_proxies' in data
             else None,
-            xrd_measurement_m_proxies=list(data['xrd_measurement_m_proxies'])
-            if 'xrd_measurement_m_proxies' in data
+            xrd_results_m_proxies=list(data['xrd_results_m_proxies'])
+            if 'xrd_results_m_proxies' in data
             else None,
             plot_paths=list(data['plot_paths']) if 'plot_paths' in data else None,
         )
@@ -211,12 +211,62 @@ class AnalysisResult:
                 self.phases_m_proxies = []
             self.phases_m_proxies.extend(other.phases_m_proxies)
 
-        if other.xrd_measurement_m_proxies:
-            if self.xrd_measurement_m_proxies is None:
-                self.xrd_measurement_m_proxies = []
-            self.xrd_measurement_m_proxies.extend(other.xrd_measurement_m_proxies)
+        if other.xrd_results_m_proxies:
+            if self.xrd_results_m_proxies is None:
+                self.xrd_results_m_proxies = []
+            self.xrd_results_m_proxies.extend(other.xrd_results_m_proxies)
 
         if other.plot_paths:
             if self.plot_paths is None:
                 self.plot_paths = []
             self.plot_paths.extend(other.plot_paths)
+
+
+@dataclass
+class Phase:
+    """
+    A data class to hold the identified phase and its confidence level.
+    """
+
+    name: str
+    confidence: float
+    simulated_two_theta: list[float] | None = None
+    simulated_intensity: list[float] | None = None
+
+
+@dataclass
+class PhasesPosition:
+    """
+    A data class to hold the identified phases and their positions for a sample.
+    """
+
+    x_position: float
+    y_position: float
+    x_unit: str
+    y_unit: str
+    phases: list[Phase]
+
+
+@dataclass
+class PatternAnalysisResult:
+    """
+    A data class to hold the results of the analysis for a single XRD pattern.
+    """
+
+    two_theta: list[float]
+    intensity: list[float]
+    phases: list[Phase]
+
+
+@dataclass
+class XRDMeasurementEntry:
+    """
+    Class to represent an XRD measurement entry.
+
+    Attributes:
+        entry_id (str): The entry ID of the XRD measurement.
+        upload_id (str): The upload ID of the XRD measurement.
+    """
+
+    entry_id: str
+    upload_id: str

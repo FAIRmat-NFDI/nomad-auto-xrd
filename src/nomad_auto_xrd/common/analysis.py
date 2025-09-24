@@ -27,7 +27,6 @@ import numpy as np
 import psutil
 import tensorflow as tf
 from autoXRD import spectrum_analysis, visualizer
-from nomad.datamodel.metainfo.basesections import SectionReference
 from nomad_analysis.utils import get_reference
 from tqdm import tqdm
 
@@ -36,12 +35,15 @@ from nomad_auto_xrd.common.models import (
     AnalysisResult,
     AnalysisSettingsInput,
     AutoXRDModelInput,
+    XRDMeasurementEntry,
 )
 from nomad_auto_xrd.common.utils import pattern_preprocessor
 from nomad_auto_xrd.schema_packages.schema import (
     AutoXRDAnalysis,
     AutoXRDAnalysisResult,
     IdentifiedPhase,
+    MultiPatternAnalysisResult,
+    SinglePatternAnalysisResult,
 )
 
 if TYPE_CHECKING:
@@ -559,7 +561,7 @@ class XRDAutoAnalyzer:
             scale_factors=[],
             reduced_spectra=[],
             phases_m_proxies=[],
-            xrd_measurement_m_proxies=[],
+            xrd_results_m_proxies=[],
             plot_paths=[],
         )
         original_dir = os.getcwd()
@@ -629,7 +631,7 @@ class XRDAutoAnalyzer:
 
                 # add measurement_m_proxy to the results
 
-                merged_results.xrd_measurement_m_proxies = [
+                merged_results.xrd_results_m_proxies = [
                     analysis_input.measurement_m_proxy
                 ]
 
@@ -686,8 +688,8 @@ class XRDAutoAnalyzer:
 
 
 def to_nomad_data_results_section(
-    result: AnalysisResult,
-) -> list[AutoXRDAnalysisResult]:
+    xrd_measurement_entry: XRDMeasurementEntry, result: AnalysisResult
+) -> AutoXRDAnalysisResult:
     """
     Transforms the analysis results into a list of NOMAD `AutoXRDAnalysisResult`
     sections.
@@ -697,20 +699,20 @@ def to_nomad_data_results_section(
     """
     result_sections = []
     for (
-        xrd_measurement_m_proxy,
+        xrd_results_m_proxy,
         plot_path,
         phases,
         confidences,
         phases_m_proxies,
     ) in zip(
-        result.xrd_measurement_m_proxies,
+        result.xrd_results_m_proxies,
         result.plot_paths,
         result.phases,
         result.confidences,
         result.phases_m_proxies,
     ):
-        result_section = AutoXRDAnalysisResult(
-            xrd_measurement=SectionReference(reference=xrd_measurement_m_proxy),
+        result_section = SinglePatternAnalysisResult(
+            xrd_results=xrd_results_m_proxy,
             identified_phases_plot=plot_path,
             identified_phases=[
                 IdentifiedPhase(
@@ -724,7 +726,17 @@ def to_nomad_data_results_section(
             ],
         )
         result_sections.append(result_section)
-    return result_sections
+
+    if len(result_sections) > 1:
+        entry_data_proxy = get_reference(
+            xrd_measurement_entry.upload_id, xrd_measurement_entry.entry_id, 'data'
+        )
+        return MultiPatternAnalysisResult(
+            xrd_measurement=entry_data_proxy,
+            single_pattern_results=result_sections,
+        )
+    else:
+        return result_sections[0]
 
 
 def analyze(

@@ -56,7 +56,7 @@ def test_analysis(parsed_measurement_archives, caplog, clean_up):
         - The analysis entry stores the settings for the analysis including references
           to the XRD entry and the model entry.
     """
-    expected_num_results = 5  # 2 from single patterns + 3 from combinatorial
+    expected_num_results = 3  # 2 from single patterns + 1 from combinatorial
 
     # prepare the pre-trained model entry
     reference_files = [
