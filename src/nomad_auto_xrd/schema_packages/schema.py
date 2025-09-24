@@ -1769,13 +1769,19 @@ class AutoXRDAnalysisAction(Action):
             archive (Archive): A NOMAD archive.
             logger (Logger): A structured logger.
         """
-        cif_files = list(
-            set(
-                phase.reference_structure.cif_file
-                for result in self.results
-                for phase in result.identified_phases
-            )
-        )
+        if not self.results:
+            return
+        cif_files_set = set()
+        for result in self.results:
+            if isinstance(result, SinglePatternAnalysisResult):
+                for phase in result.identified_phases:
+                    cif_files_set.add(phase.reference_structure.cif_file)
+            if isinstance(result, MultiPatternAnalysisResult):
+                for pattern_result in result.single_pattern_results:
+                    for phase in pattern_result.identified_phases:
+                        cif_files_set.add(phase.reference_structure.cif_file)
+
+        cif_files = list(cif_files_set)
         try:
             if not self.analysis_settings or not self.analysis_settings.auto_xrd_model:
                 return
