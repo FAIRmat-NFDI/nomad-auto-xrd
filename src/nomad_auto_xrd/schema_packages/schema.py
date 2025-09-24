@@ -528,6 +528,24 @@ class AnalysisSettings(ArchiveSection):
     A schema for the settings for running the analysis.
     """
 
+    m_def = Section(
+        a_eln=ELNAnnotation(
+            properties=SectionProperties(
+                order=[
+                    'auto_xrd_model',
+                    'min_angle',
+                    'max_angle',
+                    'wavelength',
+                    'max_phases',
+                    'min_confidence',
+                    'cutoff_intensity',
+                    'include_pdf',
+                    'parallel',
+                    'simulated_reference_patterns',
+                ]
+            )
+        )
+    )
     auto_xrd_model = Quantity(
         type=AutoXRDModel,
         a_eln=ELNAnnotation(
@@ -538,15 +556,16 @@ class AnalysisSettings(ArchiveSection):
     max_phases = Quantity(
         type=int,
         description='Maximum number of phases to identify.',
-        default=5,
+        default=3,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity,
         ),
     )
     cutoff_intensity = Quantity(
         type=float,
-        description='Cutoff intensity for the XRD pattern.',
-        default=0.05,
+        description='Intensity threshold (% of original maximum) below which phase '
+        'identification stops, assuming remaining signal is noise.',
+        default=10.0,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity,
         ),
@@ -561,7 +580,7 @@ class AnalysisSettings(ArchiveSection):
     )
     include_pdf = Quantity(
         type=bool,
-        description='Flag to include PDFs in the analysis.',
+        description='Whether to include the PDF based model in the analysis.',
         default=True,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.BoolEditQuantity,
@@ -569,7 +588,7 @@ class AnalysisSettings(ArchiveSection):
     )
     parallel = Quantity(
         type=bool,
-        description='Flag to run the analysis in parallel.',
+        description='Whether to run the analysis using a parallel processing pool.',
         default=False,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.BoolEditQuantity,
