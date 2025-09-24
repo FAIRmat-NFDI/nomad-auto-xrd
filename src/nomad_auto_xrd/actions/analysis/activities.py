@@ -156,7 +156,7 @@ async def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
         archive['data']['action_status'] = 'COMPLETED'
         archive['data']['analysis_settings']['simulated_reference_patterns'] = [
             {
-                'name': pattern.cif_path,
+                'name': os.path.basename(pattern.cif_path).split('.cif')[0],
                 'two_theta': pattern.two_theta,
                 'intensity': pattern.intensity,
             }

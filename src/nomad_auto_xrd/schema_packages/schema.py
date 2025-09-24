@@ -725,11 +725,18 @@ class SinglePatternAnalysisResult(AutoXRDAnalysisResult):
         Creates plots for the analysis results, specifically the XRD pattern with
         identified phases.
 
+        Args:
+            logger (BoundLogger): The logger to use for logging messages.
+        Kwargs:
+            measured_pattern (DiffractionPattern): The measured XRD pattern.
+            reference_phase_simulated_patterns (list[XRDResult1D]): The simulated XRD
+                patterns for the reference phases.
+
         Returns:
             list[PlotlyFigure]: A list of Plotly figures for the analysis results.
         """
         figures = []
-        measured_pattern: XRDResult1D = kwargs.get('measured_pattern')
+        measured_pattern: DiffractionPattern = kwargs.get('measured_pattern')
         reference_phase_simulated_patterns: list[XRDResult1D] = kwargs.get(
             'reference_phase_simulated_patterns', []
         )
@@ -741,7 +748,7 @@ class SinglePatternAnalysisResult(AutoXRDAnalysisResult):
             return figures
         if self.identified_phases:
             pattern_analysis_result = PatternAnalysisResult(
-                two_theta=measured_pattern.two_theta,
+                two_theta=measured_pattern.two_theta_angles.to('deg').magnitude,
                 intensity=measured_pattern.intensity,
                 phases=[
                     Phase(
@@ -750,7 +757,7 @@ class SinglePatternAnalysisResult(AutoXRDAnalysisResult):
                         confidence=phase.confidence,
                         simulated_two_theta=next(
                             (
-                                pattern.two_theta
+                                pattern.two_theta_angles.to('deg').magnitude
                                 for pattern in reference_phase_simulated_patterns
                                 if pattern.name == phase.name
                             ),
@@ -758,7 +765,7 @@ class SinglePatternAnalysisResult(AutoXRDAnalysisResult):
                         ),
                         simulated_intensity=next(
                             (
-                                pattern.intensity
+                                pattern.intensity.magnitude
                                 for pattern in reference_phase_simulated_patterns
                                 if pattern.name == phase.name
                             ),
@@ -825,12 +832,8 @@ class MultiPatternAnalysisResult(AutoXRDAnalysisResult):
             if not result.identified_phases:
                 continue
             try:
-                x_pos = result.xrd_measurement.reference.x_absolute.to(
-                    'millimeter'
-                ).magnitude
-                y_pos = result.xrd_measurement.reference.y_absolute.to(
-                    'millimeter'
-                ).magnitude
+                x_pos = result.xrd_results.x_absolute.to('millimeter').magnitude
+                y_pos = result.xrd_results.y_absolute.to('millimeter').magnitude
                 phases_position_list.append(
                     PhasesPosition(
                         x_position=x_pos,
@@ -848,7 +851,10 @@ class MultiPatternAnalysisResult(AutoXRDAnalysisResult):
                     )
                 )
             except Exception:
-                continue
+                logger.warning(
+                    'Error in extracting sample position from measurement reference.',
+                    exc_info=True,
+                )
         if phases_position_list:
             plotly_json = plot_identified_phases_sample_position(phases_position_list)
             figures.append(
