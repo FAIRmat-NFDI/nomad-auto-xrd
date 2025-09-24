@@ -559,14 +559,6 @@ class AnalysisSettings(ArchiveSection):
             component=ELNComponentEnum.NumberEditQuantity,
         ),
     )
-    unknown_threshold = Quantity(
-        type=float,
-        description='Threshold for unknown phase identification.',
-        default=0.2,
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.NumberEditQuantity,
-        ),
-    )
     show_reduced = Quantity(
         type=bool,
         description='Flag to show reduced patterns.',
@@ -1718,7 +1710,6 @@ class AutoXRDAnalysisAction(Action):
                 max_phases=self.analysis_settings.max_phases,
                 cutoff_intensity=self.analysis_settings.cutoff_intensity,
                 min_confidence=self.analysis_settings.min_confidence,
-                unknown_threshold=self.analysis_settings.unknown_threshold,
                 show_reduced=self.analysis_settings.show_reduced,
                 include_pdf=self.analysis_settings.include_pdf,
                 parallel=self.analysis_settings.parallel,

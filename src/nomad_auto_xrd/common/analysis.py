@@ -779,7 +779,6 @@ def analyze(
             max_phases=analysis_entry.analysis_settings.max_phases,
             cutoff_intensity=analysis_entry.analysis_settings.cutoff_intensity,
             min_confidence=analysis_entry.analysis_settings.min_confidence,
-            unknown_threshold=analysis_entry.analysis_settings.unknown_threshold,
             show_reduced=analysis_entry.analysis_settings.show_reduced,
             include_pdf=analysis_entry.analysis_settings.include_pdf,
             parallel=analysis_entry.analysis_settings.parallel,
