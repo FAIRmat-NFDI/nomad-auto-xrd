@@ -786,6 +786,7 @@ class SinglePatternAnalysisResult(AutoXRDAnalysisResult):
                     )
                     return figures
             plotly_json = plot_identified_phases(pattern_analysis_result)
+            plotly_json['config'] = {'scrollZoom': False}
             figures.append(
                 PlotlyFigure(
                     label='Identified phases in the XRD pattern',
@@ -857,6 +858,7 @@ class MultiPatternAnalysisResult(AutoXRDAnalysisResult):
                 )
         if phases_position_list:
             plotly_json = plot_identified_phases_sample_position(phases_position_list)
+            plotly_json['config'] = {'scrollZoom': False}
             figures.append(
                 PlotlyFigure(
                     label='Primary identified phases for the Combinatorial library',

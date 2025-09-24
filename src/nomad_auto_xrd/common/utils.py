@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 from nomad import infrastructure
 from nomad.processing.data import PublicUploadFiles, StagingUploadFiles, Upload
 from nomad_analysis.utils import get_reference
@@ -185,7 +186,42 @@ def plot_identified_phases(data: PatternAnalysisResult) -> dict:
         data (PatternAnalysisResult): The analysis result containing measured and
             identified phases.
     """
-    return {}
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=data.two_theta,
+            y=data.intensity,
+            mode='lines',
+            name='Measured Pattern',
+        )
+    )
+    for phase in data.phases:
+        fig.add_trace(
+            go.Scatter(
+                x=phase.simulated_two_theta,
+                y=phase.simulated_intensity,
+                mode='markers',
+                marker=dict(symbol='line-ns-open', size=10, line=dict(width=2)),
+                name=f'{phase.name}_{phase.space_group} (conf={phase.confidence:.1f})',
+            )
+        )
+    fig.update_layout(
+        title='Measured XRD pattern with simulated patterns of identified phases',
+        xaxis_title='2<i>θ</i> / °',
+        yaxis_title='Intensity',
+        hovermode='closest',
+        template='plotly_white',
+        dragmode='zoom',
+        showlegend=True,
+        legend=dict(
+            orientation='h',  # Horizontal orientation
+            yanchor='top',
+            y=-0.30,  # Position below the plot
+            xanchor='center',
+            x=0.5,  # Center horizontally
+        ),
+    )
+    return fig.to_plotly_json()
 
 
 def plot_identified_phases_sample_position(
@@ -215,12 +251,19 @@ def plot_identified_phases_sample_position(
         y='y_position',
         color='phase',
         size='confidence',
-        title='Primary identified phases for the Combinatorial library',
-        labels={'x_position': f'x ({x_unit})', 'y_position': f'y ({y_unit})'},
     )
     fig.update_traces(
         marker=dict(opacity=0.7, line=dict(width=1, color='DarkSlateGrey'))
     )
-    fig.update_layout(legend_title_text='Primary Phase', hovermode='closest')
+    fig.update_layout(
+        title='Primary identified phases for the Combinatorial library',
+        legend_title_text='',
+        xaxis_title=f'x / {x_unit}',
+        yaxis_title=f'y / {y_unit}',
+        hovermode='closest',
+        template='plotly_white',
+        dragmode='zoom',
+        showlegend=True,
+    )
 
     return fig.to_plotly_json()
