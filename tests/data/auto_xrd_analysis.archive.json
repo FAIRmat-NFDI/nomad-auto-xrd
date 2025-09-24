@@ -9,12 +9,8 @@
             "cutoff_intensity": 1,
             "min_confidence": 40,
             "wavelength": "CuKa",
-            "unknown_threshold": 25,
-            "show_reduced": false,
             "include_pdf": false,
             "parallel": false,
-            "raw": true,
-            "show_individual": false,
             "min_angle": 25,
             "max_angle": 80,
             "structure_references_directory": "References"

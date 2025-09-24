@@ -528,6 +528,24 @@ class AnalysisSettings(ArchiveSection):
     A schema for the settings for running the analysis.
     """
 
+    m_def = Section(
+        a_eln=ELNAnnotation(
+            properties=SectionProperties(
+                order=[
+                    'auto_xrd_model',
+                    'min_angle',
+                    'max_angle',
+                    'wavelength',
+                    'max_phases',
+                    'min_confidence',
+                    'cutoff_intensity',
+                    'include_pdf',
+                    'parallel',
+                    'simulated_reference_patterns',
+                ]
+            )
+        )
+    )
     auto_xrd_model = Quantity(
         type=AutoXRDModel,
         a_eln=ELNAnnotation(
@@ -538,15 +556,16 @@ class AnalysisSettings(ArchiveSection):
     max_phases = Quantity(
         type=int,
         description='Maximum number of phases to identify.',
-        default=5,
+        default=3,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity,
         ),
     )
     cutoff_intensity = Quantity(
         type=float,
-        description='Cutoff intensity for the XRD pattern.',
-        default=0.05,
+        description='Intensity threshold (% of original maximum) below which phase '
+        'identification stops, assuming remaining signal is noise.',
+        default=10.0,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity,
         ),
@@ -559,25 +578,9 @@ class AnalysisSettings(ArchiveSection):
             component=ELNComponentEnum.NumberEditQuantity,
         ),
     )
-    unknown_threshold = Quantity(
-        type=float,
-        description='Threshold for unknown phase identification.',
-        default=0.2,
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.NumberEditQuantity,
-        ),
-    )
-    show_reduced = Quantity(
-        type=bool,
-        description='Flag to show reduced patterns.',
-        default=False,
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.BoolEditQuantity,
-        ),
-    )
     include_pdf = Quantity(
         type=bool,
-        description='Flag to include PDFs in the analysis.',
+        description='Whether to include the PDF based model in the analysis.',
         default=True,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.BoolEditQuantity,
@@ -585,23 +588,7 @@ class AnalysisSettings(ArchiveSection):
     )
     parallel = Quantity(
         type=bool,
-        description='Flag to run the analysis in parallel.',
-        default=False,
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.BoolEditQuantity,
-        ),
-    )
-    raw = Quantity(
-        type=bool,
-        description='Flag to show raw data.',
-        default=False,
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.BoolEditQuantity,
-        ),
-    )
-    show_individual = Quantity(
-        type=bool,
-        description='Flag to shows individual prediction results: XRD and PDF.',
+        description='Whether to run the analysis using a parallel processing pool.',
         default=False,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.BoolEditQuantity,
@@ -1718,12 +1705,8 @@ class AutoXRDAnalysisAction(Action):
                 max_phases=self.analysis_settings.max_phases,
                 cutoff_intensity=self.analysis_settings.cutoff_intensity,
                 min_confidence=self.analysis_settings.min_confidence,
-                unknown_threshold=self.analysis_settings.unknown_threshold,
-                show_reduced=self.analysis_settings.show_reduced,
                 include_pdf=self.analysis_settings.include_pdf,
                 parallel=self.analysis_settings.parallel,
-                raw=self.analysis_settings.raw,
-                show_individual=self.analysis_settings.show_individual,
                 wavelength=self.analysis_settings.wavelength.to('angstrom').magnitude,
                 min_angle=self.analysis_settings.min_angle.to('degree').magnitude,
                 max_angle=self.analysis_settings.max_angle.to('degree').magnitude,
