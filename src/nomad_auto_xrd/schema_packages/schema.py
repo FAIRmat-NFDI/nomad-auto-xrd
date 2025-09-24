@@ -35,7 +35,7 @@ from nomad.datamodel.metainfo.annotations import (
 )
 from nomad.datamodel.metainfo.basesections import Analysis, Entity, SectionReference
 from nomad.datamodel.metainfo.plot import PlotlyFigure, PlotSection
-from nomad.datamodel.results import Material, SymmetryNew, System
+from nomad.datamodel.results import DiffractionPattern, Material, SymmetryNew, System
 from nomad.metainfo import (
     Category,
     MProxy,
@@ -757,7 +757,7 @@ class SinglePatternAnalysisResult(AutoXRDAnalysisResult):
                         confidence=phase.confidence,
                         simulated_two_theta=next(
                             (
-                                pattern.two_theta_angles.to('deg').magnitude
+                                pattern.two_theta.to('deg').magnitude
                                 for pattern in reference_phase_simulated_patterns
                                 if pattern.name == phase.name
                             ),
@@ -1686,7 +1686,9 @@ class AutoXRDAnalysisAction(Action):
         """
         # reset results
         self.results = []
-        archive.results.material = None
+        self.analysis_settings.simulated_reference_patterns = []
+        if archive.results and archive.results.material:
+            archive.results.material = None
 
         xrd_measurement_entries = []
         for input_ref_section in self.inputs:
@@ -1804,6 +1806,45 @@ class AutoXRDAnalysisAction(Action):
                 exc_info=True,
             )
 
+    def generate_plots(self, logger):
+        """
+        Generates plots for the analysis results.
+        """
+        if not self.results:
+            return
+        try:
+            for result in self.results:
+                if isinstance(result, SinglePatternAnalysisResult):
+                    result.figures = result.generate_plots(
+                        logger,
+                        measured_pattern=(
+                            result.xrd_results.m_parent.m_parent.results.properties.structural.diffraction_pattern[
+                                0
+                            ]
+                        ),
+                        reference_phase_simulated_patterns=(
+                            self.analysis_settings.simulated_reference_patterns
+                        ),
+                    )
+                if isinstance(result, MultiPatternAnalysisResult):
+                    for pattern_result in result.single_pattern_results:
+                        pattern_result.figures = pattern_result.generate_plots(
+                            logger,
+                            measured_pattern=(
+                                pattern_result.xrd_results.m_parent.m_parent.results.properties.structural.diffraction_pattern[
+                                    0
+                                ]
+                            ),
+                            reference_phase_simulated_patterns=(
+                                self.analysis_settings.simulated_reference_patterns
+                            ),
+                        )
+                    result.figures = result.generate_plots(logger)
+        except Exception:
+            logger.error(
+                'Failed to generate plots for the analysis results.', exc_info=True
+            )
+
     def normalize(self, archive, logger):
         """
         Normalizes the `AutoXRDAnalysis` entry.
@@ -1869,6 +1910,7 @@ class AutoXRDAnalysisAction(Action):
                 )
 
         self.populate_material_topology(archive, logger)
+        self.generate_plots(logger)
         super().normalize(archive, logger)
 
 
