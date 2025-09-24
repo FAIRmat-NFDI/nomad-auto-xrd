@@ -27,8 +27,6 @@ class AnalysisWorkflow:
             maximum_attempts=3,
             backoff_coefficient=2.0,
         )
-        workflow_id = workflow.info().workflow_id
-        working_directory = f'auto_xrd_inference_{workflow_id}'
         results: list[AnalysisResult] = []
         for xrd_measurement_entry in data.xrd_measurement_entries:
             results.append(
@@ -37,7 +35,7 @@ class AnalysisWorkflow:
                     AnalyzeInput(
                         upload_id=data.upload_id,
                         user_id=data.user_id,
-                        working_directory=working_directory,
+                        working_directory=workflow.info().workflow_id,
                         analysis_settings=data.analysis_settings,
                         xrd_measurement_entry=xrd_measurement_entry,
                     ),
@@ -64,7 +62,7 @@ class AnalysisWorkflow:
                 upload_id=data.upload_id,
                 user_id=data.user_id,
                 mainfile=data.mainfile,
-                action_id=workflow_id,
+                action_id=workflow.info().workflow_id,
                 xrd_measurement_entries=data.xrd_measurement_entries,
                 analysis_results=results,
                 simulated_reference_patterns=simulated_reference_patterns,

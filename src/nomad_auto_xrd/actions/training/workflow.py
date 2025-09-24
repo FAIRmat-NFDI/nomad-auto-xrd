@@ -26,10 +26,7 @@ class TrainingWorkflow:
                 backoff_coefficient=2.0,
             ),
         )
-        workflow_id = workflow.info().workflow_id
-        working_directory = f'auto_xrd_model_{workflow_id}'
         includes_pdf = True
-
         training_output = await workflow.execute_activity(
             train_model,
             TrainModelInput(
@@ -38,7 +35,7 @@ class TrainingWorkflow:
                 mainfile=data.mainfile,
                 simulation_settings=data.simulation_settings,
                 training_settings=data.training_settings,
-                working_directory=working_directory,
+                working_directory=workflow.info().workflow_id,
                 includes_pdf=includes_pdf,
             ),
             start_to_close_timeout=timedelta(hours=2),
@@ -47,13 +44,13 @@ class TrainingWorkflow:
             retry_policy=retry_policy,
         )
         create_entry_input = CreateTrainedModelEntryInput(
-            action_id=workflow_id,
+            action_id=workflow.info().workflow_id,
             upload_id=data.upload_id,
             user_id=data.user_id,
             mainfile=data.mainfile,
             simulation_settings=data.simulation_settings,
             training_settings=data.training_settings,
-            working_directory=working_directory,
+            working_directory=workflow.info().workflow_id,
             includes_pdf=includes_pdf,
             xrd_model_path=training_output.xrd_model_path,
             pdf_model_path=training_output.pdf_model_path,
