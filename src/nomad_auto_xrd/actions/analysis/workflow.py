@@ -29,7 +29,7 @@ class AnalysisWorkflow:
         )
         workflow_id = workflow.info().workflow_id
         working_directory = f'auto_xrd_inference_{workflow_id}'
-        results = []
+        results: list[AnalysisResult] = []
         for xrd_measurement_entry in data.xrd_measurement_entries:
             results.append(
                 await workflow.execute_activity(
@@ -45,10 +45,6 @@ class AnalysisWorkflow:
                     retry_policy=retry_policy,
                 )
             )
-        result: AnalysisResult = results[0]
-        if len(results) > 1:
-            for res in results[1:]:
-                result.merge(res)
         simulated_reference_patterns = await workflow.execute_activity(
             simulate_reference_patterns,
             SimulateReferencePatternsInput(
@@ -69,10 +65,11 @@ class AnalysisWorkflow:
                 user_id=data.user_id,
                 mainfile=data.mainfile,
                 action_id=workflow_id,
-                analysis_result=result,
+                xrd_measurement_entries=data.xrd_measurement_entries,
+                analysis_results=results,
                 simulated_reference_patterns=simulated_reference_patterns,
             ),
             start_to_close_timeout=timedelta(seconds=600),
             retry_policy=retry_policy,
         )
-        return result
+        return results

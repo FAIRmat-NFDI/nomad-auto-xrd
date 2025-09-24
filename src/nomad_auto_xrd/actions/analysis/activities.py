@@ -139,8 +139,12 @@ async def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
     from nomad_auto_xrd.common.utils import get_upload
 
     result_sections = [
-        nomad_data_result.m_to_dict()
-        for nomad_data_result in to_nomad_data_results_section(data.analysis_result)
+        to_nomad_data_results_section(
+            xrd_measurement_entry, analysis_result
+        ).m_to_dict()
+        for xrd_measurement_entry, analysis_result in zip(
+            data.xrd_measurement_entries, data.analysis_results
+        )
     ]
     upload = get_upload(data.upload_id, data.user_id)
     context = ServerContext(upload)

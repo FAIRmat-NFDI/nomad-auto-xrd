@@ -42,6 +42,8 @@ from nomad_auto_xrd.schema_packages.schema import (
     AutoXRDAnalysis,
     AutoXRDAnalysisResult,
     IdentifiedPhase,
+    MultiPatternAnalysisResult,
+    SinglePatternAnalysisResult,
 )
 
 if TYPE_CHECKING:
@@ -559,7 +561,7 @@ class XRDAutoAnalyzer:
             scale_factors=[],
             reduced_spectra=[],
             phases_m_proxies=[],
-            xrd_measurement_m_proxies=[],
+            xrd_results_m_proxies=[],
             plot_paths=[],
         )
         original_dir = os.getcwd()
@@ -629,7 +631,7 @@ class XRDAutoAnalyzer:
 
                 # add measurement_m_proxy to the results
 
-                merged_results.xrd_measurement_m_proxies = [
+                merged_results.xrd_results_m_proxies = [
                     analysis_input.measurement_m_proxy
                 ]
 
@@ -686,8 +688,8 @@ class XRDAutoAnalyzer:
 
 
 def to_nomad_data_results_section(
-    result: AnalysisResult,
-) -> list[AutoXRDAnalysisResult]:
+    xrd_measurement_entry: XRDMeasurementEntry, result: AnalysisResult
+) -> AutoXRDAnalysisResult:
     """
     Transforms the analysis results into a list of NOMAD `AutoXRDAnalysisResult`
     sections.
@@ -709,7 +711,7 @@ def to_nomad_data_results_section(
         result.confidences,
         result.phases_m_proxies,
     ):
-        result_section = AutoXRDAnalysisResult(
+        result_section = SinglePatternAnalysisResult(
             xrd_results=SectionReference(reference=xrd_results_m_proxy),
             identified_phases_plot=plot_path,
             identified_phases=[
@@ -724,7 +726,17 @@ def to_nomad_data_results_section(
             ],
         )
         result_sections.append(result_section)
-    return result_sections
+
+    if len(result_sections) > 1:
+        entry_data_proxy = get_reference(
+            xrd_measurement_entry.upload_id, xrd_measurement_entry.entry_id, 'data'
+        )
+        return MultiPatternAnalysisResult(
+            xrd_measurement=SectionReference(reference=entry_data_proxy),
+            single_pattern_results=result_sections,
+        )
+    else:
+        return result_sections[0]
 
 
 def analyze(

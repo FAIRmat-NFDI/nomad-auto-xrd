@@ -87,5 +87,6 @@ class UpdateAnalysisEntryInput:
     user_id: str
     mainfile: str
     action_id: str
-    analysis_result: AnalysisResult
+    xrd_measurement_entries: list[XRDMeasurementEntry]
+    analysis_results: list[AnalysisResult]
     simulated_reference_patterns: list[SimulatedReferencePattern]
