@@ -202,7 +202,7 @@ def plot_identified_phases(data: PatternAnalysisResult) -> dict:
                 y=phase.simulated_intensity,
                 mode='markers',
                 marker=dict(symbol='line-ns-open', size=10, line=dict(width=2)),
-                name=f'{phase.name}_{phase.space_group} (conf={phase.confidence:.1f})',
+                name=f'{phase.name} (conf={phase.confidence:.1f})',
             )
         )
     fig.update_layout(
@@ -241,7 +241,6 @@ def plot_identified_phases_sample_position(
             'x_position': [d.x_position for d in data],
             'y_position': [d.y_position for d in data],
             'phase': [d.phases[0].name if d.phases else 'Unknown' for d in data],
-            'space_group': [d.phases[0].space_group if d.phases else 0 for d in data],
             'confidence': [d.phases[0].confidence if d.phases else 0.0 for d in data],
         }
     )

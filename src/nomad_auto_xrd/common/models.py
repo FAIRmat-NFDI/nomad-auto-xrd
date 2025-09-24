@@ -229,7 +229,6 @@ class Phase:
     """
 
     name: str
-    space_group: int
     confidence: float
     simulated_two_theta: list[float] | None = None
     simulated_intensity: list[float] | None = None

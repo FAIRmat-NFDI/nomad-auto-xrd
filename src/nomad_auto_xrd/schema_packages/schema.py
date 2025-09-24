@@ -752,8 +752,7 @@ class SinglePatternAnalysisResult(AutoXRDAnalysisResult):
                 intensity=measured_pattern.intensity,
                 phases=[
                     Phase(
-                        name=phase.name.split('_')[0],
-                        space_group=int(phase.name.split('_')[1]),
+                        name=phase.name,
                         confidence=phase.confidence,
                         simulated_two_theta=next(
                             (
@@ -843,8 +842,7 @@ class MultiPatternAnalysisResult(AutoXRDAnalysisResult):
                         y_unit='mm',
                         phases=[
                             Phase(
-                                name=phase.name.split('_')[0],
-                                space_group=int(phase.name.split('_')[1]),
+                                name=phase.name,
                                 confidence=phase.confidence,
                             )
                             for phase in result.identified_phases
