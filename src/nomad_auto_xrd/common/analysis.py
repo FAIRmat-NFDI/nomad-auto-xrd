@@ -278,10 +278,10 @@ def analyze_pattern(  # noqa: PLR0912, PLR0915
             settings.max_angle,
             settings.wavelength,
             save=False,
-            show_reduced=settings.show_reduced,
+            show_reduced=False,
             inc_pdf=settings.include_pdf,
             plot_both=False,
-            raw=settings.raw,
+            raw=False,
         )
 
     end = time.time()
@@ -649,10 +649,10 @@ class XRDAutoAnalyzer:
                     self.analysis_settings.max_angle,
                     self.analysis_settings.wavelength,
                     save=True,
-                    show_reduced=self.analysis_settings.show_reduced,
+                    show_reduced=False,
                     inc_pdf=self.analysis_settings.include_pdf,
                     plot_both=False,
-                    raw=self.analysis_settings.raw,
+                    raw=False,
                     rietveld=False,
                 )
                 merged_results.plot_paths = [
@@ -779,10 +779,8 @@ def analyze(
             max_phases=analysis_entry.analysis_settings.max_phases,
             cutoff_intensity=analysis_entry.analysis_settings.cutoff_intensity,
             min_confidence=analysis_entry.analysis_settings.min_confidence,
-            show_reduced=analysis_entry.analysis_settings.show_reduced,
             include_pdf=analysis_entry.analysis_settings.include_pdf,
             parallel=analysis_entry.analysis_settings.parallel,
-            raw=analysis_entry.analysis_settings.raw,
             wavelength=analysis_entry.analysis_settings.wavelength.to(
                 'angstrom'
             ).magnitude,

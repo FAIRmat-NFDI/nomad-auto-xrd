@@ -559,14 +559,6 @@ class AnalysisSettings(ArchiveSection):
             component=ELNComponentEnum.NumberEditQuantity,
         ),
     )
-    show_reduced = Quantity(
-        type=bool,
-        description='Flag to show reduced patterns.',
-        default=False,
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.BoolEditQuantity,
-        ),
-    )
     include_pdf = Quantity(
         type=bool,
         description='Flag to include PDFs in the analysis.',
@@ -578,14 +570,6 @@ class AnalysisSettings(ArchiveSection):
     parallel = Quantity(
         type=bool,
         description='Flag to run the analysis in parallel.',
-        default=False,
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.BoolEditQuantity,
-        ),
-    )
-    raw = Quantity(
-        type=bool,
-        description='Flag to show raw data.',
         default=False,
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.BoolEditQuantity,
@@ -1702,10 +1686,8 @@ class AutoXRDAnalysisAction(Action):
                 max_phases=self.analysis_settings.max_phases,
                 cutoff_intensity=self.analysis_settings.cutoff_intensity,
                 min_confidence=self.analysis_settings.min_confidence,
-                show_reduced=self.analysis_settings.show_reduced,
                 include_pdf=self.analysis_settings.include_pdf,
                 parallel=self.analysis_settings.parallel,
-                raw=self.analysis_settings.raw,
                 wavelength=self.analysis_settings.wavelength.to('angstrom').magnitude,
                 min_angle=self.analysis_settings.min_angle.to('degree').magnitude,
                 max_angle=self.analysis_settings.max_angle.to('degree').magnitude,

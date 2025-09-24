@@ -85,10 +85,8 @@ class AnalysisSettingsInput:
     max_phases: int
     cutoff_intensity: float
     min_confidence: float
-    show_reduced: bool
     include_pdf: bool
     parallel: bool
-    raw: bool
     wavelength: float
     min_angle: float
     max_angle: float
