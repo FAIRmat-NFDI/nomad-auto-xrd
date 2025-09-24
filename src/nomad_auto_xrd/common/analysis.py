@@ -36,6 +36,7 @@ from nomad_auto_xrd.common.models import (
     AnalysisResult,
     AnalysisSettingsInput,
     AutoXRDModelInput,
+    XRDMeasurementEntry,
 )
 from nomad_auto_xrd.common.utils import pattern_preprocessor
 from nomad_auto_xrd.schema_packages.schema import (

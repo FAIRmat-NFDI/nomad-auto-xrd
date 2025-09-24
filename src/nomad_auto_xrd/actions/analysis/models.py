@@ -3,21 +3,8 @@ from dataclasses import dataclass
 from nomad_auto_xrd.common.models import (
     AnalysisResult,
     AnalysisSettingsInput,
+    XRDMeasurementEntry,
 )
-
-
-@dataclass
-class XRDMeasurementEntry:
-    """
-    Class to represent an XRD measurement entry.
-
-    Attributes:
-        entry_id (str): The entry ID of the XRD measurement.
-        upload_id (str): The upload ID of the XRD measurement.
-    """
-
-    entry_id: str
-    upload_id: str
 
 
 @dataclass

@@ -51,7 +51,6 @@ from nomad_measurements.xrd.schema import XRayDiffraction, XRDResult1D
 from pymatgen.io.cif import CifParser
 
 from nomad_auto_xrd.actions.analysis.models import UserInput as AnalysisUserInput
-from nomad_auto_xrd.actions.analysis.models import XRDMeasurementEntry
 from nomad_auto_xrd.actions.training.models import UserInput as TrainingUserInput
 from nomad_auto_xrd.common.models import (
     AnalysisSettingsInput,
@@ -61,6 +60,7 @@ from nomad_auto_xrd.common.models import (
     PhasesPosition,
     SimulationSettingsInput,
     TrainingSettingsInput,
+    XRDMeasurementEntry,
 )
 from nomad_auto_xrd.common.utils import (
     plot_identified_phases,
