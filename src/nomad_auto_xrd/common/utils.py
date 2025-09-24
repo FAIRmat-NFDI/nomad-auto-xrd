@@ -212,6 +212,8 @@ def plot_identified_phases(data: PatternAnalysisResult) -> dict:
         hovermode='closest',
         template='plotly_white',
         dragmode='zoom',
+        xaxis=dict(fixedrange=False),
+        yaxis=dict(fixedrange=False),
         showlegend=True,
         legend=dict(
             orientation='h',  # Horizontal orientation
@@ -263,6 +265,8 @@ def plot_identified_phases_sample_position(
         hovermode='closest',
         template='plotly_white',
         dragmode='zoom',
+        xaxis=dict(fixedrange=False),
+        yaxis=dict(fixedrange=False),
         showlegend=True,
     )
 
