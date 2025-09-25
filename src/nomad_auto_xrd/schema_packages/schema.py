@@ -1796,13 +1796,13 @@ class AutoXRDAnalysisAction(Action):
         if not self.results:
             return
         try:
-            for result in self.results:
+            for i, result in enumerate(self.results):
                 if isinstance(result, SinglePatternAnalysisResult):
                     result.figures = result.generate_plots(
                         logger,
                         measured_pattern=(
                             result.xrd_results.m_parent.m_parent.results.properties.structural.diffraction_pattern[
-                                0
+                                i
                             ]
                         ),
                         reference_phase_simulated_patterns=(
@@ -1810,12 +1810,12 @@ class AutoXRDAnalysisAction(Action):
                         ),
                     )
                 if isinstance(result, MultiPatternAnalysisResult):
-                    for pattern_result in result.single_pattern_results:
+                    for j, pattern_result in enumerate(result.single_pattern_results):
                         pattern_result.figures = pattern_result.generate_plots(
                             logger,
                             measured_pattern=(
                                 pattern_result.xrd_results.m_parent.m_parent.results.properties.structural.diffraction_pattern[
-                                    0
+                                    j
                                 ]
                             ),
                             reference_phase_simulated_patterns=(
