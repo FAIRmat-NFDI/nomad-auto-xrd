@@ -213,7 +213,7 @@ def plot_identified_phases(data: PatternAnalysisResult) -> dict:
         template='plotly_white',
         dragmode='zoom',
         xaxis=dict(fixedrange=False),
-        yaxis=dict(fixedrange=False),
+        yaxis=dict(fixedrange=False, type='log'),
         showlegend=True,
         legend=dict(
             orientation='h',  # Horizontal orientation
