@@ -199,7 +199,8 @@ def plot_identified_phases(data: PatternAnalysisResult) -> dict:
         fig.add_trace(
             go.Scatter(
                 x=phase.simulated_two_theta,
-                y=phase.simulated_intensity,
+                y=len(phase.simulated_intensity)
+                * [min(data.intensity) / 2],  # baseline at y=1/2 of min intensity
                 mode='markers',
                 marker=dict(symbol='line-ns-open', size=10, line=dict(width=2)),
                 name=f'{phase.name} (conf={phase.confidence:.1f})',
