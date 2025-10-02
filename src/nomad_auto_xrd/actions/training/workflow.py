@@ -36,7 +36,7 @@ class TrainingWorkflow:
                 working_directory=workflow.info().workflow_id,
                 includes_pdf=includes_pdf,
             ),
-            start_to_close_timeout=timedelta(hours=2),
+            start_to_close_timeout=timedelta(hours=24),
             # TODO: uncomment during NOMAD logger integration
             # heartbeat_timeout=timedelta(hours=1),
             retry_policy=retry_policy,
