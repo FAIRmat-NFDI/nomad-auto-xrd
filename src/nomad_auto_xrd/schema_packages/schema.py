@@ -23,7 +23,7 @@ from typing import (
 import nbformat
 from ase.io import read as ase_io_read
 from matid import SymmetryAnalyzer
-from nomad.actions.utils import get_action_status, start_action
+from nomad.actions.manager import get_action_status, start_action
 from nomad.datamodel import ArchiveSection
 from nomad.datamodel.data import EntryDataCategory, Schema
 from nomad.datamodel.metainfo.annotations import (
