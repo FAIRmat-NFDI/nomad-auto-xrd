@@ -476,11 +476,9 @@ class AutoXRDModel(Entity, Schema):
                     self.reference_structures[
                         i
                     ].system = f'#/results/material/topology/{i}'
-            except Exception as e:
+            except Exception:
                 logger.error(
                     'Error in populating material topology from CIF files.',
-                    error=str(e),
-                    error_type=type(e).__name__,
                     exc_info=True,
                 )
 
@@ -1604,12 +1602,13 @@ class AutoXRDTrainingAction(Action):
                 for cif in self.simulation_settings.structure_files:
                     try:
                         with archive.m_context.raw_file(cif) as file:
-                            parser = CifParser(file)
+                            parser = CifParser(file.name)
                         parser.get_structures()
-                    except Exception as e:
+                    except Exception:
                         self.trigger_run_action = False
                         logger.error(
-                            f'Error in parsing {cif}: "{e}". Cannot run the training.'
+                            f'Error in parsing {cif}. Cannot run the training.',
+                            exec_info=True,
                         )
                         break
 
@@ -1760,8 +1759,6 @@ class AutoXRDAnalysisAction(Action):
             archive (Archive): A NOMAD archive.
             logger (Logger): A structured logger.
         """
-        if not self.results:
-            return
         cif_files_set = set()
         for result in self.results:
             if isinstance(result, SinglePatternAnalysisResult):
@@ -1781,11 +1778,9 @@ class AutoXRDAnalysisAction(Action):
             archive.results.material = populate_material_topology_with_cifs(
                 cif_files, model_context
             )
-        except Exception as e:
+        except Exception:
             logger.error(
                 'Failed to populate material topology.',
-                error=str(e),
-                error_type=type(e).__name__,
                 exc_info=True,
             )
 
@@ -1842,9 +1837,9 @@ class AutoXRDAnalysisAction(Action):
         input_validation_failed = False
         try:
             self.validate_inputs()
-        except Exception as e:
+        except Exception:
             input_validation_failed = True
-            logger.error(str(e))
+            logger.error('Could not validate inputs.', exc_info=True)
         if (
             self.analysis_settings.min_angle.magnitude
             != AnalysisSettings.min_angle.default
