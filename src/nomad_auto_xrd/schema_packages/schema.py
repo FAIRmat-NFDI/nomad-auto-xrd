@@ -1604,7 +1604,7 @@ class AutoXRDTrainingAction(Action):
                 for cif in self.simulation_settings.structure_files:
                     try:
                         with archive.m_context.raw_file(cif) as file:
-                            parser = CifParser(file)
+                            parser = CifParser(file.name)
                         parser.get_structures()
                     except Exception as e:
                         self.trigger_run_action = False
