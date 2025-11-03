@@ -56,7 +56,7 @@ dev = [
     "ruff",
     "pytest",
     "structlog",
-    "nomad-dtu-nanolab-plugin; python_version >= '3.11'",
+    "nomad-dtu-nanolab-plugin>=0.4.1; python_version >= '3.11'",
 ]
 cpu-action = ["nomad-auto-xrd[analytics]"]
 
@@ -65,7 +65,7 @@ prerelease = "allow"  # Allows pre-release/dev versions
 index-url = "https://gitlab.mpcdf.mpg.de/api/v4/projects/2187/packages/pypi/simple"
 
 [tool.uv.sources]
-nomad-dtu-nanolab-plugin = { git = "https://github.com/DTU-Nanolab-materials-discovery/nomad-dtu-nanolab-plugin.git", rev = "v0.4.1" }
+nomad-dtu-nanolab-plugin = { git = "https://github.com/DTU-Nanolab-materials-discovery/nomad-dtu-nanolab-plugin.git" }
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
