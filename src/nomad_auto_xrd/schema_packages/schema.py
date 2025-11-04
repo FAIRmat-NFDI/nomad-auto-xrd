@@ -149,6 +149,17 @@ class Model(Entity, Schema):
     """
 
 
+class AutoXRDCategory(EntryDataCategory):
+    """
+    Category for Auto XRD analysis, training, and model entries.
+    """
+
+    m_def = Category(
+        label='Auto XRD Schemas',
+        categories=[EntryDataCategory],
+    )
+
+
 class SimulationSettings(ArchiveSection):
     """
     A schema for the settings for simulating XRD patterns.
@@ -370,11 +381,13 @@ class AutoXRDModel(Entity, Schema):
     """
 
     m_def = Section(
+        label='Auto XRD Model',
         description="""
         Based on the structure files (CIF files) added, XRD patterns are simulated
         for different phase compositions and structures. The simulated XRD patterns are
         then used to train a machine learning model to predict the phase composition
         and structure from the XRD data.""",
+        categories=[AutoXRDCategory],
         a_eln=ELNAnnotation(
             properties=SectionProperties(
                 order=[
@@ -1368,6 +1381,7 @@ class AutoXRDTrainingAction(Action, Analysis, Schema):
 
     m_def = Section(
         label='Auto XRD Training Action',
+        categories=[AutoXRDCategory],
         a_eln=ELNAnnotation(
             properties=SectionProperties(
                 order=[
@@ -1500,6 +1514,7 @@ class AutoXRDAnalysisAction(Action, Analysis, Schema):
 
     m_def = Section(
         label='Auto XRD Analysis Action',
+        categories=[AutoXRDCategory],
         a_eln=ELNAnnotation(
             properties=SectionProperties(
                 order=[
