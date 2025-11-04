@@ -23,7 +23,7 @@ from typing import (
 import nbformat
 from ase.io import read as ase_io_read
 from matid import SymmetryAnalyzer
-from nomad.actions.manager import get_action_status, start_action
+from nomad.actions import manager
 from nomad.datamodel import ArchiveSection
 from nomad.datamodel.data import EntryDataCategory, Schema
 from nomad.datamodel.metainfo.annotations import (
@@ -46,6 +46,7 @@ from nomad.metainfo import (
 )
 from nomad.normalizing.common import nomad_atoms_from_ase_atoms
 from nomad.normalizing.topology import add_system, add_system_info
+from nomad_analysis.actions.schema import Action
 from nomad_analysis.jupyter.schema import JupyterAnalysis
 from nomad_measurements.xrd.schema import XRayDiffraction, XRDResult, XRDResult1D
 from pymatgen.io.cif import CifParser
@@ -69,9 +70,7 @@ from nomad_auto_xrd.common.utils import (
 
 if TYPE_CHECKING:
     from nomad.datamodel.context import Context
-    from structlog.stdlib import (
-        BoundLogger,
-    )
+    from structlog.stdlib import BoundLogger
 
 
 def populate_material_topology_with_cifs(
@@ -148,6 +147,17 @@ class Model(Entity, Schema):
     or TensorFlow, the model can be loaded using the `load_model` method. These model
     file also normalized to populate the current model section.
     """
+
+
+class AutoXRDCategory(EntryDataCategory):
+    """
+    Category for Auto XRD analysis, training, and model entries.
+    """
+
+    m_def = Category(
+        label='Auto XRD Schemas',
+        categories=[EntryDataCategory],
+    )
 
 
 class SimulationSettings(ArchiveSection):
@@ -371,11 +381,13 @@ class AutoXRDModel(Entity, Schema):
     """
 
     m_def = Section(
+        label='Auto XRD Model',
         description="""
         Based on the structure files (CIF files) added, XRD patterns are simulated
         for different phase compositions and structures. The simulated XRD patterns are
         then used to train a machine learning model to predict the phase composition
         and structure from the XRD data.""",
+        categories=[AutoXRDCategory],
         a_eln=ELNAnnotation(
             properties=SectionProperties(
                 order=[
@@ -1361,116 +1373,7 @@ class AutoXRDAnalysis(JupyterAnalysis):
         super().normalize(archive, logger)
 
 
-class ActionCategory(EntryDataCategory):
-    """
-    Category for schemas that can be used to run NOMAD Actions from ELN interface.
-    """
-
-    m_def = Category(
-        label='Run NOMAD Actions from ELN',
-        categories=[EntryDataCategory],
-    )
-
-
-class Action(Analysis, Schema):
-    """
-    Base class for actions that can be triggered from the ELN interface. Includes two
-    action buttons: one for triggering the action and another for retrieving the
-    status of the action using the action ID. Subclasses should implement the
-    `run_action` method to define the specific action to be performed.
-    """
-
-    m_def = Section(
-        categories=[ActionCategory],
-        description="""
-        Section for running NOMAD Actions.
-        """,
-        label='Actions',
-    )
-    description = Quantity(
-        description='A description for the action given by the user.',
-        a_eln=ELNAnnotation(
-            component='RichTextEditQuantity',
-            props=dict(height=200),
-        ),
-    )
-    action_id = Quantity(
-        type=str,
-        description='The ID of the last triggered action.',
-    )
-    action_status = Quantity(
-        type=str,
-        description='The status of the action derived using the action ID.',
-    )
-    trigger_run_action = Quantity(
-        type=bool,
-        description='Triggers the action defined under `run_action` method.',
-        default=False,
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.ActionEditQuantity,
-            label='Run Action',
-        ),
-    )
-    trigger_get_action_status = Quantity(
-        type=bool,
-        description='Retrieves the status of the action using the action ID.',
-        default=False,
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.ActionEditQuantity,
-            label='Get Action Status',
-        ),
-    )
-
-    def run_action(self, archive, logger):
-        """
-        Triggers the action. To be implemented by subclasses.
-        """
-        raise NotImplementedError('Subclasses should implement this method.')
-
-    def _get_action_status(self, archive, logger):
-        """
-        Retrieves the status of the action using the action ID.
-        """
-        if not self.action_id:
-            raise ValueError('No action ID found. Cannot retrieve action status.')
-        status = get_action_status(self.action_id, archive.metadata.authors[0].user_id)
-        if not status:
-            raise ValueError(f'No status found for action ID: {self.action_id}.')
-        self.action_status = status.name
-
-    def normalize(self, archive, logger):
-        """
-        Normalizes the action entry. If `trigger_run_action` is set to True, it calls
-        the `run_action` method to execute the action and sets
-        `trigger_get_action_status` to True to retrieve the action status. If
-        `trigger_get_action_status` is set to True, it calls the `_get_action_status`
-        method to update the `action_status`.
-
-        Args:
-            archive (Archive): A NOMAD archive.
-            logger (Logger): A structured logger.
-        """
-        if self.trigger_run_action:
-            try:
-                self.run_action(archive, logger)
-                self.trigger_get_action_status = True
-            except Exception as e:
-                logger.error('Failed to run the action.', error=str(e))
-            finally:
-                self.trigger_run_action = False
-        if self.action_id and self.action_status == 'RUNNING':
-            self.trigger_get_action_status = True
-        if self.trigger_get_action_status:
-            try:
-                self._get_action_status(archive, logger)
-            except Exception as e:
-                logger.error('Failed to retrieve the action status.', error=str(e))
-            finally:
-                self.trigger_get_action_status = False
-        super().normalize(archive, logger)
-
-
-class AutoXRDTrainingAction(Action):
+class AutoXRDTrainingAction(Action, Analysis, Schema):
     """
     Schema that uses actions to train an auto XRD model using specified simulation
     and training settings.
@@ -1478,6 +1381,7 @@ class AutoXRDTrainingAction(Action):
 
     m_def = Section(
         label='Auto XRD Training Action',
+        categories=[AutoXRDCategory],
         a_eln=ELNAnnotation(
             properties=SectionProperties(
                 order=[
@@ -1486,7 +1390,7 @@ class AutoXRDTrainingAction(Action):
                     'lab_id',
                     'description',
                     'method',
-                    'trigger_run_action',
+                    'trigger_start_action',
                     'trigger_get_action_status',
                     'simulation_settings',
                     'training_settings',
@@ -1517,14 +1421,7 @@ class AutoXRDTrainingAction(Action):
         'space.',
     )
 
-    def run_action(self, archive, logger):
-        """
-        Triggers the training action for the auto XRD model using the specified
-        simulation and training settings.
-
-        The action trains a model, indexes it in NOMAD as a `AutoXRDModel` entry, and
-        adds the reference to the model entry in `outputs`.
-        """
+    def start_action(self, archive, logger) -> str:
         input_data = TrainingUserInput(
             upload_id=archive.metadata.upload_id,
             user_id=archive.metadata.authors[0].user_id,
@@ -1559,10 +1456,10 @@ class AutoXRDTrainingAction(Action):
                 wandb_entity=self.training_settings.wandb_entity,
             ),
         )
-        self.action_id = start_action(
-            'nomad_auto_xrd.actions.training:training_action',
-            data=input_data,
+        action_instance_id = manager.start_action(
+            'nomad_auto_xrd.actions.training:training_action', data=input_data
         )
+        return action_instance_id
 
     def normalize(self, archive, logger):
         """
@@ -1574,16 +1471,10 @@ class AutoXRDTrainingAction(Action):
         """
         self.method = 'Auto XRD Model Training'
 
-        if self.action_status == 'RUNNING':
-            # update the status if current status is RUNNING
-            self.action_status = get_action_status(
-                self.action_id, archive.metadata.authors[0].user_id
-            ).name
-
-        if self.trigger_run_action:
+        if self.trigger_start_action:
             if self.action_status == 'RUNNING':
                 # if the updated status is still RUNNING, do not trigger a new run
-                self.trigger_run_action = False
+                self.trigger_start_action = False
                 logger.warning(
                     'The training action is already running. Please wait for it to '
                     'complete before running the training again.'
@@ -1593,7 +1484,7 @@ class AutoXRDTrainingAction(Action):
                 or not self.simulation_settings.structure_files
                 or not self.training_settings
             ):
-                self.trigger_run_action = False
+                self.trigger_start_action = False
                 logger.warning(
                     'Either simulation_settings or simulation_setting.structure_files '
                     'or training_settings not set. Cannot running the training action.'
@@ -1605,7 +1496,7 @@ class AutoXRDTrainingAction(Action):
                             parser = CifParser(file.name)
                         parser.get_structures()
                     except Exception:
-                        self.trigger_run_action = False
+                        self.trigger_start_action = False
                         logger.error(
                             f'Error in parsing {cif}. Cannot run the training.',
                             exec_info=True,
@@ -1615,7 +1506,7 @@ class AutoXRDTrainingAction(Action):
         super().normalize(archive, logger)
 
 
-class AutoXRDAnalysisAction(Action):
+class AutoXRDAnalysisAction(Action, Analysis, Schema):
     """
     Schema that uses actions to run an auto XRD analysis using a pre-trained Auto XRD
     model.
@@ -1623,6 +1514,7 @@ class AutoXRDAnalysisAction(Action):
 
     m_def = Section(
         label='Auto XRD Analysis Action',
+        categories=[AutoXRDCategory],
         a_eln=ELNAnnotation(
             properties=SectionProperties(
                 order=[
@@ -1631,7 +1523,7 @@ class AutoXRDAnalysisAction(Action):
                     'lab_id',
                     'description',
                     'method',
-                    'trigger_run_action',
+                    'trigger_start_action',
                     'trigger_get_action_status',
                     'analysis_settings',
                     'inputs',
@@ -1662,14 +1554,7 @@ class AutoXRDAnalysisAction(Action):
         description='Results of the auto XRD analysis.',
     )
 
-    def run_action(self, archive, logger):
-        """
-        Triggers the analysis workflow for the auto XRD analysis using the specified
-        analysis settings and inputs.
-
-        The workflow runs the analysis, populates the `results` section with the
-        identified phases, and updates the `workflow_status`.
-        """
+    def start_action(self, archive, logger) -> str:
         # reset results
         self.results = []
         self.analysis_settings.simulated_reference_patterns = []
@@ -1712,9 +1597,10 @@ class AutoXRDAnalysisAction(Action):
             ),
             xrd_measurement_entries=xrd_measurement_entries,
         )
-        self.action_id = start_action(
+        action_instance_id = manager.start_action(
             'nomad_auto_xrd.actions.analysis:analysis_action', data=input_data
         )
+        return action_instance_id
 
     def validate_inputs(self):
         """
@@ -1852,36 +1738,21 @@ class AutoXRDAnalysisAction(Action):
                 f'{self.analysis_settings.max_angle}].'
             )
 
-        if self.action_status == 'RUNNING':
-            # update the status if current status is RUNNING
-            self.action_status = get_action_status(
-                self.action_id, archive.metadata.authors[0].user_id
-            ).name
-
-        if self.trigger_run_action:
-            if self.action_status == 'RUNNING':
-                # if the updated status is still RUNNING, do not trigger a new run
-                self.trigger_run_action = False
-                logger.warning(
-                    'The analysis action is already running. Please wait for it to '
-                    'complete before running the analysis again.'
-                )
-            elif (
-                not self.analysis_settings or not self.analysis_settings.auto_xrd_model
-            ):
-                self.trigger_run_action = False
+        if self.trigger_start_action:
+            if not self.analysis_settings or not self.analysis_settings.auto_xrd_model:
+                self.trigger_start_action = False
                 logger.error(
                     'analysis_settings or analysis_settings.auto_xrd_model '
                     'is not set. Cannot run the analysis action.'
                 )
             elif not self.inputs:
-                self.trigger_run_action = False
+                self.trigger_start_action = False
                 logger.error(
                     'No XRD measurements are provided for analysis. Cannot run the '
                     'analysis action.'
                 )
             elif input_validation_failed:
-                self.trigger_run_action = False
+                self.trigger_start_action = False
                 logger.error(
                     'Validation of the XRD entries failed. Cannot run the analysis '
                     'action.'
