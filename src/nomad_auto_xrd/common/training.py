@@ -248,6 +248,16 @@ def generate_reference_structures(skip_filter: bool, include_elems: bool) -> str
     return reference_structures_dir
 
 
+def get_cif_files_from_folder(folder_name):
+    """Returns a list of CIF files with their full paths in the specified folder."""
+    cif_files_names = []
+    for file in os.listdir(folder_name):
+        if file.endswith('.cif'):
+            full_path = os.path.join(folder_name, file)
+            cif_files_names.append(full_path)
+    return cif_files_names
+
+
 def train(
     working_directory,
     simulation_settings: SimulationSettingsInput,
@@ -449,13 +459,3 @@ def train_nomad_model(model: AutoXRDModel):
         )
         reference_structures.append(reference_structure)
     model.reference_structures = reference_structures
-
-
-def get_cif_files_from_folder(folder_name):
-    """Returns a list of CIF files with their full paths in the specified folder."""
-    cif_files_names = []
-    for file in os.listdir(folder_name):
-        if file.endswith('.cif'):
-            full_path = os.path.join(folder_name, file)
-            cif_files_names.append(full_path)
-    return cif_files_names
