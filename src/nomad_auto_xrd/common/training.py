@@ -26,7 +26,7 @@ import tensorflow as tf
 import wandb
 from autoXRD import solid_solns, spectrum_generation, tabulate_cifs
 from nomad.datamodel import EntryArchive
-from tensorflow.keras.callbacks import Callback
+from wandb.integration.keras import WandbMetricsLogger
 
 from nomad_auto_xrd.common.ml_models import build_model
 from nomad_auto_xrd.common.models import (
@@ -115,7 +115,7 @@ def fit_model(
     train_y,
     model,
     settings: TrainingSettingsInput,
-    callbacks: list[Callback] = None,
+    callbacks: list[tf.keras.callbacks.Callback] = None,
 ) -> str | None:
     """
     Fits the model with the given training data and labels, with optional W&B logging.
@@ -170,21 +170,6 @@ def test_model(model, test_x, test_y):
         print(f'Test Accuracy: {acc * 100:.2f}%')
     else:
         print('No test data available for evaluation.')
-
-
-# Custom W&B callback
-class WandbMetricsLogger(Callback):
-    def on_epoch_end(self, epoch, logs=None):
-        if logs:
-            wandb.log(
-                {
-                    'epoch': epoch,
-                    'training_loss': logs.get('loss'),
-                    'training_accuracy': logs.get('categorical_accuracy'),
-                    'validation_loss': logs.get('val_loss'),
-                    'validation_accuracy': logs.get('val_categorical_accuracy'),
-                }
-            )
 
 
 def generate_reference_structures(skip_filter: bool, include_elems: bool) -> str:
