@@ -123,42 +123,40 @@ def fit_model(
     Returns:
         wandb_run_url: The W&B run URL if logging is enabled, else None.
     """
-    wandb_run_url = None  # Initialize to None
-
-    # Prepare callbacks
+    wandb_run_url = None
     if not callbacks:
         callbacks = []
 
-    if settings.enable_wandb and wandb:
-        run = wandb.init(
-            project=settings.wandb_project,
-            entity=settings.wandb_entity,
-            reinit=True,  # Ensure a new run is started
+    with wandb.init(
+        project=settings.wandb_project,
+        entity=settings.wandb_entity,
+        reinit=True,  # Ensure a new run is started
+    ) as wandb_run:
+        # Train the model with W&B logging
+        model.fit(
+            train_x,
+            train_y,
+            batch_size=settings.batch_size,
+            epochs=settings.num_epochs,
+            validation_split=0.2,
+            shuffle=True,
+            callbacks=callbacks + [WandbMetricsLogger()],
         )
-        wandb.config.update(vars(settings))  # TODO check what this does
-        callbacks.append(WandbMetricsLogger())
-    else:
-        run = None  # Wandb is not enabled
+        wandb_run_url = wandb_run.url
 
-    # Train the model
-    model.fit(
-        train_x,
-        train_y,
-        batch_size=settings.batch_size,
-        epochs=settings.num_epochs,
-        validation_split=0.2,
-        shuffle=True,
-        callbacks=callbacks,
-    )
+    if not wandb_run_url:
+        # Train the model
+        model.fit(
+            train_x,
+            train_y,
+            batch_size=settings.batch_size,
+            epochs=settings.num_epochs,
+            validation_split=0.2,
+            shuffle=True,
+            callbacks=callbacks,
+        )
 
-    # Get the run URL if wandb is enabled
-    if settings.enable_wandb and wandb and run:
-        wandb_run_url = run.url
-        # Finish W&B run
-        wandb.finish()
-        return wandb_run_url
-
-    return None
+    return wandb_run_url
 
 
 def test_model(model, test_x, test_y):
@@ -386,13 +384,13 @@ def train_nomad_model(model: AutoXRDModel):
     """
     Trains an autoXRD model using the NOMAD schema instance `AutoXRDModel`. This wrapper
     ensures compatibility between the NOMAD schema and the autoXRD training pipeline.
-    The function updates the `model` instance with trained model paths, reference
-    structure paths, and W&B run URLs.
+    The function updates the `model` instance with trained model paths and reference
+    structure paths.
 
     Args:
         model (AutoXRDModel): An instance of the AutoXRDModel schema containing all
             the necessary settings for training. The model will be updated with the
-            trained model and W&B run URLs.
+            trained model.
     """
     if not isinstance(model, AutoXRDModel):
         raise TypeError('`model` must be an instance of AutoXRDModel')
@@ -418,9 +416,6 @@ def train_nomad_model(model: AutoXRDModel):
         learning_rate=float(model.training_settings.learning_rate),
         seed=int(model.training_settings.seed),
         test_fraction=float(model.training_settings.test_fraction),
-        enable_wandb=model.training_settings.enable_wandb,
-        wandb_project=model.training_settings.wandb_project,
-        wandb_entity=model.training_settings.wandb_entity,
     )
 
     # Train the model
