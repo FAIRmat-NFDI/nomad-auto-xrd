@@ -37,46 +37,6 @@ from nomad_auto_xrd.common.models import (
 from nomad_auto_xrd.schema_packages.schema import AutoXRDModel, ReferenceStructure
 
 
-@dataclass
-class ModelConfig:
-    """Configuration for running the XRD model."""
-
-    # Paths and directories
-    references_dir: str = 'References'
-    all_cifs_dir: str = 'All_CIFs'
-    models_dir: str = 'Models'
-    xrd_output_file: str = 'XRD.npy'
-    pdf_output_file: str = 'PDF.npy'
-
-    # Spectra generation parameters
-    max_texture: float = 0.5
-    min_domain_size: float = 5.0
-    max_domain_size: float = 30.0
-    max_strain: float = 0.03
-    num_spectra: int = 50
-    min_angle: float = 20.0
-    max_angle: float = 80.00
-    max_shift: float = 0.1
-    separate: bool = True
-    impur_amt: float = 0.0
-    skip_filter: bool = False
-    include_elems: bool = True
-    inc_pdf: bool = False
-    save_pdf: bool = False
-
-    # Training parameters
-    num_epochs: int = 50
-    test_fraction: float = 0.2
-
-    # Wandb configuration
-    enable_wandb: bool = False
-    wandb_project: str = 'xrd_model'
-    wandb_entity: str = 'your_entity_name'
-
-    # NOMAD configuration
-    save_nomad_metadata: bool = True
-
-
 class DataSetUp:
     """
     Class used to prepare data for training a convolutional neural network
@@ -499,47 +459,3 @@ def get_cif_files_from_folder(folder_name):
             full_path = os.path.join(folder_name, file)
             cif_files_names.append(full_path)
     return cif_files_names
-
-
-def save_model_metadata(
-    config: ModelConfig,
-    wandb_run_url_xrd: str = None,
-    wandb_run_url_pdf: str = None,
-):
-    """Creates a NOMAD archive to store model metadata."""
-    cif_files = get_cif_files_from_folder(config.references_dir)
-
-    # Corrected parameters
-    model_params = {
-        'cif_files': cif_files,
-        'xrd_model_file': os.path.join(config.models_dir, 'XRD_Model.h5')
-        if os.path.exists(os.path.join(config.models_dir, 'XRD_Model.h5'))
-        else None,
-        'pdf_model_file': os.path.join(config.models_dir, 'PDF_Model.h5')
-        if os.path.exists(os.path.join(config.models_dir, 'PDF_Model.h5'))
-        else None,
-        'wandb_run_url_xrd': wandb_run_url_xrd,
-        'wandb_run_url_pdf': wandb_run_url_pdf,
-        'max_texture': config.max_texture,
-        'min_domain_size': config.min_domain_size,
-        'max_domain_size': config.max_domain_size,
-        'max_strain': config.max_strain,
-        'num_patterns': config.num_spectra,  # Corrected key
-        'min_angle': config.min_angle,
-        'max_angle': config.max_angle,
-        'max_shift': config.max_shift,
-        'separate': config.separate,
-        'impur_amt': config.impur_amt,
-        'skip_filter': config.skip_filter,
-        'num_epochs': config.num_epochs,
-        'test_fraction': config.test_fraction,
-    }
-
-    # Remove keys with None values
-    model_params = {k: v for k, v in model_params.items() if v is not None}
-
-    archive = EntryArchive(data=AutoXRDModel(**model_params))
-    output_file = 'model_metadata.archive.json'
-    with open(output_file, 'w') as f:
-        f.write(archive.m_to_json(indent=4))
-    print(f'Model metadata saved to {output_file}')
