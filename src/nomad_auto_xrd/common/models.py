@@ -48,7 +48,6 @@ class TrainingSettingsInput:
     learning_rate: float
     seed: int
     test_fraction: float
-    enable_wandb: bool
     wandb_project: str | None = None
     wandb_entity: str | None = None
 
