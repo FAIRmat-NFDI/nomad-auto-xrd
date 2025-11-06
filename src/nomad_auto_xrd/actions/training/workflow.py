@@ -15,7 +15,7 @@ with workflow.unsafe.imports_passed_through():
     )
 
 
-@workflow.defn
+@workflow.defn(name='Training Workflow')
 class TrainingWorkflow:
     @workflow.run
     async def run(self, data: UserInput) -> str:

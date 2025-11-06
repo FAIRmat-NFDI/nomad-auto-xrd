@@ -14,7 +14,6 @@ from nomad_auto_xrd.actions.training_wandb.models import UserInput
 async def prepare_training_workflow_inputs(
     data: UserInput,
 ) -> TrainingWorkflowUserInput:
-    from nomad.config import config
     from nomad.datamodel.context import ServerContext
     from nomad.utils import generate_entry_id
 
@@ -29,7 +28,6 @@ async def prepare_training_workflow_inputs(
         entry_id, data.upload_id, context.installation_url
     )
 
-    # populate the TrainingWorkflowUserInput model
     simulation_settings = SimulationSettingsInput(
         structure_files=entry_archive.data.simulation_settings.structure_files,
         max_texture=float(entry_archive.data.simulation_settings.max_texture),
@@ -58,11 +56,11 @@ async def prepare_training_workflow_inputs(
         wandb_project=data.wandb_project,
         wandb_entity=data.wandb_entity,
     )
-    output = TrainingWorkflowUserInput(
+    training_workflow_user_input = TrainingWorkflowUserInput(
         upload_id=data.upload_id,
         user_id=data.user_id,
         mainfile=data.mainfile,
         simulation_settings=simulation_settings,
         training_settings=training_settings,
     )
-    return output
+    return training_workflow_user_input
