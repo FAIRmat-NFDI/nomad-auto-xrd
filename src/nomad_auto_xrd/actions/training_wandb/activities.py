@@ -53,6 +53,7 @@ async def prepare_training_workflow_inputs(
         learning_rate=float(entry_archive.data.training_settings.learning_rate),
         seed=int(entry_archive.data.training_settings.seed),
         test_fraction=float(entry_archive.data.training_settings.test_fraction),
+        enable_wandb=True,  # Enable W&B logging
         wandb_project=data.wandb_project,
         wandb_entity=data.wandb_entity,
     )

@@ -123,9 +123,21 @@ def fit_model(
     Returns:
         wandb_run_url: The W&B run URL if logging is enabled, else None.
     """
-    wandb_run_url = None
     if not callbacks:
         callbacks = []
+
+    if not settings.enable_wandb:
+        # Train the model without W&B logging
+        model.fit(
+            train_x,
+            train_y,
+            batch_size=settings.batch_size,
+            epochs=settings.num_epochs,
+            validation_split=0.2,
+            shuffle=True,
+            callbacks=callbacks,
+        )
+        return None
 
     with wandb.init(
         project=settings.wandb_project,
@@ -143,18 +155,6 @@ def fit_model(
             callbacks=callbacks + [WandbMetricsLogger()],
         )
         wandb_run_url = wandb_run.url
-
-    if not wandb_run_url:
-        # Train the model
-        model.fit(
-            train_x,
-            train_y,
-            batch_size=settings.batch_size,
-            epochs=settings.num_epochs,
-            validation_split=0.2,
-            shuffle=True,
-            callbacks=callbacks,
-        )
 
     return wandb_run_url
 

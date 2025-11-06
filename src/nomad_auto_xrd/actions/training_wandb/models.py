@@ -13,6 +13,6 @@ class UserInput(BaseModel):
         ...,
         description='Path to the "*.archive.json" of a "AutoXRDTrainingAction" entry',
     )
-    wandb_project: str = Field(..., description='The WandB project name.')
-    wandb_entity: str = Field(..., description='The WandB entity name.')
     wandb_api_key: str = Field(..., description='The WandB API key.')
+    wandb_entity: str = Field(None, description='The WandB entity name (optional).')
+    wandb_project: str = Field(None, description='The WandB project name (optional).')
