@@ -48,7 +48,7 @@ class TrainingSettingsInput:
     learning_rate: float
     seed: int
     test_fraction: float
-    enable_wandb: bool
+    enable_wandb: bool = False  # implicitly disable W&B logging by default
     wandb_project: str | None = None
     wandb_entity: str | None = None
 

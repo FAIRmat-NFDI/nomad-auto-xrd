@@ -18,15 +18,13 @@
 import os
 import shutil
 import tempfile
-from dataclasses import dataclass
 from random import shuffle
 
 import numpy as np
 import tensorflow as tf
 import wandb
 from autoXRD import solid_solns, spectrum_generation, tabulate_cifs
-from nomad.datamodel import EntryArchive
-from tensorflow.keras.callbacks import Callback
+from wandb.integration.keras import WandbMetricsLogger
 
 from nomad_auto_xrd.common.ml_models import build_model
 from nomad_auto_xrd.common.models import (
@@ -35,46 +33,6 @@ from nomad_auto_xrd.common.models import (
     TrainModelOutput,
 )
 from nomad_auto_xrd.schema_packages.schema import AutoXRDModel, ReferenceStructure
-
-
-@dataclass
-class ModelConfig:
-    """Configuration for running the XRD model."""
-
-    # Paths and directories
-    references_dir: str = 'References'
-    all_cifs_dir: str = 'All_CIFs'
-    models_dir: str = 'Models'
-    xrd_output_file: str = 'XRD.npy'
-    pdf_output_file: str = 'PDF.npy'
-
-    # Spectra generation parameters
-    max_texture: float = 0.5
-    min_domain_size: float = 5.0
-    max_domain_size: float = 30.0
-    max_strain: float = 0.03
-    num_spectra: int = 50
-    min_angle: float = 20.0
-    max_angle: float = 80.00
-    max_shift: float = 0.1
-    separate: bool = True
-    impur_amt: float = 0.0
-    skip_filter: bool = False
-    include_elems: bool = True
-    inc_pdf: bool = False
-    save_pdf: bool = False
-
-    # Training parameters
-    num_epochs: int = 50
-    test_fraction: float = 0.2
-
-    # Wandb configuration
-    enable_wandb: bool = False
-    wandb_project: str = 'xrd_model'
-    wandb_entity: str = 'your_entity_name'
-
-    # NOMAD configuration
-    save_nomad_metadata: bool = True
 
 
 class DataSetUp:
@@ -155,7 +113,7 @@ def fit_model(
     train_y,
     model,
     settings: TrainingSettingsInput,
-    callbacks: list[Callback] = None,
+    callbacks: list[tf.keras.callbacks.Callback] = None,
 ) -> str | None:
     """
     Fits the model with the given training data and labels, with optional W&B logging.
@@ -163,42 +121,40 @@ def fit_model(
     Returns:
         wandb_run_url: The W&B run URL if logging is enabled, else None.
     """
-    wandb_run_url = None  # Initialize to None
-
-    # Prepare callbacks
     if not callbacks:
         callbacks = []
 
-    if settings.enable_wandb and wandb:
-        run = wandb.init(
-            project=settings.wandb_project,
-            entity=settings.wandb_entity,
-            reinit=True,  # Ensure a new run is started
+    if not settings.enable_wandb:
+        # Train the model without W&B logging
+        model.fit(
+            train_x,
+            train_y,
+            batch_size=settings.batch_size,
+            epochs=settings.num_epochs,
+            validation_split=0.2,
+            shuffle=True,
+            callbacks=callbacks,
         )
-        wandb.config.update(vars(settings))  # TODO check what this does
-        callbacks.append(WandbMetricsLogger())
-    else:
-        run = None  # Wandb is not enabled
+        return None
 
-    # Train the model
-    model.fit(
-        train_x,
-        train_y,
-        batch_size=settings.batch_size,
-        epochs=settings.num_epochs,
-        validation_split=0.2,
-        shuffle=True,
-        callbacks=callbacks,
-    )
+    with wandb.init(
+        project=settings.wandb_project,
+        entity=settings.wandb_entity,
+        reinit=True,  # Ensure a new run is started
+    ) as wandb_run:
+        # Train the model with W&B logging
+        model.fit(
+            train_x,
+            train_y,
+            batch_size=settings.batch_size,
+            epochs=settings.num_epochs,
+            validation_split=0.2,
+            shuffle=True,
+            callbacks=callbacks + [WandbMetricsLogger()],
+        )
+        wandb_run_url = wandb_run.url
 
-    # Get the run URL if wandb is enabled
-    if settings.enable_wandb and wandb and run:
-        wandb_run_url = run.url
-        # Finish W&B run
-        wandb.finish()
-        return wandb_run_url
-
-    return None
+    return wandb_run_url
 
 
 def test_model(model, test_x, test_y):
@@ -210,21 +166,6 @@ def test_model(model, test_x, test_y):
         print(f'Test Accuracy: {acc * 100:.2f}%')
     else:
         print('No test data available for evaluation.')
-
-
-# Custom W&B callback
-class WandbMetricsLogger(Callback):
-    def on_epoch_end(self, epoch, logs=None):
-        if logs:
-            wandb.log(
-                {
-                    'epoch': epoch,
-                    'training_loss': logs.get('loss'),
-                    'training_accuracy': logs.get('categorical_accuracy'),
-                    'validation_loss': logs.get('val_loss'),
-                    'validation_accuracy': logs.get('val_categorical_accuracy'),
-                }
-            )
 
 
 def generate_reference_structures(skip_filter: bool, include_elems: bool) -> str:
@@ -286,6 +227,16 @@ def generate_reference_structures(skip_filter: bool, include_elems: bool) -> str
     solid_solns.main(reference_structures_dir)
 
     return reference_structures_dir
+
+
+def get_cif_files_from_folder(folder_name):
+    """Returns a list of CIF files with their full paths in the specified folder."""
+    cif_files_names = []
+    for file in os.listdir(folder_name):
+        if file.endswith('.cif'):
+            full_path = os.path.join(folder_name, file)
+            cif_files_names.append(full_path)
+    return cif_files_names
 
 
 def train(
@@ -431,13 +382,13 @@ def train_nomad_model(model: AutoXRDModel):
     """
     Trains an autoXRD model using the NOMAD schema instance `AutoXRDModel`. This wrapper
     ensures compatibility between the NOMAD schema and the autoXRD training pipeline.
-    The function updates the `model` instance with trained model paths, reference
-    structure paths, and W&B run URLs.
+    The function updates the `model` instance with trained model paths and reference
+    structure paths.
 
     Args:
         model (AutoXRDModel): An instance of the AutoXRDModel schema containing all
             the necessary settings for training. The model will be updated with the
-            trained model and W&B run URLs.
+            trained model.
     """
     if not isinstance(model, AutoXRDModel):
         raise TypeError('`model` must be an instance of AutoXRDModel')
@@ -463,9 +414,6 @@ def train_nomad_model(model: AutoXRDModel):
         learning_rate=float(model.training_settings.learning_rate),
         seed=int(model.training_settings.seed),
         test_fraction=float(model.training_settings.test_fraction),
-        enable_wandb=model.training_settings.enable_wandb,
-        wandb_project=model.training_settings.wandb_project,
-        wandb_entity=model.training_settings.wandb_entity,
     )
 
     # Train the model
@@ -489,57 +437,3 @@ def train_nomad_model(model: AutoXRDModel):
         )
         reference_structures.append(reference_structure)
     model.reference_structures = reference_structures
-
-
-def get_cif_files_from_folder(folder_name):
-    """Returns a list of CIF files with their full paths in the specified folder."""
-    cif_files_names = []
-    for file in os.listdir(folder_name):
-        if file.endswith('.cif'):
-            full_path = os.path.join(folder_name, file)
-            cif_files_names.append(full_path)
-    return cif_files_names
-
-
-def save_model_metadata(
-    config: ModelConfig,
-    wandb_run_url_xrd: str = None,
-    wandb_run_url_pdf: str = None,
-):
-    """Creates a NOMAD archive to store model metadata."""
-    cif_files = get_cif_files_from_folder(config.references_dir)
-
-    # Corrected parameters
-    model_params = {
-        'cif_files': cif_files,
-        'xrd_model_file': os.path.join(config.models_dir, 'XRD_Model.h5')
-        if os.path.exists(os.path.join(config.models_dir, 'XRD_Model.h5'))
-        else None,
-        'pdf_model_file': os.path.join(config.models_dir, 'PDF_Model.h5')
-        if os.path.exists(os.path.join(config.models_dir, 'PDF_Model.h5'))
-        else None,
-        'wandb_run_url_xrd': wandb_run_url_xrd,
-        'wandb_run_url_pdf': wandb_run_url_pdf,
-        'max_texture': config.max_texture,
-        'min_domain_size': config.min_domain_size,
-        'max_domain_size': config.max_domain_size,
-        'max_strain': config.max_strain,
-        'num_patterns': config.num_spectra,  # Corrected key
-        'min_angle': config.min_angle,
-        'max_angle': config.max_angle,
-        'max_shift': config.max_shift,
-        'separate': config.separate,
-        'impur_amt': config.impur_amt,
-        'skip_filter': config.skip_filter,
-        'num_epochs': config.num_epochs,
-        'test_fraction': config.test_fraction,
-    }
-
-    # Remove keys with None values
-    model_params = {k: v for k, v in model_params.items() if v is not None}
-
-    archive = EntryArchive(data=AutoXRDModel(**model_params))
-    output_file = 'model_metadata.archive.json'
-    with open(output_file, 'w') as f:
-        f.write(archive.m_to_json(indent=4))
-    print(f'Model metadata saved to {output_file}')

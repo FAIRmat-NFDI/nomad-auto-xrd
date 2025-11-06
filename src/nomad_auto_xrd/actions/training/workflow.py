@@ -15,7 +15,7 @@ with workflow.unsafe.imports_passed_through():
     )
 
 
-@workflow.defn
+@workflow.defn(name='Training Workflow')
 class TrainingWorkflow:
     @workflow.run
     async def run(self, data: UserInput) -> str:
@@ -42,7 +42,7 @@ class TrainingWorkflow:
             retry_policy=retry_policy,
         )
         create_entry_input = CreateTrainedModelEntryInput(
-            action_id=workflow.info().workflow_id,
+            action_instance_id=workflow.info().workflow_id,
             upload_id=data.upload_id,
             user_id=data.user_id,
             mainfile=data.mainfile,

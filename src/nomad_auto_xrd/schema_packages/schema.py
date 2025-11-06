@@ -322,28 +322,6 @@ class TrainingSettings(ArchiveSection):
             component=ELNComponentEnum.NumberEditQuantity,
         ),
     )
-    enable_wandb = Quantity(
-        type=bool,
-        description='Flag to enable "Weights and Biases" logging.',
-        default=False,
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.BoolEditQuantity,
-        ),
-    )
-    wandb_project = Quantity(
-        type=str,
-        description='"Weights and Biases" project name.',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.StringEditQuantity,
-        ),
-    )
-    wandb_entity = Quantity(
-        type=str,
-        description='"Weights and Biases" entity name.',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.StringEditQuantity,
-        ),
-    )
 
 
 class ReferenceStructure(ArchiveSection):
@@ -1451,9 +1429,6 @@ class AutoXRDTrainingAction(Action, Analysis, Schema):
                 learning_rate=float(self.training_settings.learning_rate),
                 seed=int(self.training_settings.seed),
                 test_fraction=float(self.training_settings.test_fraction),
-                enable_wandb=self.training_settings.enable_wandb,
-                wandb_project=self.training_settings.wandb_project,
-                wandb_entity=self.training_settings.wandb_entity,
             ),
         )
         action_instance_id = manager.start_action(
