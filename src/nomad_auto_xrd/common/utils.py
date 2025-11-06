@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import psutil
 from nomad import infrastructure
 from nomad.processing.data import PublicUploadFiles, StagingUploadFiles, Upload
 from nomad_analysis.utils import get_reference
@@ -271,3 +272,16 @@ def plot_identified_phases_sample_position(
     )
 
     return fig.to_plotly_json()
+
+
+def get_total_memory_mb():
+    """Get the total memory usage of the current process and its children."""
+    process = psutil.Process(os.getpid())
+    mem = process.memory_info().rss
+    # Add memory of all child processes
+    for child in process.children(recursive=True):
+        try:
+            mem += child.memory_info().rss
+        except psutil.NoSuchProcess:
+            pass
+    return mem / 1024 / 1024  # Convert to MB
