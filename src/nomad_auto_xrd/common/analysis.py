@@ -24,7 +24,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
 import numpy as np
-import psutil
 import tensorflow as tf
 from autoXRD import spectrum_analysis, visualizer
 from nomad_analysis.utils import get_reference
@@ -37,7 +36,7 @@ from nomad_auto_xrd.common.models import (
     AutoXRDModelInput,
     XRDMeasurementEntry,
 )
-from nomad_auto_xrd.common.utils import pattern_preprocessor
+from nomad_auto_xrd.common.utils import get_total_memory_mb, pattern_preprocessor
 from nomad_auto_xrd.schema_packages.schema import (
     AutoXRDAnalysis,
     AutoXRDAnalysisResult,
@@ -49,19 +48,6 @@ from nomad_auto_xrd.schema_packages.schema import (
 if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive
     from structlog.stdlib import BoundLogger
-
-
-def get_total_memory_mb():
-    """Get the total memory usage of the current process and its children."""
-    process = psutil.Process(os.getpid())
-    mem = process.memory_info().rss
-    # Add memory of all child processes
-    for child in process.children(recursive=True):
-        try:
-            mem += child.memory_info().rss
-        except psutil.NoSuchProcess:
-            pass
-    return mem / 1024 / 1024  # Convert to MB
 
 
 def convert_to_serializable(obj):

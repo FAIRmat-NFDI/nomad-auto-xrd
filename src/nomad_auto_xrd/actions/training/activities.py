@@ -1,4 +1,5 @@
 import os
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict
 
 from temporalio import activity
@@ -24,12 +25,16 @@ async def train_model(data: TrainModelInput) -> TrainModelOutput:
     upload_raw_path = os.path.join(upload.upload_files.os_path, 'raw')
     try:
         os.chdir(upload_raw_path)
-        output = train(
-            working_directory=data.working_directory,
-            simulation_settings=data.simulation_settings,
-            training_settings=data.training_settings,
-            includes_pdf=data.includes_pdf,
-        )
+        with ProcessPoolExecutor(max_workers=1) as executor:
+            # Run within a separate process to avoid memory leaks
+            executor_output = executor.map(
+                train,
+                [data.working_directory],
+                [data.simulation_settings],
+                [data.training_settings],
+                [data.includes_pdf],
+            )
+            output = list(executor_output)[0]
     finally:
         os.chdir(original_path)
 
