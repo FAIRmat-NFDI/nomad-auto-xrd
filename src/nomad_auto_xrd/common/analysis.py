@@ -50,9 +50,6 @@ if TYPE_CHECKING:
     from structlog.stdlib import BoundLogger
 
 
-
-
-
 def convert_to_serializable(obj):
     """Convert non-serializable objects like numpy arrays to serializable formats."""
     if isinstance(obj, np.ndarray):
