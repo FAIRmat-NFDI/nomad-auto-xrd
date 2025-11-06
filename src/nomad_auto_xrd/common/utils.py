@@ -16,6 +16,7 @@
 # limitations under the License.
 #
 import os
+import time
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -285,3 +286,8 @@ def get_total_memory_mb():
         except psutil.NoSuchProcess:
             pass
     return mem / 1024 / 1024  # Convert to MB
+
+
+def timestamped_print(message: str):
+    """Print a message with a timestamp."""
+    print(f'{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}: {message}')

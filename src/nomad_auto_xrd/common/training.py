@@ -32,6 +32,7 @@ from nomad_auto_xrd.common.models import (
     TrainingSettingsInput,
     TrainModelOutput,
 )
+from nomad_auto_xrd.common.utils import get_total_memory_mb, timestamped_print
 from nomad_auto_xrd.schema_packages.schema import AutoXRDModel, ReferenceStructure
 
 
@@ -41,7 +42,7 @@ class DataSetUp:
     on a given set of X-ray diffraction spectra to perform phase identification.
     """
 
-    def __init__(self, xrd, testing_fraction=0):
+    def __init__(self, xrd, test_fraction=0):
         """
         Args:
             xrd: a numpy array containing xrd spectra categorized by
@@ -51,11 +52,11 @@ class DataSetUp:
                 M = the number of augmented spectra per reference phase,
                 4501 = intensities as a function of 2-theta
                 (spanning from 10 to 80 degrees by default)
-            testing_fraction: fraction of data (xrd patterns) to reserve for testing.
+            test_fraction: fraction of data (xrd patterns) to reserve for testing.
                 By default, all spectra will be used for training.
         """
         self.xrd = xrd
-        self.testing_fraction = testing_fraction
+        self.test_fraction = test_fraction
         self.num_phases = len(xrd)
 
     @property
@@ -86,7 +87,7 @@ class DataSetUp:
 
     def split_training_testing(self):
         """
-        Splits data into training and testing sets according to self.testing_fraction.
+        Splits data into training and testing sets according to self.test_fraction.
 
         Returns:
             train_x, train_y, test_x, test_y: numpy arrays for training and testing.
@@ -97,7 +98,7 @@ class DataSetUp:
         shuffle(combined_xy)
 
         total_samples = len(combined_xy)
-        n_testing = int(self.testing_fraction * total_samples)
+        n_testing = int(self.test_fraction * total_samples)
 
         test_xy = combined_xy[:n_testing]
         train_xy = combined_xy[n_testing:]
@@ -163,9 +164,9 @@ def test_model(model, test_x, test_y):
     """
     if test_x.size > 0 and test_y.size > 0:
         loss, acc = model.evaluate(test_x, test_y)
-        print(f'Test Accuracy: {acc * 100:.2f}%')
+        timestamped_print(f'Test Accuracy: {acc * 100:.2f}%, Loss: {loss:.4f}')
     else:
-        print('No test data available for evaluation.')
+        timestamped_print('No test data available for evaluation.')
 
 
 def generate_reference_structures(skip_filter: bool, include_elems: bool) -> str:
@@ -239,6 +240,37 @@ def get_cif_files_from_folder(folder_name):
     return cif_files_names
 
 
+def setup_data_and_model(
+    reference_structures_dir: str,
+    simulation_settings: SimulationSettingsInput,
+    test_fraction: float,
+    is_pdf: bool = False,
+):
+    """
+    Generates simulated spectra (XRD or PDF) for the reference structures.
+    """
+    spectra_generator = spectrum_generation.SpectraGenerator(
+        reference_dir=reference_structures_dir,
+        num_spectra=simulation_settings.num_patterns,
+        max_texture=simulation_settings.max_texture,
+        min_domain_size=simulation_settings.min_domain_size,
+        max_domain_size=simulation_settings.max_domain_size,
+        max_strain=simulation_settings.max_strain,
+        max_shift=simulation_settings.max_shift,
+        impur_amt=simulation_settings.impur_amt,
+        min_angle=simulation_settings.min_angle,
+        max_angle=simulation_settings.max_angle,
+        separate=simulation_settings.separate,
+        is_pdf=is_pdf,
+    )
+    spectra = spectra_generator.augmented_spectra
+    dataset = DataSetUp(spectra, test_fraction=test_fraction)
+    train_x, train_y, test_x, test_y = dataset.split_training_testing()
+    model = build_model(train_x.shape[1:], dataset.num_phases, is_pdf=is_pdf)
+
+    return train_x, train_y, test_x, test_y, model
+
+
 def train(
     working_directory,
     simulation_settings: SimulationSettingsInput,
@@ -252,11 +284,6 @@ def train(
     Runs the autoXRD training pipeline in the specified working directory. Saves the
     path of the reference structures and the trained model along with the W&B run URL
     in the `model_entry`.
-
-    Args:
-        model_entry (AutoXRDModel): The model object containing all the necessary
-            settings. The object will also be updated with the trained model and W&B
-            run URLs.
     """
     output = TrainModelOutput()
     original_dir = os.getcwd()
@@ -271,6 +298,7 @@ def train(
         for cif_file in simulation_settings.structure_files:
             shutil.copy(cif_file, working_dir)
         os.chdir(working_dir)
+
         # Generate and save the reference structures
         reference_structures_dir = generate_reference_structures(
             simulation_settings.skip_filter,
@@ -281,27 +309,29 @@ def train(
             os.path.join(working_dir, reference_structures_dir)
         ):
             output.reference_structure_paths.append(reference_cif_file)
-        # Generate XRD patterns
-        xrd_obj = spectrum_generation.SpectraGenerator(
-            reference_dir=reference_structures_dir,
-            num_spectra=simulation_settings.num_patterns,
-            max_texture=simulation_settings.max_texture,
-            min_domain_size=simulation_settings.min_domain_size,
-            max_domain_size=simulation_settings.max_domain_size,
-            max_strain=simulation_settings.max_strain,
-            max_shift=simulation_settings.max_shift,
-            impur_amt=simulation_settings.impur_amt,
-            min_angle=simulation_settings.min_angle,
-            max_angle=simulation_settings.max_angle,
-            separate=simulation_settings.separate,
-            is_pdf=False,
+
+        # Create datasets and build models
+        xrd_train_x, xrd_train_y, xrd_test_x, xrd_test_y, xrd_model = (
+            setup_data_and_model(
+                reference_structures_dir=reference_structures_dir,
+                simulation_settings=simulation_settings,
+                test_fraction=training_settings.test_fraction,
+            )
         )
-        xrd_spectras = xrd_obj.augmented_spectra
-        dataset = DataSetUp(
-            xrd_spectras, testing_fraction=training_settings.test_fraction
+        if includes_pdf:
+            pdf_train_x, pdf_train_y, pdf_test_x, pdf_test_y, pdf_model = (
+                setup_data_and_model(
+                    reference_structures_dir=reference_structures_dir,
+                    simulation_settings=simulation_settings,
+                    test_fraction=training_settings.test_fraction,
+                    is_pdf=True,
+                )
+            )
+
+        timestamped_print(
+            'Dataset and model setup complete. Current Memory Usage: '
+            f'{get_total_memory_mb():.1f} MB'
         )
-        num_phases = dataset.num_phases
-        train_x, train_y, test_x, test_y = dataset.split_training_testing()
 
         # Clean up the Models directory
         models_dir = os.path.join(working_dir, 'Models')
@@ -309,73 +339,49 @@ def train(
             shutil.rmtree(models_dir)
         os.makedirs(models_dir, exist_ok=True)
 
-        # Build the model
-        model = build_model(train_x.shape[1:], num_phases, is_pdf=False)
-
-        # Train the model and get the wandb run URL
-        wandb_run_url_xrd = fit_model(
-            train_x, train_y, model, training_settings, callbacks
+        # Train the models
+        timestamped_print('Starting XRD model training...')
+        output.wandb_run_url_xrd = fit_model(
+            xrd_train_x,
+            xrd_train_y,
+            xrd_model,
+            training_settings,
+            callbacks,
         )
-        output.wandb_run_url_xrd = wandb_run_url_xrd
-
-        # Save the trained model
         xrd_model_path = os.path.join(models_dir, 'XRD_Model.h5')
-        model.save(xrd_model_path, include_optimizer=False)
+        xrd_model.save(xrd_model_path, include_optimizer=False)
         output.xrd_model_path = xrd_model_path
-
-        # Test the model
-        test_model(model, test_x, test_y)
-
-        if not includes_pdf:
-            return
-
-        # If `model_config.includes_pdf` is True, train another model on PDFs
-        pdf_spectras = spectrum_generation.SpectraGenerator(
-            reference_dir=reference_structures_dir,
-            num_spectra=simulation_settings.num_patterns,
-            max_texture=simulation_settings.max_texture,
-            min_domain_size=simulation_settings.min_domain_size,
-            max_domain_size=simulation_settings.max_domain_size,
-            max_strain=simulation_settings.max_strain,
-            max_shift=simulation_settings.max_shift,
-            impur_amt=simulation_settings.impur_amt,
-            min_angle=simulation_settings.min_angle,
-            max_angle=simulation_settings.max_angle,
-            separate=simulation_settings.separate,
-            is_pdf=True,
-        ).augmented_spectra
-        dataset_pdf = DataSetUp(
-            pdf_spectras, testing_fraction=training_settings.test_fraction
+        timestamped_print(
+            f'XRD model training complete. Current Memory Usage: '
+            f'{get_total_memory_mb():.1f} MB'
         )
-        num_phases_pdf = dataset_pdf.num_phases
-        train_x_pdf, train_y_pdf, test_x_pdf, test_y_pdf = (
-            dataset_pdf.split_training_testing()
-        )
+        test_model(xrd_model, xrd_test_x, xrd_test_y)
 
-        # Build the PDF model
-        model_pdf = build_model(train_x_pdf.shape[1:], num_phases_pdf, is_pdf=True)
+        if includes_pdf:
+            timestamped_print('Starting PDF model training...')
+            output.wandb_run_url_pdf = fit_model(
+                pdf_train_x,
+                pdf_train_y,
+                pdf_model,
+                training_settings,
+                callbacks,
+            )
+            pdf_model_path = os.path.join(models_dir, 'PDF_Model.h5')
+            pdf_model.save(pdf_model_path, include_optimizer=False)
+            output.pdf_model_path = pdf_model_path
+            timestamped_print(
+                'PDF model training complete. Current Memory Usage: '
+                f'{get_total_memory_mb():.1f} MB'
+            )
+            test_model(pdf_model, pdf_test_x, pdf_test_y)
 
-        # Train the PDF model and get the wandb run URL
-        wandb_run_url_pdf = fit_model(
-            train_x_pdf, train_y_pdf, model_pdf, training_settings, callbacks
-        )
-        output.wandb_run_url_pdf = wandb_run_url_pdf
-
-        # Save the PDF model
-        pdf_model_path = os.path.join(models_dir, 'PDF_Model.h5')
-        model_pdf.save(pdf_model_path, include_optimizer=False)
-        output.pdf_model_path = pdf_model_path
-
-        # Test the PDF model
-        test_model(model_pdf, test_x_pdf, test_y_pdf)
+        return output
 
     except Exception as e:
-        print(f'Error during training: {e}')
+        timestamped_print(f'Error during training: {e}')
     finally:
         # Restore the original working directory
         os.chdir(original_dir)
-
-    return output
 
 
 def train_nomad_model(model: AutoXRDModel):
