@@ -18,14 +18,12 @@
 import os
 import shutil
 import tempfile
-from dataclasses import dataclass
 from random import shuffle
 
 import numpy as np
 import tensorflow as tf
 import wandb
 from autoXRD import solid_solns, spectrum_generation, tabulate_cifs
-from nomad.datamodel import EntryArchive
 from wandb.integration.keras import WandbMetricsLogger
 
 from nomad_auto_xrd.common.ml_models import build_model
