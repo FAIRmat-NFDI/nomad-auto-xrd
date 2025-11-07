@@ -151,8 +151,8 @@ async def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
 
     with context.update_entry(data.mainfile, process=True, write=True) as archive:
         archive['data']['results'] = result_sections
-        archive['data']['trigger_run_action'] = False
-        archive['data']['action_id'] = data.action_id
+        archive['data']['trigger_start_action'] = False
+        archive['data']['action_instance_id'] = data.action_instance_id
         archive['data']['action_status'] = 'COMPLETED'
         archive['data']['analysis_settings']['simulated_reference_patterns'] = [
             {
