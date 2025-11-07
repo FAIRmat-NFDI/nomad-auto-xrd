@@ -80,7 +80,7 @@ class AutoXRDModelInput:
     entry_id: str
     working_directory: str
     reference_structure_paths: list[str]
-    include_pdf: bool
+    includes_pdf: bool
     xrd_model_path: str
     pdf_model_path: str | None = None
 
