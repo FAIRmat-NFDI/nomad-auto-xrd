@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import json
 import os
 import shutil
 import tempfile
@@ -28,6 +29,7 @@ from wandb.integration.keras import WandbMetricsLogger
 
 from nomad_auto_xrd.common.ml_models import build_model
 from nomad_auto_xrd.common.models import (
+    SetupReferencePathsAndDatasetOutput,
     SimulationSettingsInput,
     TrainingSettingsInput,
     TrainModelOutput,
