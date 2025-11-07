@@ -300,7 +300,7 @@ def setup_reference_structures_and_datasets(
     includes_pdf: bool = True,
 ) -> SetupReferencePathsAndDatasetOutput:
     """
-    Placeholder for any future setup required before training.
+    Sets up reference structures and datasets for training.
     """
     original_dir = os.getcwd()
     rel_working_dir = (
@@ -373,7 +373,8 @@ def train(
     callbacks: list[tf.keras.callbacks.Callback] = None,
 ) -> TrainModelOutput:
     """
-    Placeholder for any future setup required before training.
+    Trains the XRD and optionally PDF models using the provided dataset paths and
+    training settings.
     """
     output = TrainModelOutput()
 
@@ -453,119 +454,6 @@ def train(
         if pdf_dataset_path and os.path.exists(pdf_dataset_path):
             os.remove(pdf_dataset_path)
         os.chdir(original_dir)  # Restore the original working directory
-
-
-def train(
-    working_directory,
-    simulation_settings: SimulationSettingsInput,
-    training_settings: TrainingSettingsInput,
-    includes_pdf: bool = True,
-    callbacks: list[tf.keras.callbacks.Callback] = None,
-):
-    """
-    Main function to run the XRD model pipeline: generate reference structures,
-    simulate XRD patterns, setup data for training, initialize the model, and train it.
-    Runs the autoXRD training pipeline in the specified working directory. Saves the
-    path of the reference structures and the trained model along with the W&B run URL
-    in the `model_entry`.
-    """
-    output = TrainModelOutput()
-    original_dir = os.getcwd()
-    rel_working_dir = (
-        working_directory if working_directory else os.path.join('auto_xrd_training')
-    )
-    working_dir = os.path.join(original_dir, rel_working_dir)
-    os.makedirs(working_dir, exist_ok=True)
-
-    try:
-        # move the cifs into the working directory
-        for cif_file in simulation_settings.structure_files:
-            shutil.copy(cif_file, working_dir)
-        os.chdir(working_dir)
-
-        # Generate and save the reference structures
-        reference_structures_dir = generate_reference_structures(
-            simulation_settings.skip_filter,
-            simulation_settings.include_elems,
-        )
-        output.reference_structure_paths = []
-        for reference_cif_file in get_cif_files_from_folder(
-            os.path.join(working_dir, reference_structures_dir)
-        ):
-            output.reference_structure_paths.append(reference_cif_file)
-
-        # Create datasets and build models
-        xrd_train_x, xrd_train_y, xrd_test_x, xrd_test_y, xrd_model = (
-            setup_data_and_model(
-                reference_structures_dir=reference_structures_dir,
-                simulation_settings=simulation_settings,
-                test_fraction=training_settings.test_fraction,
-            )
-        )
-        if includes_pdf:
-            pdf_train_x, pdf_train_y, pdf_test_x, pdf_test_y, pdf_model = (
-                setup_data_and_model(
-                    reference_structures_dir=reference_structures_dir,
-                    simulation_settings=simulation_settings,
-                    test_fraction=training_settings.test_fraction,
-                    is_pdf=True,
-                )
-            )
-
-        timestamped_print(
-            'Dataset and model setup complete. Current Memory Usage: '
-            f'{get_total_memory_mb():.1f} MB'
-        )
-
-        # Clean up the Models directory
-        models_dir = os.path.join(working_dir, 'Models')
-        if os.path.exists(models_dir):
-            shutil.rmtree(models_dir)
-        os.makedirs(models_dir, exist_ok=True)
-
-        # Train the models
-        timestamped_print('Starting XRD model training...')
-        output.wandb_run_url_xrd = fit_model(
-            xrd_train_x,
-            xrd_train_y,
-            xrd_model,
-            training_settings,
-            callbacks,
-        )
-        xrd_model_path = os.path.join(models_dir, 'XRD_Model.h5')
-        xrd_model.save(xrd_model_path, include_optimizer=False)
-        output.xrd_model_path = xrd_model_path
-        timestamped_print(
-            f'XRD model training complete. Current Memory Usage: '
-            f'{get_total_memory_mb():.1f} MB'
-        )
-        test_model(xrd_model, xrd_test_x, xrd_test_y)
-
-        if includes_pdf:
-            timestamped_print('Starting PDF model training...')
-            output.wandb_run_url_pdf = fit_model(
-                pdf_train_x,
-                pdf_train_y,
-                pdf_model,
-                training_settings,
-                callbacks,
-            )
-            pdf_model_path = os.path.join(models_dir, 'PDF_Model.h5')
-            pdf_model.save(pdf_model_path, include_optimizer=False)
-            output.pdf_model_path = pdf_model_path
-            timestamped_print(
-                'PDF model training complete. Current Memory Usage: '
-                f'{get_total_memory_mb():.1f} MB'
-            )
-            test_model(pdf_model, pdf_test_x, pdf_test_y)
-
-        return output
-
-    except Exception as e:
-        timestamped_print(f'Error during training: {e}')
-    finally:
-        # Restore the original working directory
-        os.chdir(original_dir)
 
 
 def train_nomad_model(model: AutoXRDModel):
