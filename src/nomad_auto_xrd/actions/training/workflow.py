@@ -22,11 +22,7 @@ with workflow.unsafe.imports_passed_through():
 class TrainingWorkflow:
     @workflow.run
     async def run(self, data: UserInput) -> str:
-        retry_policy = RetryPolicy(
-            initial_interval=timedelta(seconds=10),
-            maximum_attempts=3,
-            backoff_coefficient=2.0,
-        )
+        retry_policy = RetryPolicy(maximum_attempts=1)
         includes_pdf = True
         setup_training_artifacts_output = await workflow.execute_activity(
             setup_training_artifacts,

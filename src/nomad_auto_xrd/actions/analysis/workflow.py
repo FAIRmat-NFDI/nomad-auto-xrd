@@ -22,11 +22,7 @@ with workflow.unsafe.imports_passed_through():
 class AnalysisWorkflow:
     @workflow.run
     async def run(self, data: UserInput) -> str:
-        retry_policy = RetryPolicy(
-            initial_interval=timedelta(seconds=10),
-            maximum_attempts=3,
-            backoff_coefficient=2.0,
-        )
+        retry_policy = RetryPolicy(maximum_attempts=1)
         results: list[AnalysisResult] = []
         for xrd_measurement_entry in data.xrd_measurement_entries:
             results.append(
