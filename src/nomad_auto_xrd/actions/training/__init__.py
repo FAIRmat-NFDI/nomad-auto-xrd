@@ -20,6 +20,7 @@ class AutoXRDTrainingEntryPoint(ActionEntryPoint):
 
         from nomad_auto_xrd.actions.training.activities import (
             create_trained_model_entry,
+            setup_training_artifacts,
             train_model,
         )
         from nomad_auto_xrd.actions.training.workflow import TrainingWorkflow
@@ -27,7 +28,11 @@ class AutoXRDTrainingEntryPoint(ActionEntryPoint):
         return Action(
             task_queue=self.task_queue,
             workflow=TrainingWorkflow,
-            activities=[train_model, create_trained_model_entry],
+            activities=[
+                setup_training_artifacts,
+                train_model,
+                create_trained_model_entry,
+            ],
         )
 
 

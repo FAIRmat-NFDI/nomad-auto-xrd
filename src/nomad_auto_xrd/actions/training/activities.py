@@ -6,9 +6,40 @@ from temporalio import activity
 
 from nomad_auto_xrd.actions.training.models import (
     CreateTrainedModelEntryInput,
+    SetupTrainingArtifactsInput,
     TrainModelInput,
 )
-from nomad_auto_xrd.common.models import TrainModelOutput
+from nomad_auto_xrd.common.models import (
+    SetupReferencePathsAndDatasetOutput,
+    TrainModelOutput,
+)
+
+
+@activity.defn
+async def setup_training_artifacts(
+    data: SetupTrainingArtifactsInput,
+) -> SetupReferencePathsAndDatasetOutput:
+    """
+    Activity to set up training artifacts.
+    """
+    from nomad_auto_xrd.common.training import setup_reference_structures_and_datasets
+    from nomad_auto_xrd.common.utils import get_upload
+
+    # Set up reference structures and datasets within the upload folder
+    original_path = os.path.abspath(os.curdir)
+    upload = get_upload(data.upload_id, data.user_id)
+    upload_raw_path = os.path.join(upload.upload_files.os_path, 'raw')
+    try:
+        os.chdir(upload_raw_path)
+        output = setup_reference_structures_and_datasets(
+            data.working_directory,
+            data.simulation_settings,
+            data.test_fraction,
+            data.includes_pdf,
+        )
+        return output
+    finally:
+        os.chdir(original_path)
 
 
 @activity.defn
@@ -30,9 +61,9 @@ async def train_model(data: TrainModelInput) -> TrainModelOutput:
             executor_output = executor.map(
                 train,
                 [data.working_directory],
-                [data.simulation_settings],
                 [data.training_settings],
-                [data.includes_pdf],
+                [data.xrd_dataset_path],
+                [data.pdf_dataset_path],
             )
             output = list(executor_output)[0]
     finally:
