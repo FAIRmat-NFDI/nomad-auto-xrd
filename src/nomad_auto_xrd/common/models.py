@@ -54,6 +54,15 @@ class TrainingSettingsInput:
 
 
 @dataclass
+class SetupReferencePathsAndDatasetOutput:
+    """Class to represent output of setting up reference paths and dataset."""
+
+    reference_structure_paths: list[str]
+    xrd_dataset_path: str
+    pdf_dataset_path: str | None = None
+
+
+@dataclass
 class TrainModelOutput:
     """Class to represent output of model training."""
 
@@ -61,7 +70,6 @@ class TrainModelOutput:
     pdf_model_path: str | None = None
     wandb_run_url_xrd: str | None = None
     wandb_run_url_pdf: str | None = None
-    reference_structure_paths: list[str] | None = None
 
 
 @dataclass
@@ -72,7 +80,7 @@ class AutoXRDModelInput:
     entry_id: str
     working_directory: str
     reference_structure_paths: list[str]
-    includes_pdf: bool
+    include_pdf: bool
     xrd_model_path: str
     pdf_model_path: str | None = None
 

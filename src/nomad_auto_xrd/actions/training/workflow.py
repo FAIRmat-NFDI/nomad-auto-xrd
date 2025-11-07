@@ -3,6 +3,8 @@ from datetime import timedelta
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 
+from nomad_auto_xrd.actions.training.activities import setup_training_artifacts
+
 with workflow.unsafe.imports_passed_through():
     from nomad_auto_xrd.actions.training.activities import (
         create_trained_model_entry,
@@ -10,6 +12,7 @@ with workflow.unsafe.imports_passed_through():
     )
     from nomad_auto_xrd.actions.training.models import (
         CreateTrainedModelEntryInput,
+        SetupTrainingArtifactsInput,
         TrainModelInput,
         UserInput,
     )
@@ -25,16 +28,28 @@ class TrainingWorkflow:
             backoff_coefficient=2.0,
         )
         includes_pdf = True
+        setup_training_artifacts_output = await workflow.execute_activity(
+            setup_training_artifacts,
+            SetupTrainingArtifactsInput(
+                upload_id=data.upload_id,
+                user_id=data.user_id,
+                working_directory=workflow.info().workflow_id,
+                simulation_settings=data.simulation_settings,
+                test_fraction=data.training_settings.test_fraction,
+                includes_pdf=includes_pdf,
+            ),
+            start_to_close_timeout=timedelta(hours=24),
+            retry_policy=retry_policy,
+        )
         training_output = await workflow.execute_activity(
             train_model,
             TrainModelInput(
                 upload_id=data.upload_id,
                 user_id=data.user_id,
-                mainfile=data.mainfile,
-                simulation_settings=data.simulation_settings,
                 training_settings=data.training_settings,
                 working_directory=workflow.info().workflow_id,
-                includes_pdf=includes_pdf,
+                xrd_dataset_path=setup_training_artifacts_output.xrd_dataset_path,
+                pdf_dataset_path=setup_training_artifacts_output.pdf_dataset_path,
             ),
             start_to_close_timeout=timedelta(hours=24),
             # TODO: uncomment during NOMAD logger integration
@@ -42,19 +57,21 @@ class TrainingWorkflow:
             retry_policy=retry_policy,
         )
         create_entry_input = CreateTrainedModelEntryInput(
-            action_instance_id=workflow.info().workflow_id,
             upload_id=data.upload_id,
             user_id=data.user_id,
             mainfile=data.mainfile,
-            simulation_settings=data.simulation_settings,
-            training_settings=data.training_settings,
+            action_instance_id=workflow.info().workflow_id,
             working_directory=workflow.info().workflow_id,
             includes_pdf=includes_pdf,
+            simulation_settings=data.simulation_settings,
+            training_settings=data.training_settings,
+            reference_structure_paths=(
+                setup_training_artifacts_output.reference_structure_paths
+            ),
             xrd_model_path=training_output.xrd_model_path,
             pdf_model_path=training_output.pdf_model_path,
             wandb_run_url_xrd=training_output.wandb_run_url_xrd,
             wandb_run_url_pdf=training_output.wandb_run_url_pdf,
-            reference_structure_paths=training_output.reference_structure_paths,
         )
         await workflow.execute_activity(
             create_trained_model_entry,
