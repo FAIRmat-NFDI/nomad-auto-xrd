@@ -63,6 +63,8 @@ class Dataset:
 
     def save(self, path):
         """Saves the Dataset instance to a JSON file."""
+        if not path.endswith('.json'):
+            raise ValueError(f'Invalid file format: {path}. Expected a .json file.')
         dataset = {
             'xrd': self.xrd.tolist(),
             'test_fraction': self.test_fraction,
@@ -71,7 +73,7 @@ class Dataset:
             json.dump(dataset, f, indent=2)
 
     @classmethod
-    def load_from_path(cls, path):
+    def load(cls, path):
         """Loads a Dataset instance from a JSON file."""
         if not os.path.exists(path):
             raise FileNotFoundError(f'Dataset file not found at: {path}')
@@ -394,7 +396,7 @@ def train(
             shutil.rmtree(models_dir)
         os.makedirs(models_dir, exist_ok=True)
 
-        xrd_dataset = Dataset.load_from_path(xrd_dataset_path)
+        xrd_dataset = Dataset.load(xrd_dataset_path)
         xrd_train_x, xrd_train_y, xrd_test_x, xrd_test_y = (
             xrd_dataset.split_training_testing()
         )
@@ -419,7 +421,7 @@ def train(
         test_model(xrd_model, xrd_test_x, xrd_test_y)
 
         if pdf_dataset_path:
-            pdf_dataset = Dataset.load_from_path(pdf_dataset_path)
+            pdf_dataset = Dataset.load(pdf_dataset_path)
             pdf_train_x, pdf_train_y, pdf_test_x, pdf_test_y = (
                 pdf_dataset.split_training_testing()
             )
