@@ -58,7 +58,7 @@ class AnalysisWorkflow:
                 upload_id=data.upload_id,
                 user_id=data.user_id,
                 mainfile=data.mainfile,
-                action_id=workflow.info().workflow_id,
+                action_instance_id=workflow.info().workflow_id,
                 xrd_measurement_entries=data.xrd_measurement_entries,
                 analysis_results=results,
                 simulated_reference_patterns=simulated_reference_patterns,

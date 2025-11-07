@@ -74,7 +74,7 @@ class UpdateAnalysisEntryInput:
     upload_id: str
     user_id: str
     mainfile: str
-    action_id: str
+    action_instance_id: str
     xrd_measurement_entries: list[XRDMeasurementEntry]
     analysis_results: list[AnalysisResult]
     simulated_reference_patterns: list[SimulatedReferencePattern]
