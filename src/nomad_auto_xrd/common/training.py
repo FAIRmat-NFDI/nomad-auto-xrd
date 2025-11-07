@@ -494,12 +494,20 @@ def train_nomad_model(model: AutoXRDModel):
         test_fraction=float(model.training_settings.test_fraction),
     )
 
+    # Set up reference structures and datasets
+    setup_output = setup_reference_structures_and_datasets(
+        model.working_directory,
+        simulation_settings,
+        training_settings.test_fraction,
+        includes_pdf=model.includes_pdf,
+    )
+
     # Train the model
     output = train(
         model.working_directory,
-        simulation_settings,
         training_settings,
-        includes_pdf=model.includes_pdf,
+        setup_output.xrd_dataset_path,
+        setup_output.pdf_dataset_path if model.includes_pdf else None,
     )
 
     # Update the model with the training results
@@ -508,7 +516,7 @@ def train_nomad_model(model: AutoXRDModel):
     model.wandb_run_url_xrd = output.wandb_run_url_xrd
     model.wandb_run_url_pdf = output.wandb_run_url_pdf
     reference_structures = []
-    for cif_path in output.reference_structure_paths:
+    for cif_path in setup_output.reference_structure_paths:
         reference_structure = ReferenceStructure(
             name=os.path.basename(cif_path).split('.cif')[0],
             cif_file=cif_path,
