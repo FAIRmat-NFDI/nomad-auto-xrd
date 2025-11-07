@@ -36,7 +36,7 @@ from nomad_auto_xrd.common.utils import get_total_memory_mb, timestamped_print
 from nomad_auto_xrd.schema_packages.schema import AutoXRDModel, ReferenceStructure
 
 
-class DataSetUp:
+class Dataset:
     """
     Class used to prepare data for training a convolutional neural network
     on a given set of X-ray diffraction spectra to perform phase identification.
@@ -58,6 +58,29 @@ class DataSetUp:
         self.xrd = xrd
         self.test_fraction = test_fraction
         self.num_phases = len(xrd)
+
+    def save(self, path):
+        """Saves the Dataset instance to a JSON file."""
+        dataset = {
+            'xrd': self.xrd.tolist(),
+            'test_fraction': self.test_fraction,
+        }
+        with open(path, encoding='utf-8', mode='w') as f:
+            json.dump(dataset, f, indent=2)
+
+    @classmethod
+    def load_from_path(cls, path):
+        """Loads a Dataset instance from a JSON file."""
+        if not os.path.exists(path):
+            raise FileNotFoundError(f'Dataset file not found at: {path}')
+        if not path.endswith('.json'):
+            raise ValueError(f'Invalid file format: {path}. Expected a .json file.')
+        with open(path, encoding='utf-8') as f:
+            data = json.load(f)
+        xrd = np.array(data['xrd'])
+        test_fraction = data['test_fraction']
+
+        return Dataset(xrd, test_fraction=test_fraction)
 
     @property
     def phase_indices(self):
@@ -163,8 +186,8 @@ def test_model(model, test_x, test_y):
     Evaluates the model on the test set.
     """
     if test_x.size > 0 and test_y.size > 0:
-        loss, acc = model.evaluate(test_x, test_y)
-        timestamped_print(f'Test Accuracy: {acc * 100:.2f}%, Loss: {loss:.4f}')
+        _, acc = model.evaluate(test_x, test_y)
+        timestamped_print(f'Test Accuracy: {acc * 100:.2f}%')
     else:
         timestamped_print('No test data available for evaluation.')
 
@@ -240,7 +263,7 @@ def get_cif_files_from_folder(folder_name):
     return cif_files_names
 
 
-def setup_data_and_model(
+def generate_training_dataset(
     reference_structures_dir: str,
     simulation_settings: SimulationSettingsInput,
     test_fraction: float,
@@ -264,11 +287,170 @@ def setup_data_and_model(
         is_pdf=is_pdf,
     )
     spectra = spectra_generator.augmented_spectra
-    dataset = DataSetUp(spectra, test_fraction=test_fraction)
-    train_x, train_y, test_x, test_y = dataset.split_training_testing()
-    model = build_model(train_x.shape[1:], dataset.num_phases, is_pdf=is_pdf)
 
-    return train_x, train_y, test_x, test_y, model
+    return Dataset(spectra, test_fraction=test_fraction)
+
+
+def setup_reference_structures_and_datasets(
+    working_directory,
+    simulation_settings: SimulationSettingsInput,
+    test_fraction: float,
+    includes_pdf: bool = True,
+) -> SetupReferencePathsAndDatasetOutput:
+    """
+    Placeholder for any future setup required before training.
+    """
+    original_dir = os.getcwd()
+    rel_working_dir = (
+        working_directory if working_directory else os.path.join('auto_xrd_training')
+    )
+    working_dir = os.path.join(original_dir, rel_working_dir)
+    os.makedirs(working_dir, exist_ok=True)
+
+    timestamped_print('Starting reference structure and dataset setup...')
+
+    try:
+        # move the cifs into the working directory
+        for cif_file in simulation_settings.structure_files:
+            shutil.copy(cif_file, working_dir)
+        os.chdir(working_dir)
+
+        # Generate and save the reference structures
+        reference_structures_dir = generate_reference_structures(
+            simulation_settings.skip_filter,
+            simulation_settings.include_elems,
+        )
+        reference_structure_paths = []
+        for reference_cif_file in get_cif_files_from_folder(
+            os.path.join(working_dir, reference_structures_dir)
+        ):
+            reference_structure_paths.append(reference_cif_file)
+
+        # Create datasets and build models
+        xrd_dataset = generate_training_dataset(
+            reference_structures_dir=reference_structures_dir,
+            simulation_settings=simulation_settings,
+            test_fraction=test_fraction,
+        )
+        xrd_dataset_path = 'xrd_dataset.json'
+        xrd_dataset.save(xrd_dataset_path)
+        if includes_pdf:
+            pdf_dataset = generate_training_dataset(
+                reference_structures_dir=reference_structures_dir,
+                simulation_settings=simulation_settings,
+                test_fraction=test_fraction,
+                is_pdf=True,
+            )
+            pdf_dataset_path = 'pdf_dataset.json'
+            pdf_dataset.save(pdf_dataset_path)
+
+        timestamped_print(
+            'Reference structure and dataset setup complete. Current Memory Usage: '
+            f'{get_total_memory_mb():.1f} MB'
+        )
+
+        return SetupReferencePathsAndDatasetOutput(
+            reference_structure_paths=reference_structure_paths,
+            xrd_dataset_path=xrd_dataset_path,
+            pdf_dataset_path=pdf_dataset_path if includes_pdf else None,
+        )
+
+    except Exception as e:
+        timestamped_print(f'Error during reference structure and dataset setup: {e}')
+
+    finally:
+        # Restore the original working directory
+        os.chdir(original_dir)
+
+
+def train(
+    working_directory: str,
+    training_settings: TrainingSettingsInput,
+    xrd_dataset_path: str,
+    pdf_dataset_path: str | None,
+    callbacks: list[tf.keras.callbacks.Callback] = None,
+) -> TrainModelOutput:
+    """
+    Placeholder for any future setup required before training.
+    """
+    output = TrainModelOutput()
+
+    original_dir = os.getcwd()
+    rel_working_dir = (
+        working_directory if working_directory else os.path.join('auto_xrd_training')
+    )
+    working_dir = os.path.join(original_dir, rel_working_dir)
+    os.makedirs(working_dir, exist_ok=True)
+
+    try:
+        os.chdir(working_dir)
+
+        # Clean up the Models directory
+        models_dir = os.path.join(working_dir, 'Models')
+        if os.path.exists(models_dir):
+            shutil.rmtree(models_dir)
+        os.makedirs(models_dir, exist_ok=True)
+
+        xrd_dataset = Dataset.load_from_path(xrd_dataset_path)
+        xrd_train_x, xrd_train_y, xrd_test_x, xrd_test_y = (
+            xrd_dataset.split_training_testing()
+        )
+        num_phases = xrd_dataset.num_phases
+        input_shape = xrd_dataset.x.shape[1:]
+        xrd_model = build_model(input_shape, num_phases, is_pdf=False)
+        timestamped_print('Starting XRD model training...')
+        output.wandb_run_url_xrd = fit_model(
+            xrd_train_x,
+            xrd_train_y,
+            xrd_model,
+            training_settings,
+            callbacks,
+        )
+        xrd_model_path = os.path.join(models_dir, 'XRD_Model.h5')
+        xrd_model.save(xrd_model_path, include_optimizer=False)
+        output.xrd_model_path = xrd_model_path
+        timestamped_print(
+            f'XRD model training complete. Current Memory Usage: '
+            f'{get_total_memory_mb():.1f} MB'
+        )
+        test_model(xrd_model, xrd_test_x, xrd_test_y)
+
+        if pdf_dataset_path:
+            pdf_dataset = Dataset.load_from_path(pdf_dataset_path)
+            pdf_train_x, pdf_train_y, pdf_test_x, pdf_test_y = (
+                pdf_dataset.split_training_testing()
+            )
+            num_phases = pdf_dataset.num_phases
+            input_shape = pdf_dataset.x.shape[1:]
+            pdf_model = build_model(input_shape, num_phases, is_pdf=True)
+            timestamped_print('Starting PDF model training...')
+            output.wandb_run_url_pdf = fit_model(
+                pdf_train_x,
+                pdf_train_y,
+                pdf_model,
+                training_settings,
+                callbacks,
+            )
+            pdf_model_path = os.path.join(models_dir, 'PDF_Model.h5')
+            pdf_model.save(pdf_model_path, include_optimizer=False)
+            output.pdf_model_path = pdf_model_path
+            timestamped_print(
+                'PDF model training complete. Current Memory Usage: '
+                f'{get_total_memory_mb():.1f} MB'
+            )
+            test_model(pdf_model, pdf_test_x, pdf_test_y)
+
+        return output
+
+    except Exception as e:
+        timestamped_print(f'Error during training: {e}')
+
+    finally:
+        if os.path.exists(xrd_dataset_path):
+            os.remove(xrd_dataset_path)
+        if pdf_dataset_path and os.path.exists(pdf_dataset_path):
+            os.remove(pdf_dataset_path)
+        os.chdir(original_dir)  # Restore the original working directory
 
 
 def train(
