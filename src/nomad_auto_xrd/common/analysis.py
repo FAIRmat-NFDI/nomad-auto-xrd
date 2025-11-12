@@ -402,50 +402,63 @@ def analyze(
         AnalysisResult: The results of the analysis, including identified phases,
             confidences, and plot paths.
     """
-    with tempfile.TemporaryDirectory() as temp_dir:
-        analysis_inputs = []
-        for input_reference_section in analysis_entry.inputs:
-            xrd_measurement = input_reference_section.reference.m_parent.m_to_dict()
-            analysis_inputs.extend(pattern_preprocessor(xrd_measurement, logger))
-        if not analysis_inputs:
-            raise ValueError('No valid XRD data found in the analysis entry inputs.')
-        model_entry = analysis_entry.analysis_settings.auto_xrd_model
-        model_input = AutoXRDModelInput(
-            upload_id=model_entry.m_parent.metadata.upload_id,
-            entry_id=model_entry.m_parent.metadata.entry_id,
-            working_directory=model_entry.working_directory,
-            includes_pdf=model_entry.includes_pdf,
-            reference_structure_paths=[
-                section.cif_file for section in model_entry.reference_structures
-            ],
-            xrd_model_path=model_entry.xrd_model,
-            pdf_model_path=model_entry.pdf_model,
+    model_entry = analysis_entry.analysis_settings.auto_xrd_model
+    model_input = AutoXRDModelInput(
+        upload_id=model_entry.m_parent.metadata.upload_id,
+        entry_id=model_entry.m_parent.metadata.entry_id,
+        working_directory=model_entry.working_directory,
+        includes_pdf=model_entry.includes_pdf,
+        reference_structure_paths=[
+            section.cif_file for section in model_entry.reference_structures
+        ],
+        xrd_model_path=model_entry.xrd_model,
+        pdf_model_path=model_entry.pdf_model,
+    )
+    analysis_settings = AnalysisSettingsInput(
+        auto_xrd_model=model_input,
+        max_phases=analysis_entry.analysis_settings.max_phases,
+        cutoff_intensity=analysis_entry.analysis_settings.cutoff_intensity,
+        min_confidence=analysis_entry.analysis_settings.min_confidence,
+        include_pdf=analysis_entry.analysis_settings.include_pdf,
+        parallel=analysis_entry.analysis_settings.parallel,
+        wavelength=analysis_entry.analysis_settings.wavelength.to('angstrom').magnitude,
+        min_angle=analysis_entry.analysis_settings.min_angle.to('degree').magnitude,
+        max_angle=analysis_entry.analysis_settings.max_angle.to('degree').magnitude,
+    )
+    analysis_inputs_list = []
+    xrd_measurement_entry_list = []
+    for input_reference_section in analysis_entry.inputs:
+        xrd_entry_archive = input_reference_section.reference.m_parent.m_to_dict()
+        analysis_inputs = pattern_preprocessor(xrd_entry_archive, logger)
+        analysis_inputs_list.append(analysis_inputs)
+        xrd_measurement_entry_list.append(
+            XRDMeasurementEntry(
+                entry_id=xrd_entry_archive['metadata'].get('entry_id', None),
+                upload_id=xrd_entry_archive['metadata'].get('upload_id', None),
+            )
         )
-        analysis_settings = AnalysisSettingsInput(
-            auto_xrd_model=model_input,
-            max_phases=analysis_entry.analysis_settings.max_phases,
-            cutoff_intensity=analysis_entry.analysis_settings.cutoff_intensity,
-            min_confidence=analysis_entry.analysis_settings.min_confidence,
-            include_pdf=analysis_entry.analysis_settings.include_pdf,
-            parallel=analysis_entry.analysis_settings.parallel,
-            wavelength=analysis_entry.analysis_settings.wavelength.to(
-                'angstrom'
-            ).magnitude,
-            min_angle=analysis_entry.analysis_settings.min_angle.to('degree').magnitude,
-            max_angle=analysis_entry.analysis_settings.max_angle.to('degree').magnitude,
-        )
-        analyzer = XRDAutoAnalyzer(temp_dir, analysis_settings, logger)
-        results = analyzer.eval(analysis_inputs)
 
-        # Move the plot out of `temp_dir`
-        plots_dir = os.path.join('Plots')
-        os.makedirs(plots_dir, exist_ok=True)
-        for result_iter, plot_path in enumerate(results.plot_paths):
-            new_plot_path = os.path.join(plots_dir, os.path.basename(plot_path))
-            if os.path.exists(plot_path):
-                shutil.copy2(plot_path, new_plot_path)
-                results.plot_paths[result_iter] = new_plot_path
+    analysis_entry.results = []  # reset results
+    for idx, (analysis_inputs, xrd_measurement_entry) in enumerate(
+        zip(analysis_inputs_list, xrd_measurement_entry_list)
+    ):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            if not analysis_inputs:
+                raise ValueError(
+                    f'XRD data not found in the analysis entry inputs at index {idx}.'
+                )
+            analyzer = XRDAutoAnalyzer(temp_dir, analysis_settings, logger)
+            results = analyzer.eval(analysis_inputs)
 
-    analysis_entry.results = to_nomad_data_results_section(results)
+            # Move the plot out of `temp_dir`
+            plots_dir = os.path.join('Plots', f'Input_{idx}')
+            os.makedirs(plots_dir, exist_ok=True)
+            for result_iter, plot_path in enumerate(results.plot_paths):
+                new_plot_path = os.path.join(plots_dir, os.path.basename(plot_path))
+                if os.path.exists(plot_path):
+                    shutil.copy2(plot_path, new_plot_path)
+                    results.plot_paths[result_iter] = new_plot_path
 
-    return results
+            analysis_entry.results.append(
+                to_nomad_data_results_section(xrd_measurement_entry, results)
+            )
