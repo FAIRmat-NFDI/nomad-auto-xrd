@@ -56,7 +56,7 @@ def test_analysis(parsed_measurement_archives, caplog, clean_up):
         - The analysis entry stores the settings for the analysis including references
           to the XRD entry and the model entry.
     """
-    expected_num_results = 3  # 2 from single patterns + 1 from combinatorial
+    expected_num_results = 4  # 2 from single patterns + 2 from multi-pattern
 
     # prepare the pre-trained model entry
     reference_files = [
@@ -76,16 +76,10 @@ def test_analysis(parsed_measurement_archives, caplog, clean_up):
     model.data.pdf_model = os.path.join(data_dir, 'Models', 'PDF_Model.h5')
     normalize_all(model)
 
-    # prepare the combinatorial XRD entry
-    combinatorial_xrd = parse(os.path.join(data_dir, 'CombinatorialXRD.archive.yaml'))[
-        0
-    ]
-    combinatorial_xrd.data.data_files = [
-        os.path.join(data_dir, 'combinatorial', path)
-        for path in os.listdir(os.path.join(data_dir, 'combinatorial'))
-        if path.endswith('.rasx')
-    ]
-    normalize_all(combinatorial_xrd)
+    # prepare the multi-pattern XRD entry
+    multi_pattern_xrd = parsed_measurement_archives[0]
+    multi_pattern_xrd.data.results[1] = multi_pattern_xrd.data.results[0]
+    normalize_all(multi_pattern_xrd)
 
     # prepare the analysis entry
     analysis = parse(os.path.join(data_dir, 'AutoXRDAnalysis.archive.yaml'))[0]
@@ -96,7 +90,7 @@ def test_analysis(parsed_measurement_archives, caplog, clean_up):
     analysis.m_setdefault('data/inputs/1')
     analysis.data.inputs[1].reference = parsed_measurement_archives[1].data
     analysis.m_setdefault('data/inputs/2')
-    analysis.data.inputs[2].reference = combinatorial_xrd.data
+    analysis.data.inputs[2].reference = multi_pattern_xrd.data
     normalize_all(analysis)
 
     # run the analysis
