@@ -48,6 +48,7 @@ from nomad.normalizing.common import nomad_atoms_from_ase_atoms
 from nomad.normalizing.topology import add_system, add_system_info
 from nomad_analysis.actions.schema import Action
 from nomad_analysis.jupyter.schema import JupyterAnalysis
+from nomad_measurements.mapping.schema import MappingResult
 from nomad_measurements.xrd.schema import XRayDiffraction, XRDResult, XRDResult1D
 from pymatgen.io.cif import CifParser
 
@@ -807,6 +808,7 @@ class MultiPatternAnalysisResult(AutoXRDAnalysisResult):
             if not result.identified_phases:
                 continue
             try:
+                assert isinstance(result.xrd_results, MappingResult)
                 x_pos = result.xrd_results.x_absolute.to('millimeter').magnitude
                 y_pos = result.xrd_results.y_absolute.to('millimeter').magnitude
                 phases_position_list.append(

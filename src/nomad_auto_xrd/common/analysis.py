@@ -209,7 +209,7 @@ class XRDAutoAnalyzer:
             try:
                 spectrum_xy_file = f'spectrum_{idx}.xy'
                 self._generate_xy_file(
-                    spectrum_xy_file,
+                    os.path.join('Spectra', spectrum_xy_file),
                     analysis_input.two_theta,
                     analysis_input.intensity,
                 )
@@ -318,8 +318,8 @@ class XRDAutoAnalyzer:
                 # remove the .xy files after analysis
                 # clear tensorflow session to free up memory
                 # log memory usage
-                if os.path.exists(spectrum_xy_file):
-                    os.remove(spectrum_xy_file)
+                if os.path.exists(os.path.join('Spectra', spectrum_xy_file)):
+                    os.remove(os.path.join('Spectra', spectrum_xy_file))
                 tf.keras.backend.clear_session()
                 pbar.set_postfix(mem=f'{get_total_memory_mb():.1f} MB')
 
