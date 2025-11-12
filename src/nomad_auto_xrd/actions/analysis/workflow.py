@@ -24,7 +24,7 @@ class AnalysisWorkflow:
     async def run(self, data: UserInput) -> str:
         retry_policy = RetryPolicy(maximum_attempts=1)
         results: list[AnalysisResult] = []
-        for xrd_measurement_entry in data.xrd_measurement_entries:
+        for idx, xrd_measurement_entry in enumerate(data.xrd_measurement_entries):
             results.append(
                 await workflow.execute_activity(
                     analyze,
@@ -32,6 +32,7 @@ class AnalysisWorkflow:
                         upload_id=data.upload_id,
                         user_id=data.user_id,
                         working_directory=workflow.info().workflow_id,
+                        analysis_iter=idx,
                         analysis_settings=data.analysis_settings,
                         xrd_measurement_entry=xrd_measurement_entry,
                     ),
