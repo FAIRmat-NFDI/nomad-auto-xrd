@@ -33,7 +33,11 @@ from nomad_auto_xrd.common.models import (
     AutoXRDModelInput,
     XRDMeasurementEntry,
 )
-from nomad_auto_xrd.common.utils import get_total_memory_mb, pattern_preprocessor
+from nomad_auto_xrd.common.utils import (
+    get_total_memory_mb,
+    pattern_preprocessor,
+    timestamped_print,
+)
 from nomad_auto_xrd.schema_packages.schema import (
     AutoXRDAnalysis,
     AutoXRDAnalysisResult,
@@ -150,7 +154,7 @@ class XRDAutoAnalyzer:
                     f'data/reference_structures/{i}',
                 )
             else:
-                (self.logger.warning if self.logger else print)(
+                (self.logger.warning if self.logger else timestamped_print)(
                     f'Reference file "{cif_path}" does not exist.'
                 )
 
@@ -311,7 +315,7 @@ class XRDAutoAnalyzer:
                 message = (
                     f'Error during analysis of {idx}-th index of `analysis_inputs`: {e}'
                 )
-                (self.logger.warning if self.logger else print)(message)
+                (self.logger.warning if self.logger else timestamped_print)(message)
                 continue
 
             finally:
