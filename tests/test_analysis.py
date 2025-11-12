@@ -20,9 +20,15 @@ import tempfile
 
 import pytest
 from nomad.client import normalize_all, parse
+from nomad.datamodel import EntryArchive
+from nomad_measurements.xrd.schema import XRayDiffraction
 
 from nomad_auto_xrd.common.analysis import analyze
-from nomad_auto_xrd.schema_packages.schema import ReferenceStructure
+from nomad_auto_xrd.schema_packages.schema import (
+    MultiPatternAnalysisResult,
+    ReferenceStructure,
+    SinglePatternAnalysisResult,
+)
 
 # Check environment variable
 run_pipeline_tests = os.environ.get('RUN_PIPELINE_TESTS', 'false').lower() == 'true'
@@ -56,7 +62,8 @@ def test_analysis(parsed_measurement_archives, caplog, clean_up):
         - The analysis entry stores the settings for the analysis including references
           to the XRD entry and the model entry.
     """
-    expected_num_results = 4  # 2 from single patterns + 2 from multi-pattern
+    expected_num_results = 3  # 2 from single patterns + 1 from multi-pattern
+    duplication_factor_for_multi_pattern = 2
 
     # prepare the pre-trained model entry
     reference_files = [
@@ -76,10 +83,17 @@ def test_analysis(parsed_measurement_archives, caplog, clean_up):
     model.data.pdf_model = os.path.join(data_dir, 'Models', 'PDF_Model.h5')
     normalize_all(model)
 
-    # prepare the multi-pattern XRD entry
-    multi_pattern_xrd = parsed_measurement_archives[0]
-    multi_pattern_xrd.data.results[1] = multi_pattern_xrd.data.results[0]
-    normalize_all(multi_pattern_xrd)
+    # prepare the multi-pattern XRD entry: duplicate the pattern
+    multi_pattern_xrd = XRayDiffraction(
+        settings=parsed_measurement_archives[0].data.xrd_settings.m_copy(deep=True),
+        results=[parsed_measurement_archives[0].data.results[0].m_copy(deep=True)]
+        * duplication_factor_for_multi_pattern,
+    )
+    multi_pattern_xrd_archive = EntryArchive(
+        data=multi_pattern_xrd,
+        metadata=parsed_measurement_archives[0].metadata.m_copy(deep=True),
+    )
+    normalize_all(multi_pattern_xrd_archive)
 
     # prepare the analysis entry
     analysis = parse(os.path.join(data_dir, 'AutoXRDAnalysis.archive.yaml'))[0]
@@ -90,7 +104,7 @@ def test_analysis(parsed_measurement_archives, caplog, clean_up):
     analysis.m_setdefault('data/inputs/1')
     analysis.data.inputs[1].reference = parsed_measurement_archives[1].data
     analysis.m_setdefault('data/inputs/2')
-    analysis.data.inputs[2].reference = multi_pattern_xrd.data
+    analysis.data.inputs[2].reference = multi_pattern_xrd
     normalize_all(analysis)
 
     # run the analysis
@@ -104,8 +118,14 @@ def test_analysis(parsed_measurement_archives, caplog, clean_up):
 
     # check that results are created
     assert len(analysis.data.results) == expected_num_results
-    for result in analysis.data.results:
-        assert result is not None
+    assert isinstance(analysis.data.results[0], SinglePatternAnalysisResult)
+    assert isinstance(analysis.data.results[1], SinglePatternAnalysisResult)
+    assert isinstance(analysis.data.results[2], MultiPatternAnalysisResult)
+
+    assert (
+        len(analysis.data.results[2].single_pattern_results)
+        == duplication_factor_for_multi_pattern
+    )
 
     # clean up the created files
     clean_up.track(os.path.join(data_dir, analysis.data.notebook))
