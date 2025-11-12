@@ -74,6 +74,9 @@ class XRDAutoAnalyzer:
             )
         self.logger = logger
         self.analysis_settings = analysis_settings
+        self.models_dir, self.references_dir, self.spectra_dir = (
+            self._create_subdirectories()
+        )
         self.xrd_model_path, self.pdf_model_path, self.reference_structure_m_proxies = (
             self._model_setup(analysis_settings.auto_xrd_model)
         )
@@ -98,6 +101,19 @@ class XRDAutoAnalyzer:
             for _two_theta, _intensity in zip(two_theta, intensity):
                 f.write(f'{_two_theta} {_intensity}\n')
 
+    def _create_subdirectories(self) -> None:
+        """
+        Creates necessary subdirectories in the working directory for analysis.
+        """
+        models_dir = os.path.join(self.working_directory, 'Models')
+        references_dir = os.path.join(self.working_directory, 'References')
+        spectra_dir = os.path.join(self.working_directory, 'Spectra')
+        os.makedirs(models_dir, exist_ok=True)
+        os.makedirs(references_dir, exist_ok=True)
+        os.makedirs(spectra_dir, exist_ok=True)
+
+        return models_dir, references_dir, spectra_dir
+
     def _model_setup(
         self,
         model: AutoXRDModelInput,
@@ -120,13 +136,11 @@ class XRDAutoAnalyzer:
         # Create a dictionary to store the m_proxies of the sections with
         # reference structures
         reference_structure_m_proxies = dict()
-        reference_structures_dir = os.path.join(self.working_directory, 'References')
-        os.makedirs(reference_structures_dir, exist_ok=True)
         for i, cif_path in enumerate(model.reference_structure_paths):
             if os.path.exists(cif_path):
                 os.symlink(
                     os.path.abspath(cif_path),
-                    os.path.join(reference_structures_dir, os.path.basename(cif_path)),
+                    os.path.join(self.references_dir, os.path.basename(cif_path)),
                 )
                 reference_structure_m_proxies[
                     os.path.basename(cif_path).split('.cif')[0]
@@ -140,11 +154,9 @@ class XRDAutoAnalyzer:
                     f'Reference file "{cif_path}" does not exist.'
                 )
 
-        models_dir = os.path.join(self.working_directory, 'Models')
-        os.makedirs(models_dir, exist_ok=True)
         if model.xrd_model_path and os.path.exists(model.xrd_model_path):
             xrd_model_path = os.path.join(
-                models_dir, os.path.basename(model.xrd_model_path)
+                self.models_dir, os.path.basename(model.xrd_model_path)
             )
             os.symlink(os.path.abspath(model.xrd_model_path), xrd_model_path)
         else:
@@ -154,7 +166,7 @@ class XRDAutoAnalyzer:
 
         if model.pdf_model_path and os.path.exists(model.pdf_model_path):
             pdf_model_path = os.path.join(
-                models_dir, os.path.basename(model.pdf_model_path)
+                self.models_dir, os.path.basename(model.pdf_model_path)
             )
             os.symlink(os.path.abspath(model.pdf_model_path), pdf_model_path)
 
