@@ -1660,7 +1660,7 @@ class AutoXRDAnalysisAction(Action, Analysis, Schema):
                         logger,
                         measured_pattern=(
                             result.xrd_results.m_parent.m_parent.results.properties.structural.diffraction_pattern[
-                                i
+                                0
                             ]
                         ),
                         reference_phase_simulated_patterns=(
