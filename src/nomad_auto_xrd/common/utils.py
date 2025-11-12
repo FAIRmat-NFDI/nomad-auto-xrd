@@ -136,7 +136,7 @@ def pattern_preprocessor(
                 measurement_m_proxy=get_reference(
                     xrd_entry_archive['metadata'].get('upload_id', None),
                     xrd_entry_archive['metadata'].get('entry_id', None),
-                    f'results/properties/structural/diffraction_pattern/{idx}',
+                    f'data/results/{idx}',
                 ),
             )
         )

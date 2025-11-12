@@ -106,9 +106,8 @@ class AnalysisInput:
     A data class to hold the XRD data input for analysis.
 
     Attributes:
-        measurement_m_proxy (str): The m_proxy values inside the
-            `results.properties.structural.diffraction_pattern` section of the
-            measurement entries used for phase identification.
+        measurement_m_proxy (str): The m_proxy values inside the `data.results` section
+            of the measurement entries used for phase identification.
         two_theta (list[float]): The two theta angles from the XRD pattern.
         intensity (list[float]): The intensity values corresponding to the two theta
             angles.
