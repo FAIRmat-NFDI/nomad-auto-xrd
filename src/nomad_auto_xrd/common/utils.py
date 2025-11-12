@@ -113,23 +113,13 @@ def pattern_preprocessor(
     Returns:
         list[AnalysisInput]: List of processed data ready for analysis.
     """
-    if 'data_files' in xrd_entry_archive['data']:
-        filenames = xrd_entry_archive['data']['data_files']
-    elif 'data_file' in xrd_entry_archive['data']:
-        filenames = [xrd_entry_archive['data']['data_file']]
-    else:
-        raise AttributeError('No data file(s) found in the XRD section.')
     patterns = xrd_entry_archive['results']['properties']['structural'][
         'diffraction_pattern'
     ]
-    if len(filenames) != len(patterns):
-        raise ValueError(
-            'Number of data files does not match number of diffraction patterns.'
-        )
     if not patterns:
         raise ValueError('No diffraction patterns found in the XRD section.')
     analysis_inputs = []
-    for idx, (filename, pattern) in enumerate(zip(filenames, patterns)):
+    for idx, pattern in enumerate(patterns):
         two_theta = pattern['two_theta_angles']
         intensity = pattern['intensity']
         if two_theta is None or intensity is None:
@@ -141,13 +131,12 @@ def pattern_preprocessor(
             continue
         analysis_inputs.append(
             AnalysisInput(
-                filename=os.path.basename(filename),
                 two_theta=two_theta,
                 intensity=intensity,
                 measurement_m_proxy=get_reference(
                     xrd_entry_archive['metadata'].get('upload_id', None),
                     xrd_entry_archive['metadata'].get('entry_id', None),
-                    f'data/results/{idx}',
+                    f'results/properties/structural/diffraction_pattern/{idx}',
                 ),
             )
         )
