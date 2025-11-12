@@ -74,46 +74,45 @@ class XRDAutoAnalyzer:
             )
         self.logger = logger
         self.analysis_settings = analysis_settings
+        self.models_dir, self.references_dir, self.spectra_dir = (
+            self._create_subdirectories()
+        )
         self.xrd_model_path, self.pdf_model_path, self.reference_structure_m_proxies = (
             self._model_setup(analysis_settings.auto_xrd_model)
         )
 
-    def _generate_xy_file(self, analysis_input: AnalysisInput) -> None:
+    def _generate_xy_file(
+        self,
+        path: str,
+        two_theta: list[float],
+        intensity: list[float],
+    ) -> None:
         """
         Generates .xy file from the processed data and saves them in the working
         directory under 'Spectra'.
 
         Args:
-            analysis_input (AnalysisInput): Processed data containing filename,
-                two_theta, and intensity values.
+            path (str): The path to the .xy file to be generated.
+            two_theta (list[float]): The 2-theta values for the XRD pattern.
+            intensity (list[float]): The intensity values for the XRD pattern.
         """
+
+        with open(path, 'w', encoding='utf-8') as f:
+            for _two_theta, _intensity in zip(two_theta, intensity):
+                f.write(f'{_two_theta} {_intensity}\n')
+
+    def _create_subdirectories(self) -> None:
+        """
+        Creates necessary subdirectories in the working directory for analysis.
+        """
+        models_dir = os.path.join(self.working_directory, 'Models')
+        references_dir = os.path.join(self.working_directory, 'References')
         spectra_dir = os.path.join(self.working_directory, 'Spectra')
+        os.makedirs(models_dir, exist_ok=True)
+        os.makedirs(references_dir, exist_ok=True)
         os.makedirs(spectra_dir, exist_ok=True)
-        with open(
-            os.path.join(
-                spectra_dir, f'{analysis_input.filename.rsplit(".", 1)[0]}.xy'
-            ),
-            'w',
-            encoding='utf-8',
-        ) as f:
-            for angle, intensity in zip(
-                analysis_input.two_theta, analysis_input.intensity
-            ):
-                f.write(f'{angle} {intensity}\n')
 
-    def _remove_xy_file(self, filename: str) -> None:
-        """
-        Removes the .xy file corresponding to the given filename from the 'Spectra'
-        directory in the working directory.
-
-        Args:
-            filename (str): The name of the XRD rawfile whose .xy file should be
-                removed.
-        """
-        spectra_dir = os.path.join(self.working_directory, 'Spectra')
-        file_path = os.path.join(spectra_dir, f'{filename.rsplit(".", 1)[0]}.xy')
-
-        os.remove(file_path)
+        return models_dir, references_dir, spectra_dir
 
     def _model_setup(
         self,
@@ -137,13 +136,11 @@ class XRDAutoAnalyzer:
         # Create a dictionary to store the m_proxies of the sections with
         # reference structures
         reference_structure_m_proxies = dict()
-        reference_structures_dir = os.path.join(self.working_directory, 'References')
-        os.makedirs(reference_structures_dir, exist_ok=True)
         for i, cif_path in enumerate(model.reference_structure_paths):
             if os.path.exists(cif_path):
                 os.symlink(
                     os.path.abspath(cif_path),
-                    os.path.join(reference_structures_dir, os.path.basename(cif_path)),
+                    os.path.join(self.references_dir, os.path.basename(cif_path)),
                 )
                 reference_structure_m_proxies[
                     os.path.basename(cif_path).split('.cif')[0]
@@ -157,11 +154,9 @@ class XRDAutoAnalyzer:
                     f'Reference file "{cif_path}" does not exist.'
                 )
 
-        models_dir = os.path.join(self.working_directory, 'Models')
-        os.makedirs(models_dir, exist_ok=True)
         if model.xrd_model_path and os.path.exists(model.xrd_model_path):
             xrd_model_path = os.path.join(
-                models_dir, os.path.basename(model.xrd_model_path)
+                self.models_dir, os.path.basename(model.xrd_model_path)
             )
             os.symlink(os.path.abspath(model.xrd_model_path), xrd_model_path)
         else:
@@ -171,7 +166,7 @@ class XRDAutoAnalyzer:
 
         if model.pdf_model_path and os.path.exists(model.pdf_model_path):
             pdf_model_path = os.path.join(
-                models_dir, os.path.basename(model.pdf_model_path)
+                self.models_dir, os.path.basename(model.pdf_model_path)
             )
             os.symlink(os.path.abspath(model.pdf_model_path), pdf_model_path)
 
@@ -210,9 +205,14 @@ class XRDAutoAnalyzer:
         original_dir = os.getcwd()
         os.chdir(self.working_directory)
         pbar = tqdm(analysis_inputs, desc='Running analysis')
-        for analysis_input in pbar:
+        for idx, analysis_input in enumerate(pbar):
             try:
-                self._generate_xy_file(analysis_input)
+                spectrum_xy_file = f'spectrum_{idx}.xy'
+                self._generate_xy_file(
+                    os.path.join('Spectra', spectrum_xy_file),
+                    analysis_input.two_theta,
+                    analysis_input.intensity,
+                )
                 os.makedirs('temp', exist_ok=True)  # required for `spectrum_analysis`
                 xrd_result = AnalysisResult(
                     *spectrum_analysis.main(
@@ -281,7 +281,7 @@ class XRDAutoAnalyzer:
                 # plot the identified phases and add plot paths to the results
                 visualizer.main(
                     'Spectra',
-                    merged_results.filenames[0],
+                    spectrum_xy_file,
                     [
                         os.path.join(phase + '.cif')
                         for phase in merged_results.phases[0]
@@ -301,21 +301,25 @@ class XRDAutoAnalyzer:
                 merged_results.plot_paths = [
                     os.path.join(
                         self.working_directory,
-                        analysis_input.filename.rsplit('.', 1)[0] + '.png',
+                        spectrum_xy_file.rsplit('.', 1)[0] + '.png',
                     )
                 ]
 
                 all_results.merge(merged_results)
 
             except Exception as e:
-                message = f'Error during analysis of {analysis_input.filename}: {e}'
+                message = (
+                    f'Error during analysis of {idx}-th index of `analysis_inputs`: {e}'
+                )
                 (self.logger.warning if self.logger else print)(message)
                 continue
+
             finally:
                 # remove the .xy files after analysis
                 # clear tensorflow session to free up memory
                 # log memory usage
-                self._remove_xy_file(analysis_input.filename)
+                if os.path.exists(os.path.join('Spectra', spectrum_xy_file)):
+                    os.remove(os.path.join('Spectra', spectrum_xy_file))
                 tf.keras.backend.clear_session()
                 pbar.set_postfix(mem=f'{get_total_memory_mb():.1f} MB')
 
