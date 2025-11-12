@@ -5,3 +5,4 @@ plugins:
     - "nomad_auto_xrd.example_uploads:example_upload_entry_point"
     - "nomad_auto_xrd.actions.training:training_action"
     - "nomad_auto_xrd.actions.analysis:analysis_action"
+    - "nomad_measurements.xrd:parser_entry_point"
