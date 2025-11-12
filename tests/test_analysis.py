@@ -113,19 +113,17 @@ def test_analysis(parsed_measurement_archives, caplog, clean_up):
         os.chdir(temp_dir)
         try:
             analyze(analysis.data)
+            assert len(analysis.data.results) == expected_num_results
+            assert isinstance(analysis.data.results[0], SinglePatternAnalysisResult)
+            assert isinstance(analysis.data.results[1], SinglePatternAnalysisResult)
+            assert isinstance(analysis.data.results[2], MultiPatternAnalysisResult)
+            assert (
+                len(analysis.data.results[2].single_pattern_results)
+                == duplication_factor_for_multi_pattern
+            )
+            assert os.path.exists(analysis.data.results[0].identified_phases_plot)
         finally:
             os.chdir(original_dir)
-
-    # check that results are created
-    assert len(analysis.data.results) == expected_num_results
-    assert isinstance(analysis.data.results[0], SinglePatternAnalysisResult)
-    assert isinstance(analysis.data.results[1], SinglePatternAnalysisResult)
-    assert isinstance(analysis.data.results[2], MultiPatternAnalysisResult)
-
-    assert (
-        len(analysis.data.results[2].single_pattern_results)
-        == duplication_factor_for_multi_pattern
-    )
 
     # clean up the created files
     clean_up.track(os.path.join(data_dir, analysis.data.notebook))
