@@ -3,11 +3,10 @@ from datetime import timedelta
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 
-from nomad_auto_xrd.actions.training.activities import setup_training_artifacts
-
 with workflow.unsafe.imports_passed_through():
     from nomad_auto_xrd.actions.training.activities import (
         create_trained_model_entry,
+        setup_training_artifacts,
         train_model,
     )
     from nomad_auto_xrd.actions.training.models import (
@@ -27,7 +26,7 @@ class TrainingWorkflow:
             initial_interval=timedelta(seconds=10),
             backoff_coefficient=2.0,
         )
-        heartbeat_timeout = timedelta(minutes=1)
+        heartbeat_timeout = timedelta(minutes=5)
         includes_pdf = True
         setup_training_artifacts_output = await workflow.execute_activity(
             setup_training_artifacts,
