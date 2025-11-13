@@ -80,7 +80,9 @@ async def analyze(data: AnalyzeInput) -> AnalysisResult:
             result.reduced_spectra = None  # save space
             # Move the plots from `temp_dir` to a `Plots` folder within the
             # working directory
-            plots_dir = os.path.join(data.working_directory, 'Plots')
+            plots_dir = os.path.join(
+                data.working_directory, 'Plots', f'Input_{data.analysis_iter}'
+            )
             os.makedirs(plots_dir, exist_ok=True)
             for result_iter, plot_path in enumerate(result.plot_paths):
                 new_plot_path = os.path.join(plots_dir, os.path.basename(plot_path))

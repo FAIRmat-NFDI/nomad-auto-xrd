@@ -21,10 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python
+    - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
+        python-version: 3.12
     - name: Install uv
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -36,20 +36,18 @@ jobs:
       run: |
         uv pip install dist/*.tar.gz
 
-  install-and-test:
+  tests:
     runs-on: ubuntu-latest
-    env:
-      RUN_PIPELINE_TESTS: false
+    needs: build-and-install
     strategy:
-      fail-fast: false
       matrix:
-        python_version: ["3.10", "3.11", "3.12"]
+        test-type: [test_schemas, test_analysis, test_training]
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python ${{matrix.python_version}}
+    - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
-        python-version: ${{matrix.python_version}}
+        python-version: 3.12
     - name: Install uv
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -57,10 +55,12 @@ jobs:
       run: |
         uv pip install -e '.[dev]'
         uv pip install coverage coveralls
-    - name: Test with pytest
+    - name: Test schemas with pytest
+      env:
+        RUN_PIPELINE_TESTS: true
       run: |
-        python -m coverage run -m pytest -sv
-    - name: Submit to coveralls
+        python -m coverage run -m pytest tests/${{ matrix.test-type }}.py -sv
+    - name: Submit coverage to Coveralls
       continue-on-error: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

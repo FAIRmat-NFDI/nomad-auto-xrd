@@ -54,6 +54,7 @@ def test_train_nomad_model(caplog):
     ]
     model.m_setdefault('data/simulation_settings')
     model.data.simulation_settings.structure_files = structure_files
+    model.data.simulation_settings.num_patterns = 5  # small number for testing
     normalize_all(model)
 
     # Create a temporary directory for the training

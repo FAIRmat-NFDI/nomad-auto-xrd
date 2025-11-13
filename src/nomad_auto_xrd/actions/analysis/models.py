@@ -35,6 +35,7 @@ class AnalyzeInput:
     upload_id: str
     user_id: str
     working_directory: str
+    analysis_iter: int
     xrd_measurement_entry: XRDMeasurementEntry
     analysis_settings: AnalysisSettingsInput
 

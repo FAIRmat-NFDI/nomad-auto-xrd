@@ -123,7 +123,7 @@ def pattern_preprocessor(
         two_theta = pattern['two_theta_angles']
         intensity = pattern['intensity']
         if two_theta is None or intensity is None:
-            (logger.warning if logger else print)(
+            (logger.warning if logger else timestamped_print)(
                 f'Warning: Missing two_theta or intensity in pattern {idx} '
                 f'of entry {xrd_entry_archive["metadata"].get("entry_id", None)}. '
                 'Skipping.'
