@@ -22,7 +22,12 @@ with workflow.unsafe.imports_passed_through():
 class AnalysisWorkflow:
     @workflow.run
     async def run(self, data: UserInput) -> str:
-        retry_policy = RetryPolicy(maximum_attempts=1)
+        retry_policy = RetryPolicy(
+            maximum_attempts=3,
+            initial_interval=timedelta(seconds=10),
+            backoff_coefficient=2.0,
+        )
+        heartbeat_timeout = timedelta(minutes=1)
         results: list[AnalysisResult] = []
         for idx, xrd_measurement_entry in enumerate(data.xrd_measurement_entries):
             results.append(
@@ -36,7 +41,8 @@ class AnalysisWorkflow:
                         analysis_settings=data.analysis_settings,
                         xrd_measurement_entry=xrd_measurement_entry,
                     ),
-                    start_to_close_timeout=timedelta(days=1),
+                    heartbeat_timeout=heartbeat_timeout,
+                    start_to_close_timeout=timedelta(hours=24),
                     retry_policy=retry_policy,
                 )
             )
@@ -50,7 +56,11 @@ class AnalysisWorkflow:
                 min_angle=data.analysis_settings.min_angle,
                 max_angle=data.analysis_settings.max_angle,
             ),
-            start_to_close_timeout=timedelta(hours=2),
+            heartbeat_timeout=heartbeat_timeout,
+            start_to_close_timeout=timedelta(
+                minutes=5
+                * len(data.analysis_settings.auto_xrd_model.reference_structure_paths)
+            ),
             retry_policy=retry_policy,
         )
         await workflow.execute_activity(
@@ -64,7 +74,8 @@ class AnalysisWorkflow:
                 analysis_results=results,
                 simulated_reference_patterns=simulated_reference_patterns,
             ),
-            start_to_close_timeout=timedelta(seconds=600),
+            heartbeat_timeout=heartbeat_timeout,
+            start_to_close_timeout=timedelta(hours=2),
             retry_policy=retry_policy,
         )
         return results
