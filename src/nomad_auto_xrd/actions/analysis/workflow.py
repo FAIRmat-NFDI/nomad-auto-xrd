@@ -27,7 +27,7 @@ class AnalysisWorkflow:
             initial_interval=timedelta(seconds=10),
             backoff_coefficient=2.0,
         )
-        heartbeat_timeout = timedelta(minutes=1)
+        heartbeat_timeout = timedelta(minutes=5)
         results: list[AnalysisResult] = []
         for idx, xrd_measurement_entry in enumerate(data.xrd_measurement_entries):
             results.append(
