@@ -9,6 +9,7 @@ from nomad_auto_xrd.actions.training.models import (
     SetupTrainingArtifactsInput,
     TrainModelInput,
 )
+from nomad_auto_xrd.actions.utils import with_activity_heartbeat
 from nomad_auto_xrd.common.models import (
     SetupReferencePathsAndDatasetOutput,
     TrainModelOutput,
@@ -29,17 +30,18 @@ async def setup_training_artifacts(
     original_path = os.path.abspath(os.curdir)
     upload = get_upload(data.upload_id, data.user_id)
     upload_raw_path = os.path.join(upload.upload_files.os_path, 'raw')
-    try:
-        os.chdir(upload_raw_path)
-        output = setup_reference_structures_and_datasets(
-            data.working_directory,
-            data.simulation_settings,
-            data.test_fraction,
-            data.includes_pdf,
-        )
-        return output
-    finally:
-        os.chdir(original_path)
+    os.chdir(upload_raw_path)
+    with with_activity_heartbeat(delay=10.0):
+        try:
+            output = setup_reference_structures_and_datasets(
+                data.working_directory,
+                data.simulation_settings,
+                data.test_fraction,
+                data.includes_pdf,
+            )
+            return output
+        finally:
+            os.chdir(original_path)
 
 
 @activity.defn
@@ -54,20 +56,21 @@ async def train_model(data: TrainModelInput) -> TrainModelOutput:
     original_path = os.path.abspath(os.curdir)
     upload = get_upload(data.upload_id, data.user_id)
     upload_raw_path = os.path.join(upload.upload_files.os_path, 'raw')
-    try:
-        os.chdir(upload_raw_path)
-        with ProcessPoolExecutor(max_workers=1) as executor:
-            # Run within a separate process to avoid memory leaks
-            executor_output = executor.map(
-                train,
-                [data.working_directory],
-                [data.training_settings],
-                [data.xrd_dataset_path],
-                [data.pdf_dataset_path],
-            )
-            output = list(executor_output)[0]
-    finally:
-        os.chdir(original_path)
+    os.chdir(upload_raw_path)
+    with with_activity_heartbeat(delay=10.0):
+        try:
+            with ProcessPoolExecutor(max_workers=1) as executor:
+                # Run within a separate process to avoid memory leaks
+                executor_output = executor.map(
+                    train,
+                    [data.working_directory],
+                    [data.training_settings],
+                    [data.xrd_dataset_path],
+                    [data.pdf_dataset_path],
+                )
+                output = list(executor_output)[0]
+        finally:
+            os.chdir(original_path)
 
     if output.xrd_model_path is None:
         raise ValueError('XRD model path is None, training may have failed.')
@@ -128,20 +131,23 @@ async def create_trained_model_entry(data: CreateTrainedModelEntryInput) -> None
         data.working_directory, 'auto_xrd_model.archive.json'
     )
 
-    # Create an entry for the trained model and generate its reference
-    with context.update_entry(rel_mainfile_path, write=True, process=True) as archive:
-        archive['data'] = model.m_to_dict(with_root_def=True)
-    reference = get_reference(
-        data.upload_id,
-        generate_entry_id(data.upload_id, rel_mainfile_path),
-    )
+    with with_activity_heartbeat(delay=10.0):
+        # Create an entry for the trained model and generate its reference
+        with context.update_entry(
+            rel_mainfile_path, write=True, process=True
+        ) as archive:
+            archive['data'] = model.m_to_dict(with_root_def=True)
+        reference = get_reference(
+            data.upload_id,
+            generate_entry_id(data.upload_id, rel_mainfile_path),
+        )
 
-    # Add a reference to the model entry in the training entry
-    with context.update_entry(data.mainfile, process=True, write=True) as archive:
-        archive['data']['outputs'] = [{'reference': reference}]
-        archive['data']['trigger_start_action'] = False
-        archive['data']['action_instance_id'] = data.action_instance_id
-        archive['data']['action_status'] = 'COMPLETED'
+        # Add a reference to the model entry in the training entry
+        with context.update_entry(data.mainfile, process=True, write=True) as archive:
+            archive['data']['outputs'] = [{'reference': reference}]
+            archive['data']['trigger_start_action'] = False
+            archive['data']['action_instance_id'] = data.action_instance_id
+            archive['data']['action_status'] = 'COMPLETED'
 
     ## The following code is an alternative way to add the model entry to the upload
     # archive_name = 'auto_xrd_model.archive.json'
