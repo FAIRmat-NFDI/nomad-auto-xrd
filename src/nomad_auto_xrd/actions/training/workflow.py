@@ -22,7 +22,12 @@ with workflow.unsafe.imports_passed_through():
 class TrainingWorkflow:
     @workflow.run
     async def run(self, data: UserInput) -> str:
-        retry_policy = RetryPolicy(maximum_attempts=1)
+        retry_policy = RetryPolicy(
+            maximum_attempts=3,
+            initial_interval=timedelta(seconds=10),
+            backoff_coefficient=2.0,
+        )
+        heartbeat_timeout = timedelta(minutes=1)
         includes_pdf = True
         setup_training_artifacts_output = await workflow.execute_activity(
             setup_training_artifacts,
@@ -34,7 +39,12 @@ class TrainingWorkflow:
                 test_fraction=data.training_settings.test_fraction,
                 includes_pdf=includes_pdf,
             ),
-            start_to_close_timeout=timedelta(hours=24),
+            heartbeat_timeout=heartbeat_timeout,
+            start_to_close_timeout=timedelta(
+                minutes=0.5
+                * data.simulation_settings.num_patterns
+                * len(data.simulation_settings.structure_files)
+            ),
             retry_policy=retry_policy,
         )
         training_output = await workflow.execute_activity(
@@ -47,9 +57,10 @@ class TrainingWorkflow:
                 xrd_dataset_path=setup_training_artifacts_output.xrd_dataset_path,
                 pdf_dataset_path=setup_training_artifacts_output.pdf_dataset_path,
             ),
-            start_to_close_timeout=timedelta(hours=24),
-            # TODO: uncomment during NOMAD logger integration
-            # heartbeat_timeout=timedelta(hours=1),
+            heartbeat_timeout=heartbeat_timeout,
+            start_to_close_timeout=timedelta(
+                minutes=10 * data.training_settings.num_epochs
+            ),
             retry_policy=retry_policy,
         )
         create_entry_input = CreateTrainedModelEntryInput(
@@ -72,7 +83,8 @@ class TrainingWorkflow:
         await workflow.execute_activity(
             create_trained_model_entry,
             create_entry_input,
-            start_to_close_timeout=timedelta(minutes=10),
+            heartbeat_timeout=heartbeat_timeout,
+            start_to_close_timeout=timedelta(hours=2),
             retry_policy=retry_policy,
         )
         return training_output
