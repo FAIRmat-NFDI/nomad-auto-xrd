@@ -17,7 +17,7 @@ from nomad_auto_xrd.common.models import (
 
 
 @activity.defn
-async def setup_training_artifacts(
+def setup_training_artifacts(
     data: SetupTrainingArtifactsInput,
 ) -> SetupReferencePathsAndDatasetOutput:
     """
@@ -45,7 +45,7 @@ async def setup_training_artifacts(
 
 
 @activity.defn
-async def train_model(data: TrainModelInput) -> TrainModelOutput:
+def train_model(data: TrainModelInput) -> TrainModelOutput:
     """
     Activity to train a machine learning model.
     """
@@ -79,7 +79,7 @@ async def train_model(data: TrainModelInput) -> TrainModelOutput:
 
 
 @activity.defn
-async def create_trained_model_entry(data: CreateTrainedModelEntryInput) -> None:
+def create_trained_model_entry(data: CreateTrainedModelEntryInput) -> None:
     """
     Activity to create a trained model entry in the same upload.
     """
