@@ -16,7 +16,6 @@
 # limitations under the License.
 #
 
-import asyncio
 import contextlib
 import threading
 from contextvars import copy_context
@@ -46,12 +45,6 @@ def activity_heartbeat(delay: float):
     # Copy context to preserve Temporal activity context vars in the new thread
     ctx = copy_context()
 
-    # Get the event loop from the main thread
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-
     def _heartbeat_loop():
         elapsed = 0
         # Check every 1s for responsiveness
@@ -59,9 +52,8 @@ def activity_heartbeat(delay: float):
         while not stop_event.is_set():
             if elapsed >= delay:
                 if activity.in_activity():
-                    asyncio.run_coroutine_threadsafe(
-                        asyncio.to_thread(activity.heartbeat), loop
-                    )
+                    activity.heartbeat()
+
                 elapsed = 0
 
             if stop_event.wait(timeout=check_interval):
