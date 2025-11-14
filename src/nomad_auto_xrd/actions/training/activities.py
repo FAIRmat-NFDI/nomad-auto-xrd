@@ -31,7 +31,7 @@ def setup_training_artifacts(
     upload = get_upload(data.upload_id, data.user_id)
     upload_raw_path = os.path.join(upload.upload_files.os_path, 'raw')
     os.chdir(upload_raw_path)
-    with activity_heartbeat(delay=30.0):
+    with activity_heartbeat(delay=30):
         try:
             output = setup_reference_structures_and_datasets(
                 data.working_directory,
@@ -57,7 +57,7 @@ def train_model(data: TrainModelInput) -> TrainModelOutput:
     upload = get_upload(data.upload_id, data.user_id)
     upload_raw_path = os.path.join(upload.upload_files.os_path, 'raw')
     os.chdir(upload_raw_path)
-    with activity_heartbeat(delay=30.0):
+    with activity_heartbeat(delay=30):
         try:
             with ProcessPoolExecutor(max_workers=1) as executor:
                 # Run within a separate process to avoid memory leaks
@@ -131,7 +131,7 @@ def create_trained_model_entry(data: CreateTrainedModelEntryInput) -> None:
         data.working_directory, 'auto_xrd_model.archive.json'
     )
 
-    with activity_heartbeat(delay=30.0):
+    with activity_heartbeat(delay=30):
         # Create an entry for the trained model and generate its reference
         with context.update_entry(
             rel_mainfile_path, write=True, process=True
