@@ -16,7 +16,7 @@ from nomad_auto_xrd.common.utils import pattern_preprocessor, read_entry_archive
 
 
 @activity.defn
-async def analyze(data: AnalyzeInput) -> AnalysisResult:
+def analyze(data: AnalyzeInput) -> AnalysisResult:
     """
     Activity to run auto xrd analysis on the given data.
     """
@@ -102,7 +102,7 @@ async def analyze(data: AnalyzeInput) -> AnalysisResult:
 
 
 @activity.defn
-async def simulate_reference_patterns(
+def simulate_reference_patterns(
     data: SimulateReferencePatternsInput,
 ) -> list[SimulatedReferencePattern]:
     """
@@ -135,7 +135,7 @@ async def simulate_reference_patterns(
 
 
 @activity.defn
-async def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
+def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
     """
     Activity to create update the inference entry in the same upload.
     """
