@@ -76,7 +76,7 @@ def analyze(data: AnalyzeInput) -> AnalysisResult:
         os.chdir(upload_raw_path)
         os.makedirs(data.working_directory, exist_ok=True)
 
-        with activity_heartbeat(delay=10.0):
+        with activity_heartbeat(delay=30.0):
             with tempfile.TemporaryDirectory() as temp_dir:
                 analyzer = XRDAutoAnalyzer(temp_dir, data.analysis_settings)
                 result = analyzer.eval(analysis_inputs)
@@ -116,7 +116,7 @@ def simulate_reference_patterns(
 
     upload = get_upload(data.model_upload_id, data.user_id)
     context = ServerContext(upload)
-    with activity_heartbeat(delay=10.0):
+    with activity_heartbeat(delay=30.0):
         for cif_path in data.cif_paths:
             with context.raw_file(cif_path) as file:
                 two_theta, intensity = simulate_pattern(
@@ -155,7 +155,7 @@ def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
     upload = get_upload(data.upload_id, data.user_id)
     context = ServerContext(upload)
 
-    with activity_heartbeat(delay=10.0):
+    with activity_heartbeat(delay=30.0):
         with context.update_entry(data.mainfile, process=True, write=True) as archive:
             archive['data']['results'] = result_sections
             archive['data']['trigger_start_action'] = False
