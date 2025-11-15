@@ -22,6 +22,7 @@ class WandBTrainingWorkflow:
             start_to_close_timeout=timedelta(minutes=10),
             retry_policy=retry_policy,
         )
+        # with
         output = await workflow.execute_child_workflow(
             TrainingWorkflow.run,
             training_workflow_input,

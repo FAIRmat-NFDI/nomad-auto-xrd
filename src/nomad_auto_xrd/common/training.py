@@ -144,45 +144,24 @@ def fit_model(
     callbacks: list[tf.keras.callbacks.Callback] = None,
 ) -> str | None:
     """
-    Fits the model with the given training data and labels, with optional W&B logging.
-
-    Returns:
-        wandb_run_url: The W&B run URL if logging is enabled, else None.
+    Fits the model with optional W&B logging.
+    When `settings.enable_wandb` is True, WandbMetricsLogger is added to the callbacks.
+    The function should be called within a context where W&B is properly initialized.
     """
     if not callbacks:
         callbacks = []
+    if settings.enable_wandb:
+        callbacks.append(WandbMetricsLogger())
 
-    if not settings.enable_wandb:
-        # Train the model without W&B logging
-        model.fit(
-            train_x,
-            train_y,
-            batch_size=settings.batch_size,
-            epochs=settings.num_epochs,
-            validation_split=0.2,
-            shuffle=True,
-            callbacks=callbacks,
-        )
-        return None
-
-    with wandb.init(
-        project=settings.wandb_project,
-        entity=settings.wandb_entity,
-        reinit=True,  # Ensure a new run is started
-    ) as wandb_run:
-        # Train the model with W&B logging
-        model.fit(
-            train_x,
-            train_y,
-            batch_size=settings.batch_size,
-            epochs=settings.num_epochs,
-            validation_split=0.2,
-            shuffle=True,
-            callbacks=callbacks + [WandbMetricsLogger()],
-        )
-        wandb_run_url = wandb_run.url
-
-    return wandb_run_url
+    model.fit(
+        train_x,
+        train_y,
+        batch_size=settings.batch_size,
+        epochs=settings.num_epochs,
+        validation_split=0.2,
+        shuffle=True,
+        callbacks=callbacks,
+    )
 
 
 def test_model(model, test_x, test_y):
@@ -399,24 +378,26 @@ def train(
         xrd_train_x, xrd_train_y, xrd_test_x, xrd_test_y = (
             xrd_dataset.split_training_testing()
         )
-        num_phases = xrd_dataset.num_phases
-        input_shape = xrd_dataset.x.shape[1:]
-        xrd_model = build_model(input_shape, num_phases, is_pdf=False)
-        timestamped_print('Starting XRD model training...')
-        output.wandb_run_url_xrd = fit_model(
-            xrd_train_x,
-            xrd_train_y,
-            xrd_model,
-            training_settings,
-            callbacks,
+
+        xrd_model = build_model(
+            input_shape=xrd_dataset.x.shape[1:],
+            n_phases=xrd_dataset.num_phases,
+            is_pdf=False,
         )
+
+        timestamped_print('Starting XRD model training...')
+
+        fit_model(xrd_train_x, xrd_train_y, xrd_model, training_settings, callbacks)
+
         xrd_model_path = os.path.join(models_dir, 'XRD_Model.h5')
         xrd_model.save(xrd_model_path, include_optimizer=False)
         output.xrd_model_path = xrd_model_path
+
         timestamped_print(
             f'XRD model training complete. Current Memory Usage: '
             f'{get_total_memory_mb():.1f} MB'
         )
+
         test_model(xrd_model, xrd_test_x, xrd_test_y)
 
         if pdf_dataset_path:
@@ -424,24 +405,26 @@ def train(
             pdf_train_x, pdf_train_y, pdf_test_x, pdf_test_y = (
                 pdf_dataset.split_training_testing()
             )
-            num_phases = pdf_dataset.num_phases
-            input_shape = pdf_dataset.x.shape[1:]
-            pdf_model = build_model(input_shape, num_phases, is_pdf=True)
-            timestamped_print('Starting PDF model training...')
-            output.wandb_run_url_pdf = fit_model(
-                pdf_train_x,
-                pdf_train_y,
-                pdf_model,
-                training_settings,
-                callbacks,
+
+            pdf_model = build_model(
+                input_shape=pdf_dataset.x.shape[1:],
+                n_phases=pdf_dataset.num_phases,
+                is_pdf=True,
             )
+
+            timestamped_print('Starting PDF model training...')
+
+            fit_model(pdf_train_x, pdf_train_y, pdf_model, training_settings, callbacks)
+
             pdf_model_path = os.path.join(models_dir, 'PDF_Model.h5')
             pdf_model.save(pdf_model_path, include_optimizer=False)
             output.pdf_model_path = pdf_model_path
+
             timestamped_print(
                 'PDF model training complete. Current Memory Usage: '
                 f'{get_total_memory_mb():.1f} MB'
             )
+
             test_model(pdf_model, pdf_test_x, pdf_test_y)
 
         return output

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 
 
 class UserInput(BaseModel):
@@ -13,6 +13,6 @@ class UserInput(BaseModel):
         ...,
         description='Path to the "*.archive.json" of a "AutoXRDTrainingAction" entry',
     )
-    wandb_api_key: str = Field(..., description='The WandB API key.')
+    wandb_api_key: SecretStr = Field(..., description='The WandB API key.')
     wandb_entity: str = Field(None, description='The WandB entity name (optional).')
     wandb_project: str = Field(None, description='The WandB project name (optional).')
