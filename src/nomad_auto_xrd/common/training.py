@@ -149,6 +149,8 @@ def fit_model(
     Returns:
         wandb_run_url: The W&B run URL if logging is enabled, else None.
     """
+    tf.random.set_seed(settings.seed)
+
     if not callbacks:
         callbacks = []
 
