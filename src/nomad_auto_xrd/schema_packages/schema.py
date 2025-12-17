@@ -1483,8 +1483,14 @@ class AutoXRDTrainingAction(Action, Analysis, Schema):
                     )
                     break
             elements_list = sorted(list(elements))
+            if not elements_list:
+                self.trigger_start_action = False
+                logger.error(
+                    'Composition space created from CIFs is empty. Cannot run '
+                    'the training.'
+                )
             if not self.trained_model_name:
-                self.trained_model_name = '-'.join(elements_list) + ' Auto XRD Model'
+                self.trained_model_name = '-'.join(elements_list)
         if self.trigger_start_action:
             if self.action_status == 'RUNNING':
                 # if the updated status is still RUNNING, do not trigger a new run
