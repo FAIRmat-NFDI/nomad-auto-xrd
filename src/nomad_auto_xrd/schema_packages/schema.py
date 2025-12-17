@@ -1378,6 +1378,7 @@ class AutoXRDTrainingAction(Action, Analysis, Schema):
                 ],
                 visible=Filter(
                     exclude=[
+                        'lab_id',
                         'location',
                         'inputs',
                         'steps',
@@ -1510,7 +1511,6 @@ class AutoXRDAnalysisAction(Action, Analysis, Schema):
                 order=[
                     'name',
                     'datetime',
-                    'lab_id',
                     'description',
                     'method',
                     'trigger_start_action',
@@ -1521,6 +1521,7 @@ class AutoXRDAnalysisAction(Action, Analysis, Schema):
                 ],
                 visible=Filter(
                     exclude=[
+                        'lab_id',
                         'location',
                         'outputs',
                         'steps',
