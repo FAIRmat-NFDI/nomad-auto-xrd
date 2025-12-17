@@ -149,6 +149,8 @@ def fit_model(
     Returns:
         wandb_run_url: The W&B run URL if logging is enabled, else None.
     """
+    tf.random.set_seed(settings.seed)
+
     if not callbacks:
         callbacks = []
 
@@ -402,7 +404,12 @@ def train(
         )
         num_phases = xrd_dataset.num_phases
         input_shape = xrd_dataset.x.shape[1:]
-        xrd_model = build_model(input_shape, num_phases, is_pdf=False)
+        xrd_model = build_model(
+            input_shape,
+            num_phases,
+            is_pdf=False,
+            learning_rate=training_settings.learning_rate,
+        )
         timestamped_print('Starting XRD model training...')
         output.wandb_run_url_xrd = fit_model(
             xrd_train_x,
@@ -427,7 +434,12 @@ def train(
             )
             num_phases = pdf_dataset.num_phases
             input_shape = pdf_dataset.x.shape[1:]
-            pdf_model = build_model(input_shape, num_phases, is_pdf=True)
+            pdf_model = build_model(
+                input_shape,
+                num_phases,
+                is_pdf=True,
+                learning_rate=training_settings.learning_rate,
+            )
             timestamped_print('Starting PDF model training...')
             output.wandb_run_url_pdf = fit_model(
                 pdf_train_x,
