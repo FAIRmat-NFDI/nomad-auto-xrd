@@ -1,9 +1,32 @@
-# nomad-auto-xrd
+<img width="2981" height="911" alt="image" src="https://github.com/user-attachments/assets/8a8a5818-0777-41ed-965f-06180ce0162c" />
 
-Nomad example template
+A NOMAD plugin providing schemas, [Actions](https://nomad-lab.eu/prod/v1/docs/howto/plugins/types/actions.html),
+and a search app for supporting automated XRD analysis using ML models.
+Combined with
+[nomad-measurements](https://github.com/FAIRmat-NFDI/nomad-measurements) plugin, it provides a comprehensive
+solution for your NOMAD Oasis to create XRD measurement entries using raw files from the instrument and
+perform automated phase identification on them.
 
-This `nomad` plugin was generated with `Cookiecutter` along with `@nomad`'s [`cookiecutter-nomad-plugin`](https://github.com/FAIRmat-NFDI/cookiecutter-nomad-plugin) template.
+## Availability
 
+This plugin is hosted on [NOMAD's example Oasis](https://nomad-lab.eu/prod/v1/oasis/gui/). 
+You can create an entry with the built-in schemas `Auto XRD Analysis Action`, add an XRD
+measurement entry and an Auto XRD model entry to it, and trigger a phase identification
+analysis. You can also use a dedicated search app to look up available Auto XRD model
+entries [here](https://nomad-lab.eu/prod/v1/oasis/gui/search/auto-xrd-models).
+
+## Adding this plugin to NOMAD Oasis
+
+The plugin can be added to a
+[NOMAD Oasis](https://nomad-lab.eu/prod/v1/docs/reference/glossary.html#deployment-nomad-oasis)
+instance in a few steps, provided that you have access to the repository hosting the Oasis.
+
+Make sure to add [nomad-measurements](https://github.com/FAIRmat-NFDI/nomad-measurements) plugin
+that contains relevant schemas and parsers for creating XRD measurement entries.
+
+Read the [NOMAD plugin documentation](https://nomad-lab.eu/prod/v1/docs/howto/oasis/configure.html#plugins)
+for all details on how to deploy the plugin on your NOMAD instance. If you wanna get started with a new Oasis,
+start [here](https://nomad-lab.eu/prod/v1/docs/howto/oasis/install.html#how-to-install-a-nomad-oasis).
 
 ## Development
 
@@ -71,108 +94,8 @@ ruff format . --check
 ```
 
 
-### Debugging
-
-For interactive debugging of the tests, use `pytest` with the `--pdb` flag. We recommend using an IDE for debugging, e.g., _VSCode_. If that is the case, add the following snippet to your `.vscode/launch.json`:
-```json
-{
-  "configurations": [
-      {
-        "name": "<descriptive tag>",
-        "type": "debugpy",
-        "request": "launch",
-        "cwd": "${workspaceFolder}",
-        "program": "${workspaceFolder}/.pyenv/bin/pytest",
-        "justMyCode": true,
-        "env": {
-            "_PYTEST_RAISE": "1"
-        },
-        "args": [
-            "-sv",
-            "--pdb",
-            "<path-to-plugin-tests>",
-        ]
-    }
-  ]
-}
-```
-
-where `<path-to-plugin-tests>` must be changed to the local path to the test module to be debugged.
-
-The settings configuration file `.vscode/settings.json` automatically applies the linting and formatting upon saving the modified file.
-
-
-### Documentation on Github pages
-
-To view the documentation locally, install the related packages using:
-```sh
-uv pip install -r requirements_docs.txt
-```
-
-Run the documentation server:
-```sh
-mkdocs serve
-```
-
-
-## Adding this plugin to NOMAD
-
-Currently, NOMAD has two distinct flavors that are relevant depending on your role as an user:
-1. [A NOMAD Oasis](#adding-this-plugin-in-your-nomad-oasis): any user with a NOMAD Oasis instance.
-2. [Local NOMAD installation and the source code of NOMAD](#adding-this-plugin-in-your-local-nomad-installation-and-the-source-code-of-nomad): internal developers.
-
-### Adding this plugin in your NOMAD Oasis
-
-Read the [NOMAD plugin documentation](https://nomad-lab.eu/prod/v1/staging/docs/howto/oasis/plugins_install.html) for all details on how to deploy the plugin on your NOMAD instance.
-
-### Adding this plugin in your local NOMAD installation and the source code of NOMAD
-
-Modify the text file under `/nomad/default_plugins.txt` and add:
-```sh
-<other-content-in-default_plugins.txt>
-nomad-auto-xrd==x.y.z
-```
-where `x.y.z` represents the released version of this plugin.
-
-Then, go to your NOMAD folder, activate your NOMAD virtual environment and run:
-```sh
-deactivate
-cd <route-to-NOMAD-folder>/nomad
-source .pyenv/bin/activate
-./scripts/setup_dev_env.sh
-```
-
-Alternatively and only valid for your local NOMAD installation, you can modify `nomad.yaml` to include this plugin, see [NOMAD Oasis - Install plugins](https://nomad-lab.eu/prod/v1/staging/docs/howto/oasis/plugins_install.html).
-
-
-### Build the python package
-
-The `pyproject.toml` file contains everything that is necessary to turn the project
-into a pip installable python package. Run the python build tool to create a package distribution:
-
-```sh
-pip install build
-python -m build --sdist
-```
-
-You can install the package with pip:
-
-```sh
-pip install dist/nomad-auto-xrd-0.1.0
-```
-
-Read more about python packages, `pyproject.toml`, and how to upload packages to PyPI
-on the [PyPI documentation](https://packaging.python.org/en/latest/tutorials/packaging-projects/).
-
-
-### Template update
-
-We use cruft to update the project based on template changes. A `cruft-update.yml` is included in Github workflows to automatically check for updates and create pull requests to apply updates. Follow the [instructions](https://github.blog/changelog/2022-05-03-github-actions-prevent-github-actions-from-creating-and-approving-pull-requests/) on how to enable Github Actions to create pull requests.
-
-To run the check for updates locally, follow the instructions on [`cruft` website](https://cruft.github.io/cruft/#updating-a-project).
-
-
 ## Main contributors
 | Name | E-mail     |
 |------|------------|
 | Pepe Márquez | [jose.marquez@physik.hu-berlin.de](mailto:jose.marquez@physik.hu-berlin.de)
+| Sarthak Kapoor | [sarthak.kapoor@physik.hu-berlin.de](mailto:sarthak.kapoor@physik.hu-berlin.de)
