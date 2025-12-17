@@ -92,6 +92,7 @@ async def create_trained_model_entry(data: CreateTrainedModelEntryInput) -> None
     )
 
     model = AutoXRDModel(
+        name=data.trained_model_name,
         working_directory=data.working_directory,
         includes_pdf=data.includes_pdf,
     )
@@ -124,9 +125,8 @@ async def create_trained_model_entry(data: CreateTrainedModelEntryInput) -> None
     ]
 
     context = ServerContext(get_upload(data.upload_id, data.user_id))
-    rel_mainfile_path = os.path.join(
-        data.working_directory, 'auto_xrd_model.archive.json'
-    )
+    archive_name = data.trained_model_name.replace(' ', '_').lower() + '.archive.json'
+    rel_mainfile_path = os.path.join(data.working_directory, archive_name)
 
     # Create an entry for the trained model and generate its reference
     with context.update_entry(rel_mainfile_path, write=True, process=True) as archive:
