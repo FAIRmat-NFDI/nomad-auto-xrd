@@ -3,10 +3,11 @@ from datetime import timedelta
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 
+from nomad_auto_xrd.actions.training.activities import setup_training_artifacts
+
 with workflow.unsafe.imports_passed_through():
     from nomad_auto_xrd.actions.training.activities import (
         create_trained_model_entry,
-        setup_training_artifacts,
         train_model,
     )
     from nomad_auto_xrd.actions.training.models import (
@@ -21,12 +22,7 @@ with workflow.unsafe.imports_passed_through():
 class TrainingWorkflow:
     @workflow.run
     async def run(self, data: UserInput) -> str:
-        retry_policy = RetryPolicy(
-            maximum_attempts=3,
-            initial_interval=timedelta(seconds=10),
-            backoff_coefficient=2.0,
-        )
-        heartbeat_timeout = timedelta(minutes=5)
+        retry_policy = RetryPolicy(maximum_attempts=1)
         includes_pdf = True
         setup_training_artifacts_output = await workflow.execute_activity(
             setup_training_artifacts,
@@ -38,12 +34,7 @@ class TrainingWorkflow:
                 test_fraction=data.training_settings.test_fraction,
                 includes_pdf=includes_pdf,
             ),
-            heartbeat_timeout=heartbeat_timeout,
-            start_to_close_timeout=timedelta(
-                minutes=0.5
-                * data.simulation_settings.num_patterns
-                * len(data.simulation_settings.structure_files)
-            ),
+            start_to_close_timeout=timedelta(hours=24),
             retry_policy=retry_policy,
         )
         training_output = await workflow.execute_activity(
@@ -56,10 +47,9 @@ class TrainingWorkflow:
                 xrd_dataset_path=setup_training_artifacts_output.xrd_dataset_path,
                 pdf_dataset_path=setup_training_artifacts_output.pdf_dataset_path,
             ),
-            heartbeat_timeout=heartbeat_timeout,
-            start_to_close_timeout=timedelta(
-                minutes=10 * data.training_settings.num_epochs
-            ),
+            start_to_close_timeout=timedelta(hours=24),
+            # TODO: uncomment during NOMAD logger integration
+            # heartbeat_timeout=timedelta(hours=1),
             retry_policy=retry_policy,
         )
         create_entry_input = CreateTrainedModelEntryInput(
@@ -82,8 +72,7 @@ class TrainingWorkflow:
         await workflow.execute_activity(
             create_trained_model_entry,
             create_entry_input,
-            heartbeat_timeout=heartbeat_timeout,
-            start_to_close_timeout=timedelta(hours=2),
+            start_to_close_timeout=timedelta(minutes=10),
             retry_policy=retry_policy,
         )
         return training_output

@@ -10,13 +10,12 @@ from nomad_auto_xrd.actions.analysis.models import (
     SimulateReferencePatternsInput,
     UpdateAnalysisEntryInput,
 )
-from nomad_auto_xrd.actions.utils import activity_heartbeat
 from nomad_auto_xrd.common.models import AnalysisResult
 from nomad_auto_xrd.common.utils import pattern_preprocessor, read_entry_archive
 
 
 @activity.defn
-def analyze(data: AnalyzeInput) -> AnalysisResult:
+async def analyze(data: AnalyzeInput) -> AnalysisResult:
     """
     Activity to run auto xrd analysis on the given data.
     """
@@ -75,23 +74,21 @@ def analyze(data: AnalyzeInput) -> AnalysisResult:
 
         os.chdir(upload_raw_path)
         os.makedirs(data.working_directory, exist_ok=True)
-
-        with activity_heartbeat(delay=30):
-            with tempfile.TemporaryDirectory() as temp_dir:
-                analyzer = XRDAutoAnalyzer(temp_dir, data.analysis_settings)
-                result = analyzer.eval(analysis_inputs)
-                result.reduced_spectra = None  # save space
-                # Move the plots from `temp_dir` to a `Plots` folder within the
-                # working directory
-                plots_dir = os.path.join(
-                    data.working_directory, 'Plots', f'Input_{data.analysis_iter}'
-                )
-                os.makedirs(plots_dir, exist_ok=True)
-                for result_iter, plot_path in enumerate(result.plot_paths):
-                    new_plot_path = os.path.join(plots_dir, os.path.basename(plot_path))
-                    if os.path.exists(plot_path):
-                        shutil.copy2(plot_path, new_plot_path)
-                        result.plot_paths[result_iter] = new_plot_path
+        with tempfile.TemporaryDirectory() as temp_dir:
+            analyzer = XRDAutoAnalyzer(temp_dir, data.analysis_settings)
+            result = analyzer.eval(analysis_inputs)
+            result.reduced_spectra = None  # save space
+            # Move the plots from `temp_dir` to a `Plots` folder within the
+            # working directory
+            plots_dir = os.path.join(
+                data.working_directory, 'Plots', f'Input_{data.analysis_iter}'
+            )
+            os.makedirs(plots_dir, exist_ok=True)
+            for result_iter, plot_path in enumerate(result.plot_paths):
+                new_plot_path = os.path.join(plots_dir, os.path.basename(plot_path))
+                if os.path.exists(plot_path):
+                    shutil.copy2(plot_path, new_plot_path)
+                    result.plot_paths[result_iter] = new_plot_path
     finally:
         os.chdir(original_path)
         for link in created_symlinks:
@@ -102,7 +99,7 @@ def analyze(data: AnalyzeInput) -> AnalysisResult:
 
 
 @activity.defn
-def simulate_reference_patterns(
+async def simulate_reference_patterns(
     data: SimulateReferencePatternsInput,
 ) -> list[SimulatedReferencePattern]:
     """
@@ -116,26 +113,25 @@ def simulate_reference_patterns(
 
     upload = get_upload(data.model_upload_id, data.user_id)
     context = ServerContext(upload)
-    with activity_heartbeat(delay=30):
-        for cif_path in data.cif_paths:
-            with context.raw_file(cif_path) as file:
-                two_theta, intensity = simulate_pattern(
-                    file.name,
-                    data.wavelength,
-                    (data.min_angle, data.max_angle),
-                )
-                simulated_pattern = SimulatedReferencePattern(
-                    cif_path=cif_path,
-                    two_theta=two_theta,
-                    intensity=intensity,
-                )
-                simulated_patterns.append(simulated_pattern)
+    for cif_path in data.cif_paths:
+        with context.raw_file(cif_path) as file:
+            two_theta, intensity = simulate_pattern(
+                file.name,
+                data.wavelength,
+                (data.min_angle, data.max_angle),
+            )
+            simulated_pattern = SimulatedReferencePattern(
+                cif_path=cif_path,
+                two_theta=two_theta,
+                intensity=intensity,
+            )
+            simulated_patterns.append(simulated_pattern)
 
     return simulated_patterns
 
 
 @activity.defn
-def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
+async def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
     """
     Activity to create update the inference entry in the same upload.
     """
@@ -155,20 +151,19 @@ def update_analysis_entry(data: UpdateAnalysisEntryInput) -> None:
     upload = get_upload(data.upload_id, data.user_id)
     context = ServerContext(upload)
 
-    with activity_heartbeat(delay=30):
-        with context.update_entry(data.mainfile, process=True, write=True) as archive:
-            archive['data']['results'] = result_sections
-            archive['data']['trigger_start_action'] = False
-            archive['data']['action_instance_id'] = data.action_instance_id
-            archive['data']['action_status'] = 'COMPLETED'
-            archive['data']['analysis_settings']['simulated_reference_patterns'] = [
-                {
-                    'name': os.path.basename(pattern.cif_path).split('.cif')[0],
-                    'two_theta': pattern.two_theta,
-                    'intensity': pattern.intensity,
-                }
-                for pattern in data.simulated_reference_patterns
-            ]
+    with context.update_entry(data.mainfile, process=True, write=True) as archive:
+        archive['data']['results'] = result_sections
+        archive['data']['trigger_start_action'] = False
+        archive['data']['action_instance_id'] = data.action_instance_id
+        archive['data']['action_status'] = 'COMPLETED'
+        archive['data']['analysis_settings']['simulated_reference_patterns'] = [
+            {
+                'name': os.path.basename(pattern.cif_path).split('.cif')[0],
+                'two_theta': pattern.two_theta,
+                'intensity': pattern.intensity,
+            }
+            for pattern in data.simulated_reference_patterns
+        ]
 
     # Context manager method only fetches the data from the input mainfile of the ELN
     # entry. This won't reflect the data that was updated/added by normalization not

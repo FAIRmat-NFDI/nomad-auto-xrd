@@ -204,6 +204,7 @@ def generate_reference_structures(skip_filter: bool, include_elems: bool) -> str
     filtered structures in the 'Filtered_CIFs/' directory.
 
     Args:
+        structure_files (list): List of CIF files to be processed.
         skip_filter (bool): If True, skips the filtering step.
         include_elems (bool): If True, include structures with only one element in their
           composition.
@@ -329,7 +330,7 @@ def setup_reference_structures_and_datasets(
         ):
             reference_structure_paths.append(reference_cif_file)
 
-        # Create datasets
+        # Create datasets and build models
         xrd_dataset = generate_training_dataset(
             reference_structures_dir=reference_structures_dir,
             simulation_settings=simulation_settings,
