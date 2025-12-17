@@ -10,6 +10,7 @@ class UserInput:
     upload_id: str
     user_id: str
     mainfile: str
+    trained_model_name: str
 
     simulation_settings: SimulationSettingsInput
     training_settings: TrainingSettingsInput
@@ -49,6 +50,7 @@ class CreateTrainedModelEntryInput:
     action_instance_id: str
 
     working_directory: str
+    trained_model_name: str
     includes_pdf: bool
     simulation_settings: SimulationSettingsInput
     training_settings: TrainingSettingsInput

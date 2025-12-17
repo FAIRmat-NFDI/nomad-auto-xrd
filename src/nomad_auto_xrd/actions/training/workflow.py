@@ -58,6 +58,7 @@ class TrainingWorkflow:
             mainfile=data.mainfile,
             action_instance_id=workflow.info().workflow_id,
             working_directory=workflow.info().workflow_id,
+            trained_model_name=data.trained_model_name,
             includes_pdf=includes_pdf,
             simulation_settings=data.simulation_settings,
             training_settings=data.training_settings,

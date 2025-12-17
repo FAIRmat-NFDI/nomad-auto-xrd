@@ -1367,7 +1367,7 @@ class AutoXRDTrainingAction(Action, Analysis, Schema):
                 order=[
                     'name',
                     'datetime',
-                    'lab_id',
+                    'trained_model_name',
                     'description',
                     'method',
                     'trigger_start_action',
@@ -1378,6 +1378,7 @@ class AutoXRDTrainingAction(Action, Analysis, Schema):
                 ],
                 visible=Filter(
                     exclude=[
+                        'lab_id',
                         'location',
                         'inputs',
                         'steps',
@@ -1385,6 +1386,12 @@ class AutoXRDTrainingAction(Action, Analysis, Schema):
                 ),
             ),
         ),
+    )
+    trained_model_name = Quantity(
+        type=str,
+        description='Name of the entry created for the trained Auto-XRD model. If '
+        'not given, a default model name based on the composition space will be used.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
     )
     simulation_settings = SubSection(
         section_def=SimulationSettings,
@@ -1406,6 +1413,7 @@ class AutoXRDTrainingAction(Action, Analysis, Schema):
             upload_id=archive.metadata.upload_id,
             user_id=archive.metadata.authors[0].user_id,
             mainfile=archive.metadata.mainfile,
+            trained_model_name=self.trained_model_name,
             simulation_settings=SimulationSettingsInput(
                 structure_files=self.simulation_settings.structure_files,
                 max_texture=float(self.simulation_settings.max_texture),
@@ -1448,6 +1456,41 @@ class AutoXRDTrainingAction(Action, Analysis, Schema):
         """
         self.method = 'Auto XRD Model Training'
 
+        if (
+            not self.simulation_settings
+            or not self.simulation_settings.structure_files
+            or not self.training_settings
+        ):
+            self.trigger_start_action = False
+            logger.warning(
+                'Either simulation_settings or simulation_setting.structure_files '
+                'or training_settings not set. These are requireed for running the '
+                'training action.'
+            )
+        if self.simulation_settings and self.simulation_settings.structure_files:
+            elements = set()
+            for cif in self.simulation_settings.structure_files:
+                try:
+                    with archive.m_context.raw_file(cif) as file:
+                        parser = CifParser(file.name)
+                    structures = parser.get_structures()
+                    elements.update(structures[0].chemical_system_set)
+                except Exception:
+                    self.trigger_start_action = False
+                    logger.error(
+                        f'Error in parsing {cif}. Cannot run the training.',
+                        exec_info=True,
+                    )
+                    break
+            elements_list = sorted(list(elements))
+            if not elements_list:
+                self.trigger_start_action = False
+                logger.error(
+                    'Composition space created from CIFs is empty. Cannot run '
+                    'the training.'
+                )
+            if not self.trained_model_name:
+                self.trained_model_name = '-'.join(elements_list)
         if self.trigger_start_action:
             if self.action_status == 'RUNNING':
                 # if the updated status is still RUNNING, do not trigger a new run
@@ -1456,29 +1499,6 @@ class AutoXRDTrainingAction(Action, Analysis, Schema):
                     'The training action is already running. Please wait for it to '
                     'complete before running the training again.'
                 )
-            elif (
-                not self.simulation_settings
-                or not self.simulation_settings.structure_files
-                or not self.training_settings
-            ):
-                self.trigger_start_action = False
-                logger.warning(
-                    'Either simulation_settings or simulation_setting.structure_files '
-                    'or training_settings not set. Cannot running the training action.'
-                )
-            else:
-                for cif in self.simulation_settings.structure_files:
-                    try:
-                        with archive.m_context.raw_file(cif) as file:
-                            parser = CifParser(file.name)
-                        parser.get_structures()
-                    except Exception:
-                        self.trigger_start_action = False
-                        logger.error(
-                            f'Error in parsing {cif}. Cannot run the training.',
-                            exec_info=True,
-                        )
-                        break
 
         super().normalize(archive, logger)
 
@@ -1497,7 +1517,6 @@ class AutoXRDAnalysisAction(Action, Analysis, Schema):
                 order=[
                     'name',
                     'datetime',
-                    'lab_id',
                     'description',
                     'method',
                     'trigger_start_action',
@@ -1508,6 +1527,7 @@ class AutoXRDAnalysisAction(Action, Analysis, Schema):
                 ],
                 visible=Filter(
                     exclude=[
+                        'lab_id',
                         'location',
                         'outputs',
                         'steps',
