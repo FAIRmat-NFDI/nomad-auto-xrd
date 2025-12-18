@@ -6,6 +6,36 @@ It is compatible with
 [nomad-measurements](https://github.com/FAIRmat-NFDI/nomad-measurements) plugin and allows
 to perform automated phase identification on XRD measurement entries.
 
+## How it works
+
+NOMAD schemas can be used to define interactive and reactive ELNs. One can attach functions
+that are triggered from the ELNs. On top of that, NOMAD Actions allows to setup 
+workflows that can run robustly on specialized workers. We use these capabilities to build
+a collaborative tool for training ML models and using them for automated phase identification
+from XRD patterns.
+
+The model training and analysis modules are built on top of [XRD-AutoAnalyser](https://github.com/njszym/XRD-AutoAnalyzer).
+
+Some of the key components of the `nomad-auto-xrd` plugin are:
+
+- Schema package: It contains schemas for triggering actions and saving artifacts like analysis
+  results, trained Auto XRD models, etc.
+  - `Auto XRD Model`: A schema for trained ML models that can contain metadata like training
+    settings and material composition for which the model is trained.
+  - `Auto XRD Training Action`: An ELN schema that takes CIF structure files, simulation, and training
+    settings as input. A trigger button can be used to trigger the training workflow, which gives
+    the trained ML model as output.
+  - `Auto XRD Analysis Action`: An ELN schema that takes XRD measurement entry, Auto XRD model entry,
+    and analysis settings as input. A trigger button can be used to trigger the analysis workflow,
+    which predicts the most probable phases based on the XRD pattern. 
+  - `Auto XRD Training` and `Auto XRD Analysis`: Instead of using NOMAD Actions, these ELN schemas
+    provide similar functionality as above, using custom Jupyter notebooks with predefined
+    code cells containing corresponding code. This is useful when a higher degree of
+    customization (to the processing code, for example) is needed.
+- Actions:
+  - 
+- Search App:
+
 ## Availability
 
 This plugin is hosted on [NOMAD's example Oasis](https://nomad-lab.eu/prod/v1/oasis/gui/). 
