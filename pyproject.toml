@@ -46,6 +46,7 @@ Repository = "https://github.com/FAIRmat-NFDI/nomad-auto-xrd"
 analytics = [
     "python-magic-bin; sys_platform == 'win32'",
     "autoXRD @ git+https://github.com/njszym/XRD-AutoAnalyzer.git",
+    "llvmlite>0.36.0",  # autoXRD -> pyts -> numba -> llvmlite
     "wandb",
     "pymatgen",
     "tensorflow>=2.16",
