@@ -31,6 +31,8 @@ async def analyze(data: AnalyzeInput) -> AnalysisResult:
     )
     analysis_inputs = pattern_preprocessor(archive)
 
+    # TODO: apply background subtraction and smoothing
+
     # Run analysis within the upload folder
     original_path = os.path.abspath(os.curdir)
     upload = get_upload(data.upload_id, data.user_id)

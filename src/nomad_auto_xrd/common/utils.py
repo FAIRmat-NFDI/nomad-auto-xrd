@@ -19,6 +19,7 @@ import os
 import time
 from typing import TYPE_CHECKING
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -26,6 +27,7 @@ import psutil
 from nomad import infrastructure
 from nomad.processing.data import PublicUploadFiles, StagingUploadFiles, Upload
 from nomad_analysis.utils import get_reference
+from pybaselines import Baseline
 from pymatgen.analysis.diffraction.xrd import XRDCalculator
 from pymatgen.core import Structure
 
@@ -141,6 +143,37 @@ def pattern_preprocessor(
             )
         )
     return analysis_inputs
+
+
+def remove_linear_background(
+    two_theta: np.ndarray, intensity: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Remove linear/slowly varying background from XRD intensity data
+    using the SNIP algorithm.
+
+    Args:
+        two_theta: Array of 2-theta angles
+        intensity: Array of measured intensities
+
+    Returns:
+        corrected_intensity: Background-subtracted intensity
+    """
+    baseline_fitter = Baseline(x_data=two_theta)
+
+    # SNIP algorithm - good for XRD
+    background, _ = baseline_fitter.snip(
+        intensity,
+        max_half_window=40,  # tune this: larger = smoother background
+        decreasing=True,
+        smooth_half_window=3,
+    )
+
+    corrected_intensity = intensity - background
+    # Clip negative values (artifacts from over-subtraction)
+    corrected_intensity = np.clip(corrected_intensity, 0, None)
+
+    return corrected_intensity
 
 
 def simulate_pattern(

@@ -37,6 +37,7 @@ dependencies = [
     "pandas",
     "plotly",
     "psutil>=7.0.0",
+    "pybaselines",
 ]
 
 [project.urls]
